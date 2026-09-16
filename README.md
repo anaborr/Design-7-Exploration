@@ -1,13 +1,14 @@
 # Design-7-Exploration
 
-Design-7-Exploration is an interactive generative morphogenesis laboratory exploring agent-based Voronoi systems as a generative method for architecture. Rather than generating rigid floor plans, the system visualizes the direct emergence pipeline: Agents → Movement → Point Distribution → Voronoi Cells → Spatial Organization → Architectural Form, featuring an active reciprocal feedback loop where emerging spaces steer agent behavior.
+Design-7-Exploration is an interactive generative morphogenesis laboratory exploring agent-based Voronoi systems as a generative method for architecture. Featuring a futuristic dark-mode analytics UI with luminous neon aesthetics, the system visualizes the direct emergence pipeline: Agents → Movement → Point Distribution → Voronoi Cells → Spatial Organization → Architectural Form, featuring an active reciprocal feedback loop where emerging spaces steer agent behavior.
 
 ## Features
 - **Emergent Morphogenetic Pipeline**: Real-time simulation demonstrating how simple local rules create complex global architectural organization.
+- **Futuristic Cyberpunk / Dark Violet Analytics UI**: Inspired by sci-fi HUD dashboards with dark violet glassmorphism, floating ambient energy particles, radiant neon linework, glowing forces, and high-tech telemetry.
 - **3D Geometry Extraction**:
   - **3D OBJ Export (`.obj`)**: Generates 3D Wavefront OBJ geometry with separate named groups (`Site_Pedestal_Slab`, `Architectural_Program_Volumes`, `Architectural_Wall_Partitions`) compatible with Rhino, Blender, SketchUp, Revit, and AutoCAD.
   - **3D STL Export (`.stl`)**: Generates triangulated 3D solids for direct digital fabrication and 3D printing.
-  - **3D Axonometric View Mode (`3D Axono`)**: Live 3D isometric massing visualization mode with adjustable wall heights and shading.
+  - **3D Axonometric View Mode (`3D Axono`)**: Live 3D isometric massing visualization mode with adjustable wall heights and illuminated cybernetic shading.
 - **Dynamic Agent Swarm**: 50–400 autonomous agents with tunable attraction, repulsion, separation, velocity alignment, boundary steering, and wander noise.
 - **Architectural Translation Mode**: Translates Voronoi geometry into architectural spaces—programmatic classifications (Civic Plazas, Active Forums, Cellular Suites, Service Cores), thick exterior/interior partition walls, doorway portals, and circulation spines.
 - **Reciprocal Feedback Loop**: Emerging spatial conditions dynamically guide agent flow (agents channel into expansive plazas and circulation axes, avoiding enclosed cores).
