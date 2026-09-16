@@ -1,7 +1,7 @@
 /**
  * ARCHITECTURAL MORPHOGENESIS LABORATORY — DESIGN-7-EXPLORATION
  * Agent-based Voronoi Emergent System for Architectural Organization
- * Includes 3D Axonometric Rendering & 3D OBJ / 3D STL Geometry Exporters
+ * Luminous Cyberpunk / Dark Violet Analytics Aesthetic
  */
 
 (function () {
@@ -75,8 +75,9 @@
     agents: [],
     attractors: [],
     repulsors: [],
-    cells: [], // computed Voronoi cells with architectural properties
+    cells: [],
     circulationSpines: [],
+    bgParticles: [], // floating ambient energy particles
 
     // Viewport Transform (Pan & Zoom)
     view: {
@@ -208,7 +209,38 @@
   }
 
   // =========================================================================
-  // 3. AGENT MODEL & BEHAVIOR
+  // 3. AMBIENT ENERGY PARTICLES (Cyberpunk Glow)
+  // =========================================================================
+  function initBgParticles() {
+    state.bgParticles = [];
+    for (let i = 0; i < 80; i++) {
+      state.bgParticles.push({
+        x: Math.random() * 1200 - 100,
+        y: Math.random() * 900 - 100,
+        size: Math.random() * 2.2 + 0.6,
+        alpha: Math.random() * 0.5 + 0.1,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: -Math.random() * 0.5 - 0.1,
+        color: Math.random() > 0.4 ? '#e040fb' : '#00e5ff',
+      });
+    }
+  }
+
+  function updateBgParticles() {
+    for (const p of state.bgParticles) {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.alpha += (Math.random() - 0.5) * 0.02;
+      p.alpha = Vec.clamp(p.alpha, 0.05, 0.6);
+
+      if (p.y < -100) p.y = 900;
+      if (p.x < -100) p.x = 1200;
+      if (p.x > 1200) p.x = -100;
+    }
+  }
+
+  // =========================================================================
+  // 4. AGENT MODEL & BEHAVIOR
   // =========================================================================
   class Agent {
     constructor(x, y) {
@@ -283,7 +315,7 @@
   }
 
   // =========================================================================
-  // 4. SIMULATION FORCES & FEEDBACK ENGINE
+  // 5. SIMULATION FORCES & FEEDBACK ENGINE
   // =========================================================================
   function calculateForces() {
     const { params, sitePolygon, attractors, repulsors, agents } = state;
@@ -420,7 +452,7 @@
   }
 
   // =========================================================================
-  // 5. VORONOI TESSELLATION & ARCHITECTURAL TRANSLATION
+  // 6. VORONOI TESSELLATION & ARCHITECTURAL TRANSLATION
   // =========================================================================
   function computeVoronoiAndArchitecture() {
     const { agents, sitePolygon, params } = state;
@@ -607,22 +639,38 @@
   }
 
   // =========================================================================
-  // 6. RENDERER (2D Diagrammatic & 3D Axonometric)
+  // 7. RENDERER (LUMINOUS CYBERPUNK / VIOLET HUD AESTHETIC)
   // =========================================================================
   function render(targetCtx = ctx, isExport = false) {
     const { width, height } = targetCtx.canvas;
-    const { view, layers, viewMode, sitePolygon, agents, attractors, repulsors, cells, circulationSpines } = state;
+    const { view, layers, viewMode, sitePolygon, agents, attractors, repulsors, cells, circulationSpines, bgParticles } = state;
 
     targetCtx.save();
     targetCtx.clearRect(0, 0, width, height);
 
-    targetCtx.fillStyle = '#faf9f5';
+    // Dark Violet Background
+    const bgGrad = targetCtx.createRadialGradient(width * 0.5, height * 0.3, 50, width * 0.5, height * 0.5, Math.max(width, height));
+    bgGrad.addColorStop(0, '#15092b');
+    bgGrad.addColorStop(0.6, '#0c0517');
+    bgGrad.addColorStop(1, '#06020c');
+    targetCtx.fillStyle = bgGrad;
     targetCtx.fillRect(0, 0, width, height);
 
     if (!isExport) {
       targetCtx.translate(view.offsetX, view.offsetY);
       targetCtx.scale(view.scale, view.scale);
     }
+
+    // Floating Ambient Energy Dust Particles
+    updateBgParticles();
+    for (const p of bgParticles) {
+      targetCtx.fillStyle = p.color;
+      targetCtx.globalAlpha = p.alpha;
+      targetCtx.beginPath();
+      targetCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      targetCtx.fill();
+    }
+    targetCtx.globalAlpha = 1.0;
 
     if (viewMode === '3d-axono') {
       render3DAxonometric(targetCtx);
@@ -645,25 +693,27 @@
         targetCtx.closePath();
 
         if (cell.type === 'public') {
-          targetCtx.fillStyle = 'rgba(230, 223, 209, 0.45)';
+          targetCtx.fillStyle = 'rgba(224, 64, 251, 0.16)';
           targetCtx.fill();
         } else if (cell.type === 'studio') {
-          targetCtx.fillStyle = 'rgba(220, 211, 192, 0.30)';
+          targetCtx.fillStyle = 'rgba(179, 136, 255, 0.12)';
           targetCtx.fill();
         } else if (cell.type === 'private') {
-          targetCtx.fillStyle = 'rgba(201, 199, 191, 0.22)';
+          targetCtx.fillStyle = 'rgba(124, 77, 255, 0.08)';
           targetCtx.fill();
         } else if (cell.type === 'service') {
-          targetCtx.fillStyle = 'rgba(168, 166, 157, 0.35)';
+          targetCtx.fillStyle = 'rgba(255, 64, 129, 0.18)';
           targetCtx.fill();
         }
       }
     }
 
-    // LAYER 2: VORONOI CELL LINES
+    // LAYER 2: VORONOI CELL LINES WITH NEON GLOW
     if (layers.voronoi && (viewMode === 'voronoi' || viewMode === 'spatial' || viewMode === 'all')) {
-      targetCtx.strokeStyle = 'rgba(110, 110, 105, 0.45)';
-      targetCtx.lineWidth = 0.8;
+      targetCtx.strokeStyle = 'rgba(224, 64, 251, 0.45)';
+      targetCtx.lineWidth = 0.9;
+      targetCtx.shadowBlur = 6;
+      targetCtx.shadowColor = '#e040fb';
       targetCtx.setLineDash([4, 3]);
 
       for (const cell of cells) {
@@ -677,11 +727,12 @@
         targetCtx.stroke();
       }
       targetCtx.setLineDash([]);
+      targetCtx.shadowBlur = 0;
     }
 
-    // LAYER 3: AGENT TRAILS
+    // LAYER 3: AGENT MOTION TRAILS
     if (layers.trails && (viewMode === 'agents' || viewMode === 'behavior' || viewMode === 'all')) {
-      targetCtx.lineWidth = 1.0;
+      targetCtx.lineWidth = 1.2;
       for (const a of agents) {
         if (a.trail.length < 2) continue;
         targetCtx.beginPath();
@@ -689,28 +740,31 @@
         for (let i = 1; i < a.trail.length; i++) {
           targetCtx.lineTo(a.trail[i].x, a.trail[i].y);
         }
-        targetCtx.strokeStyle = 'rgba(20, 20, 20, 0.08)';
+        targetCtx.strokeStyle = 'rgba(224, 64, 251, 0.25)';
         targetCtx.stroke();
       }
     }
 
-    // LAYER 4: CIRCULATION SPINES
+    // LAYER 4: CIRCULATION SPINES (GLOWING MAGENTA RAYS)
     if (layers.circulation && (viewMode === 'architecture' || viewMode === 'spatial' || viewMode === 'all')) {
       for (const spine of circulationSpines) {
         targetCtx.beginPath();
         targetCtx.moveTo(spine.p1.x, spine.p1.y);
         targetCtx.lineTo(spine.p2.x, spine.p2.y);
-        targetCtx.strokeStyle = '#181818';
-        targetCtx.lineWidth = 1.6;
+        targetCtx.strokeStyle = '#e040fb';
+        targetCtx.lineWidth = 1.8;
+        targetCtx.shadowBlur = 8;
+        targetCtx.shadowColor = '#e040fb';
         targetCtx.setLineDash([5, 4]);
         targetCtx.stroke();
         targetCtx.setLineDash([]);
+        targetCtx.shadowBlur = 0;
 
         const mx = (spine.p1.x + spine.p2.x) * 0.5;
         const my = (spine.p1.y + spine.p2.y) * 0.5;
-        targetCtx.fillStyle = '#181818';
+        targetCtx.fillStyle = '#ffffff';
         targetCtx.beginPath();
-        targetCtx.arc(mx, my, 1.8, 0, Math.PI * 2);
+        targetCtx.arc(mx, my, 2.0, 0, Math.PI * 2);
         targetCtx.fill();
       }
     }
@@ -722,38 +776,44 @@
           targetCtx.beginPath();
           targetCtx.moveTo(wall.p1.x, wall.p1.y);
           targetCtx.lineTo(wall.p2.x, wall.p2.y);
-          targetCtx.strokeStyle = wall.isExterior ? '#101010' : '#222222';
+          targetCtx.strokeStyle = wall.isExterior ? '#ffffff' : '#b388ff';
           targetCtx.lineWidth = wall.thickness;
+          targetCtx.shadowBlur = wall.isExterior ? 10 : 4;
+          targetCtx.shadowColor = wall.isExterior ? 'rgba(255,255,255,0.7)' : '#b388ff';
           targetCtx.lineCap = 'square';
           targetCtx.stroke();
+          targetCtx.shadowBlur = 0;
         }
 
         for (const op of cell.openings) {
           targetCtx.beginPath();
           targetCtx.moveTo(op.p1.x, op.p1.y);
           targetCtx.lineTo(op.p2.x, op.p2.y);
-          targetCtx.strokeStyle = 'rgba(30, 30, 30, 0.25)';
-          targetCtx.lineWidth = 0.75;
+          targetCtx.strokeStyle = 'rgba(0, 229, 255, 0.4)';
+          targetCtx.lineWidth = 0.85;
           targetCtx.stroke();
         }
       }
     }
 
-    // LAYER 6: AGENTS & BEHAVIOR VECTORS
+    // LAYER 6: AGENTS & BEHAVIOR VECTORS (GLOWING NEON SPARS)
     if (layers.agents && (viewMode === 'agents' || viewMode === 'behavior' || viewMode === 'all')) {
       for (const a of agents) {
-        targetCtx.fillStyle = '#181818';
+        targetCtx.fillStyle = '#ffffff';
+        targetCtx.shadowBlur = 8;
+        targetCtx.shadowColor = '#e040fb';
         targetCtx.beginPath();
-        targetCtx.arc(a.x, a.y, 2.5, 0, Math.PI * 2);
+        targetCtx.arc(a.x, a.y, 2.8, 0, Math.PI * 2);
         targetCtx.fill();
+        targetCtx.shadowBlur = 0;
 
         if (viewMode === 'behavior' || viewMode === 'all') {
-          const vScale = 6;
+          const vScale = 7;
           targetCtx.beginPath();
           targetCtx.moveTo(a.x, a.y);
           targetCtx.lineTo(a.x + a.vx * vScale, a.y + a.vy * vScale);
-          targetCtx.strokeStyle = 'rgba(20, 20, 20, 0.7)';
-          targetCtx.lineWidth = 1;
+          targetCtx.strokeStyle = '#00e5ff';
+          targetCtx.lineWidth = 1.2;
           targetCtx.stroke();
         }
       }
@@ -782,10 +842,9 @@
     const { sitePolygon, cells, params } = state;
     const center = Vec.centroid(sitePolygon);
 
-    // Isometric projection angle matrix (30 deg axonometric projection)
     const cosA = Math.cos(Math.PI / 6);
     const sinA = Math.sin(Math.PI / 6);
-    const zScale = 7.0; // height scaling factor
+    const zScale = 7.0;
 
     function project3D(x, y, z) {
       const rx = x - center.x;
@@ -795,16 +854,15 @@
       return { x: isoX, y: isoY };
     }
 
-    // 1. Draw Site Pedestal
+    // Site Pedestal
     if (sitePolygon.length >= 3) {
-      tCtx.fillStyle = 'rgba(230, 227, 218, 0.8)';
-      tCtx.strokeStyle = '#141414';
+      tCtx.fillStyle = 'rgba(26, 13, 44, 0.8)';
+      tCtx.strokeStyle = '#e040fb';
       tCtx.lineWidth = 1.5;
 
       const botPts = sitePolygon.map(p => project3D(p.x, p.y, -0.4));
       const topPts = sitePolygon.map(p => project3D(p.x, p.y, 0));
 
-      // Side faces of pedestal
       for (let i = 0; i < sitePolygon.length; i++) {
         const next = (i + 1) % sitePolygon.length;
         tCtx.beginPath();
@@ -813,25 +871,21 @@
         tCtx.lineTo(topPts[next].x, topPts[next].y);
         tCtx.lineTo(topPts[i].x, topPts[i].y);
         tCtx.closePath();
-        tCtx.fillStyle = 'rgba(215, 212, 202, 0.9)';
+        tCtx.fillStyle = 'rgba(18, 9, 32, 0.9)';
         tCtx.fill();
         tCtx.stroke();
       }
 
-      // Top face of site slab
       tCtx.beginPath();
       tCtx.moveTo(topPts[0].x, topPts[0].y);
       for (let i = 1; i < topPts.length; i++) tCtx.lineTo(topPts[i].x, topPts[i].y);
       tCtx.closePath();
-      tCtx.fillStyle = '#faf9f5';
+      tCtx.fillStyle = 'rgba(30, 15, 52, 0.85)';
       tCtx.fill();
       tCtx.stroke();
     }
 
-    // Sort cells by centroid Y depth for proper 3D painter's algorithm
     const sortedCells = [...cells].sort((a, b) => (a.centroid.x + a.centroid.y) - (b.centroid.x + b.centroid.y));
-
-    // 2. Render Extruded Program Massings & Walls
     const defaultH = params.wallHeight;
 
     for (const cell of sortedCells) {
@@ -846,22 +900,17 @@
       const bPts = poly.map(p => project3D(p.x, p.y, 0));
       const tPts = poly.map(p => project3D(p.x, p.y, h));
 
-      // Color palette based on cell program type
-      let sideColor = 'rgba(215, 207, 192, 0.85)';
-      let topColor = 'rgba(235, 227, 212, 0.92)';
+      let sideColor = 'rgba(124, 77, 255, 0.45)';
+      let topColor = 'rgba(179, 136, 255, 0.70)';
 
       if (cell.type === 'public') {
-        sideColor = 'rgba(225, 215, 198, 0.7)';
-        topColor = 'rgba(240, 233, 220, 0.85)';
+        sideColor = 'rgba(224, 64, 251, 0.4)';
+        topColor = 'rgba(240, 98, 252, 0.75)';
       } else if (cell.type === 'service') {
-        sideColor = 'rgba(145, 143, 134, 0.9)';
-        topColor = 'rgba(175, 173, 164, 0.95)';
-      } else if (cell.type === 'private') {
-        sideColor = 'rgba(185, 182, 173, 0.8)';
-        topColor = 'rgba(210, 207, 198, 0.9)';
+        sideColor = 'rgba(255, 42, 141, 0.5)';
+        topColor = 'rgba(255, 128, 171, 0.8)';
       }
 
-      // Draw Extruded Facades
       for (let i = 0; i < poly.length; i++) {
         const next = (i + 1) % poly.length;
 
@@ -874,12 +923,11 @@
 
         tCtx.fillStyle = sideColor;
         tCtx.fill();
-        tCtx.strokeStyle = 'rgba(20, 20, 20, 0.6)';
+        tCtx.strokeStyle = 'rgba(224, 64, 251, 0.6)';
         tCtx.lineWidth = 0.8;
         tCtx.stroke();
       }
 
-      // Draw Roof Cap
       tCtx.beginPath();
       tCtx.moveTo(tPts[0].x, tPts[0].y);
       for (let i = 1; i < tPts.length; i++) tCtx.lineTo(tPts[i].x, tPts[i].y);
@@ -887,21 +935,23 @@
 
       tCtx.fillStyle = topColor;
       tCtx.fill();
-      tCtx.strokeStyle = '#141414';
+      tCtx.strokeStyle = '#ffffff';
       tCtx.lineWidth = 1.2;
+      tCtx.shadowBlur = 6;
+      tCtx.shadowColor = '#e040fb';
       tCtx.stroke();
+      tCtx.shadowBlur = 0;
     }
 
-    // 3D Legend annotation
     tCtx.font = "700 9px 'Space Mono', monospace";
-    tCtx.fillStyle = '#141414';
-    tCtx.fillText(`3D AXONOMETRIC MASSING MODEL (Scale H=${defaultH.toFixed(1)}m)`, center.x - 140, center.y + 260);
+    tCtx.fillStyle = '#e040fb';
+    tCtx.fillText(`3D CYBERNETIC MASSING MODEL (Scale H=${defaultH.toFixed(1)}m)`, center.x - 140, center.y + 260);
   }
 
   function drawArchitecturalGrid(tCtx, poly) {
     if (!poly || poly.length < 3) return;
     const center = Vec.centroid(poly);
-    tCtx.strokeStyle = 'rgba(20, 20, 20, 0.04)';
+    tCtx.strokeStyle = 'rgba(224, 64, 251, 0.06)';
     tCtx.lineWidth = 0.5;
 
     const gridStep = 50;
@@ -925,15 +975,17 @@
       const attr = attractors[i];
       tCtx.beginPath();
       tCtx.arc(attr.x, attr.y, attr.radius, 0, Math.PI * 2);
-      tCtx.strokeStyle = 'rgba(204, 59, 30, 0.25)';
+      tCtx.strokeStyle = 'rgba(255, 42, 141, 0.35)';
       tCtx.lineWidth = 1;
       tCtx.setLineDash([4, 4]);
       tCtx.stroke();
       tCtx.setLineDash([]);
 
       const ch = 10;
-      tCtx.strokeStyle = '#cc3b1e';
-      tCtx.lineWidth = 1.5;
+      tCtx.strokeStyle = '#ff2a8d';
+      tCtx.lineWidth = 1.8;
+      tCtx.shadowBlur = 10;
+      tCtx.shadowColor = '#ff2a8d';
       tCtx.beginPath();
       tCtx.moveTo(attr.x - ch, attr.y);
       tCtx.lineTo(attr.x + ch, attr.y);
@@ -941,13 +993,14 @@
       tCtx.lineTo(attr.x, attr.y + ch);
       tCtx.stroke();
 
-      tCtx.fillStyle = '#cc3b1e';
+      tCtx.fillStyle = '#ff2a8d';
       tCtx.beginPath();
       tCtx.arc(attr.x, attr.y, 4, 0, Math.PI * 2);
       tCtx.fill();
+      tCtx.shadowBlur = 0;
 
       tCtx.font = "700 8px 'Space Mono', monospace";
-      tCtx.fillStyle = '#cc3b1e';
+      tCtx.fillStyle = '#ff2a8d';
       tCtx.fillText(`ATTRACTOR [A${i + 1}]`, attr.x + 12, attr.y - 6);
     }
 
@@ -955,24 +1008,27 @@
       const rep = repulsors[i];
       tCtx.beginPath();
       tCtx.arc(rep.x, rep.y, rep.radius, 0, Math.PI * 2);
-      tCtx.strokeStyle = 'rgba(27, 101, 148, 0.25)';
+      tCtx.strokeStyle = 'rgba(0, 229, 255, 0.35)';
       tCtx.lineWidth = 1;
       tCtx.setLineDash([3, 4]);
       tCtx.stroke();
       tCtx.setLineDash([]);
 
       const sz = 8;
-      tCtx.strokeStyle = '#1b6594';
-      tCtx.lineWidth = 1.5;
+      tCtx.strokeStyle = '#00e5ff';
+      tCtx.lineWidth = 1.8;
+      tCtx.shadowBlur = 10;
+      tCtx.shadowColor = '#00e5ff';
       tCtx.strokeRect(rep.x - sz * 0.5, rep.y - sz * 0.5, sz, sz);
 
       tCtx.beginPath();
       tCtx.moveTo(rep.x - sz, rep.y);
       tCtx.lineTo(rep.x + sz, rep.y);
       tCtx.stroke();
+      tCtx.shadowBlur = 0;
 
       tCtx.font = "700 8px 'Space Mono', monospace";
-      tCtx.fillStyle = '#1b6594';
+      tCtx.fillStyle = '#00e5ff';
       tCtx.fillText(`REPULSOR [R${i + 1}]`, rep.x + 12, rep.y - 6);
     }
   }
@@ -986,16 +1042,19 @@
       tCtx.lineTo(poly[i].x, poly[i].y);
     }
     tCtx.closePath();
-    tCtx.strokeStyle = '#141414';
+    tCtx.strokeStyle = '#e040fb';
     tCtx.lineWidth = 2.0;
+    tCtx.shadowBlur = 12;
+    tCtx.shadowColor = '#e040fb';
     tCtx.stroke();
+    tCtx.shadowBlur = 0;
 
     for (let i = 0; i < poly.length; i++) {
       const pt = poly[i];
       const next = poly[(i + 1) % poly.length];
 
-      tCtx.fillStyle = '#ffffff';
-      tCtx.strokeStyle = '#141414';
+      tCtx.fillStyle = '#0c0617';
+      tCtx.strokeStyle = '#00e5ff';
       tCtx.lineWidth = 1.5;
       tCtx.fillRect(pt.x - 4, pt.y - 4, 8, 8);
       tCtx.strokeRect(pt.x - 4, pt.y - 4, 8, 8);
@@ -1005,7 +1064,7 @@
       const my = (pt.y + next.y) * 0.5;
 
       tCtx.font = "600 7.5px 'Space Mono', monospace";
-      tCtx.fillStyle = '#7a7870';
+      tCtx.fillStyle = '#c5a4eb';
       tCtx.fillText(`${lenMeters}m`, mx + 4, my - 4);
     }
   }
@@ -1017,11 +1076,11 @@
 
     for (const cell of cells) {
       if (cell.area > 2200) {
-        tCtx.fillStyle = '#3a3a36';
+        tCtx.fillStyle = '#f5ebff';
         tCtx.fillText(cell.typeName, cell.centroid.x, cell.centroid.y);
 
         tCtx.font = "400 6.5px 'Space Mono', monospace";
-        tCtx.fillStyle = '#8c8b84';
+        tCtx.fillStyle = '#c5a4eb';
         tCtx.fillText(`${Math.round(cell.area * 0.1)}m²`, cell.centroid.x, cell.centroid.y + 9);
         tCtx.font = "700 7px 'Space Mono', monospace";
       }
@@ -1031,7 +1090,7 @@
   }
 
   // =========================================================================
-  // 7. INTERACTION & TOOL HANDLING
+  // 8. INTERACTION & TOOL HANDLING
   // =========================================================================
   function getCanvasCoords(e) {
     const rect = canvas.getBoundingClientRect();
@@ -1197,7 +1256,7 @@
   }
 
   // =========================================================================
-  // 8. PRESET CONFIGURATIONS
+  // 9. PRESET CONFIGURATIONS
   // =========================================================================
   function loadPreset(name) {
     const center = Vec.centroid(state.sitePolygon);
@@ -1338,7 +1397,7 @@
   }
 
   // =========================================================================
-  // 9. EXPORT SYSTEM (SVG, HIGH-RES PNG, 3D OBJ, 3D STL)
+  // 10. EXPORT SYSTEM (SVG, HIGH-RES PNG, 3D OBJ, 3D STL)
   // =========================================================================
   function exportHighResPNG() {
     const exportCanvas = document.createElement('canvas');
@@ -1378,21 +1437,21 @@
     let svg = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     svg += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" width="${vbW}" height="${vbH}">\n`;
     svg += `<style>
-      .site-border { fill: none; stroke: #141414; stroke-width: 2.0; }
-      .wall-ext { stroke: #101010; stroke-width: 3.5; stroke-linecap: square; }
-      .wall-int { stroke: #222222; stroke-width: 2.2; stroke-linecap: square; }
-      .opening { stroke: rgba(30,30,30,0.3); stroke-width: 0.8; fill: none; }
-      .spine { stroke: #181818; stroke-width: 1.5; stroke-dasharray: 4,3; fill: none; }
-      .voronoi { fill: none; stroke: #888884; stroke-width: 0.75; stroke-dasharray: 4,3; }
-      .agent { fill: #181818; }
-      .public-fill { fill: #e6dfd1; fill-opacity: 0.45; }
-      .studio-fill { fill: #dcd3c0; fill-opacity: 0.35; }
-      .private-fill { fill: #c9c7bf; fill-opacity: 0.25; }
-      .service-fill { fill: #a8a69d; fill-opacity: 0.40; }
-      .label { font-family: monospace; font-size: 7px; fill: #333333; text-anchor: middle; font-weight: bold; }
+      .site-border { fill: none; stroke: #e040fb; stroke-width: 2.0; }
+      .wall-ext { stroke: #ffffff; stroke-width: 3.5; stroke-linecap: square; }
+      .wall-int { stroke: #b388ff; stroke-width: 2.2; stroke-linecap: square; }
+      .opening { stroke: rgba(0, 229, 255, 0.4); stroke-width: 0.8; fill: none; }
+      .spine { stroke: #e040fb; stroke-width: 1.8; stroke-dasharray: 5,4; fill: none; }
+      .voronoi { fill: none; stroke: rgba(224, 64, 251, 0.45); stroke-width: 0.9; stroke-dasharray: 4,3; }
+      .agent { fill: #ffffff; }
+      .public-fill { fill: #e040fb; fill-opacity: 0.16; }
+      .studio-fill { fill: #b388ff; fill-opacity: 0.12; }
+      .private-fill { fill: #7c4dff; fill-opacity: 0.08; }
+      .service-fill { fill: #ff4081; fill-opacity: 0.18; }
+      .label { font-family: monospace; font-size: 7px; fill: #f5ebff; text-anchor: middle; font-weight: bold; }
     </style>\n`;
 
-    svg += `<rect x="${vbX}" y="${vbY}" width="${vbW}" height="${vbH}" fill="#faf9f5"/>\n`;
+    svg += `<rect x="${vbX}" y="${vbY}" width="${vbW}" height="${vbH}" fill="#0b0514"/>\n`;
 
     if (layers.programs) {
       svg += `<g id="program-fills">\n`;
@@ -1471,22 +1530,19 @@
     objStr += `# Units: Meters (Scale: 10px = 1.0m)\n\n`;
 
     let vIdx = 1;
-    const scale = 0.1; // 10px -> 1 meter
+    const scale = 0.1;
     const defaultH = params.wallHeight;
 
-    // 1. Site Pedestal Base
     if (sitePolygon.length >= 3) {
       objStr += `g Site_Pedestal_Slab\n`;
       const baseH = -0.5;
       const topH = 0.0;
 
-      // Bottom vertices
       for (const p of sitePolygon) {
         const x = (p.x - center.x) * scale;
         const y = (p.y - center.y) * scale;
         objStr += `v ${x.toFixed(4)} ${y.toFixed(4)} ${baseH.toFixed(4)}\n`;
       }
-      // Top vertices
       for (const p of sitePolygon) {
         const x = (p.x - center.x) * scale;
         const y = (p.y - center.y) * scale;
@@ -1494,19 +1550,16 @@
       }
 
       const n = sitePolygon.length;
-      // Side faces
       for (let i = 0; i < n; i++) {
         const next = (i + 1) % n;
         const b1 = vIdx + i, b2 = vIdx + next;
         const t1 = vIdx + n + i, t2 = vIdx + n + next;
         objStr += `f ${b1} ${b2} ${t2} ${t1}\n`;
       }
-      // Top cap face
       objStr += `f ` + Array.from({ length: n }, (_, i) => vIdx + n + i).join(' ') + `\n\n`;
       vIdx += n * 2;
     }
 
-    // 2. Extruded Architectural Massing Cells & Wall Solids
     objStr += `g Architectural_Program_Volumes\n`;
 
     for (let cIdx = 0; cIdx < cells.length; cIdx++) {
@@ -1523,34 +1576,27 @@
 
       objStr += `# Cell_${cIdx + 1}_${cell.type.toUpperCase()}\n`;
 
-      // Bottom vertices at z=0
       for (const p of poly) {
         const x = (p.x - center.x) * scale;
         const y = (p.y - center.y) * scale;
         objStr += `v ${x.toFixed(4)} ${y.toFixed(4)} 0.0000\n`;
       }
-
-      // Top vertices at z=h
       for (const p of poly) {
         const x = (p.x - center.x) * scale;
         const y = (p.y - center.y) * scale;
         objStr += `v ${x.toFixed(4)} ${y.toFixed(4)} ${h.toFixed(4)}\n`;
       }
 
-      // Side wall faces
       for (let i = 0; i < n; i++) {
         const next = (i + 1) % n;
         const b1 = vIdx + i, b2 = vIdx + next;
         const t1 = vIdx + n + i, t2 = vIdx + n + next;
         objStr += `f ${b1} ${b2} ${t2} ${t1}\n`;
       }
-
-      // Top roof cap face
       objStr += `f ` + Array.from({ length: n }, (_, i) => vIdx + n + i).join(' ') + `\n\n`;
       vIdx += n * 2;
     }
 
-    // 3. Extruded Architectural Wall Segments
     objStr += `g Architectural_Wall_Partitions\n`;
 
     for (let cIdx = 0; cIdx < cells.length; cIdx++) {
@@ -1563,7 +1609,6 @@
         const dir = Vec.normalize({ x: p2.x - p1.x, y: p2.y - p1.y });
         const norm = { x: -dir.y * t, y: dir.x * t };
 
-        // 4 corner points of wall base
         const wBase = [
           { x: (p1.x - norm.x - center.x) * scale, y: (p1.y - norm.y - center.y) * scale },
           { x: (p2.x - norm.x - center.x) * scale, y: (p2.y - norm.y - center.y) * scale },
@@ -1571,15 +1616,12 @@
           { x: (p1.x + norm.x - center.x) * scale, y: (p1.y + norm.y - center.y) * scale },
         ];
 
-        // 4 bottom vertices
         for (const pt of wBase) objStr += `v ${pt.x.toFixed(4)} ${pt.y.toFixed(4)} 0.0000\n`;
-        // 4 top vertices
         for (const pt of wBase) objStr += `v ${pt.x.toFixed(4)} ${pt.y.toFixed(4)} ${h.toFixed(4)}\n`;
 
         const b1 = vIdx, b2 = vIdx + 1, b3 = vIdx + 2, b4 = vIdx + 3;
         const t1 = vIdx + 4, t2 = vIdx + 5, t3 = vIdx + 6, t4 = vIdx + 7;
 
-        // 6 faces of 3D box solid
         objStr += `f ${b1} ${b2} ${t2} ${t1}\n`;
         objStr += `f ${b2} ${b3} ${t3} ${t2}\n`;
         objStr += `f ${b3} ${b4} ${t4} ${t3}\n`;
@@ -1598,7 +1640,7 @@
     URL.revokeObjectURL(link.href);
   }
 
-  // --- 3D STL EXPORTER (ASCII STL for 3D Printing) ---
+  // --- 3D STL EXPORTER ---
   function export3DSTL() {
     const { sitePolygon, cells, params } = state;
     const center = Vec.centroid(sitePolygon);
@@ -1608,7 +1650,6 @@
     let stlStr = `solid Design7Exploration_3D\n`;
 
     function addFacet(v1, v2, v3) {
-      // Calculate normal vector
       const ax = v2.x - v1.x, ay = v2.y - v1.y, az = v2.z - v1.z;
       const bx = v3.x - v1.x, by = v3.y - v1.y, bz = v3.z - v1.z;
       const nx = ay * bz - az * by;
@@ -1625,7 +1666,6 @@
       stlStr += `  endfacet\n`;
     }
 
-    // Export each cell massing volume as triangulated solid
     for (const cell of cells) {
       if (cell.polygon.length < 3) continue;
 
@@ -1639,14 +1679,12 @@
       const bPts = poly.map(p => ({ x: (p.x - center.x) * scale, y: (p.y - center.y) * scale, z: 0 }));
       const tPts = poly.map(p => ({ x: (p.x - center.x) * scale, y: (p.y - center.y) * scale, z: h }));
 
-      // Side wall quads split into 2 triangles
       for (let i = 0; i < n; i++) {
         const next = (i + 1) % n;
         addFacet(bPts[i], bPts[next], tPts[next]);
         addFacet(bPts[i], tPts[next], tPts[i]);
       }
 
-      // Roof cap fan triangulation
       const topCentroid = { x: (cell.centroid.x - center.x) * scale, y: (cell.centroid.y - center.y) * scale, z: h };
       for (let i = 0; i < n; i++) {
         const next = (i + 1) % n;
@@ -1665,7 +1703,7 @@
   }
 
   // =========================================================================
-  // 10. STUDIO 5-STAGE SEQUENCE ANALYSIS MODAL
+  // 11. STUDIO 5-STAGE SEQUENCE ANALYSIS MODAL
   // =========================================================================
   let seqCanvas, seqCtx;
   let activeSeqStep = '0';
@@ -1719,7 +1757,7 @@
     const h = seqCanvas.height;
 
     seqCtx.clearRect(0, 0, w, h);
-    seqCtx.fillStyle = '#faf9f5';
+    seqCtx.fillStyle = '#07030e';
     seqCtx.fillRect(0, 0, w, h);
 
     const center = Vec.centroid(state.sitePolygon);
@@ -1745,7 +1783,7 @@
         seqCtx.restore();
 
         if (i > 0) {
-          seqCtx.strokeStyle = '#dcd9cd';
+          seqCtx.strokeStyle = '#2d174d';
           seqCtx.lineWidth = 1;
           seqCtx.beginPath();
           seqCtx.moveTo(i * stepW, 0);
@@ -1754,7 +1792,7 @@
         }
 
         seqCtx.font = "700 9px 'Space Mono', monospace";
-        seqCtx.fillStyle = '#141414';
+        seqCtx.fillStyle = '#e040fb';
         seqCtx.fillText(`0${i + 1} — ${sequenceInfo[i].title.split(' ')[2]}`, i * stepW + 8, 18);
       }
     } else {
@@ -1779,13 +1817,13 @@
     targetCtx.moveTo(sitePolygon[0].x, sitePolygon[0].y);
     for (let i = 1; i < sitePolygon.length; i++) targetCtx.lineTo(sitePolygon[i].x, sitePolygon[i].y);
     targetCtx.closePath();
-    targetCtx.strokeStyle = '#141414';
+    targetCtx.strokeStyle = '#e040fb';
     targetCtx.lineWidth = 2.0;
     targetCtx.stroke();
 
     if (stepIdx === 0) {
       for (const a of agents) {
-        targetCtx.fillStyle = '#141414';
+        targetCtx.fillStyle = '#ffffff';
         targetCtx.beginPath();
         targetCtx.arc(a.x, a.y, 3.2, 0, Math.PI * 2);
         targetCtx.fill();
@@ -1793,12 +1831,12 @@
     } else if (stepIdx === 1) {
       drawForces(targetCtx, attractors, repulsors);
       for (const a of agents) {
-        targetCtx.fillStyle = '#141414';
+        targetCtx.fillStyle = '#ffffff';
         targetCtx.beginPath();
         targetCtx.arc(a.x, a.y, 2.5, 0, Math.PI * 2);
         targetCtx.fill();
 
-        targetCtx.strokeStyle = '#141414';
+        targetCtx.strokeStyle = '#00e5ff';
         targetCtx.lineWidth = 1.2;
         targetCtx.beginPath();
         targetCtx.moveTo(a.x, a.y);
@@ -1806,7 +1844,7 @@
         targetCtx.stroke();
       }
     } else if (stepIdx === 2) {
-      targetCtx.strokeStyle = '#60605c';
+      targetCtx.strokeStyle = 'rgba(224, 64, 251, 0.5)';
       targetCtx.lineWidth = 1.2;
       for (const c of cells) {
         if (c.polygon.length < 3) continue;
@@ -1817,7 +1855,7 @@
         targetCtx.stroke();
       }
       for (const a of agents) {
-        targetCtx.fillStyle = '#999990';
+        targetCtx.fillStyle = '#c5a4eb';
         targetCtx.beginPath();
         targetCtx.arc(a.x, a.y, 1.8, 0, Math.PI * 2);
         targetCtx.fill();
@@ -1829,12 +1867,12 @@
         targetCtx.moveTo(cell.polygon[0].x, cell.polygon[0].y);
         for (let i = 1; i < cell.polygon.length; i++) targetCtx.lineTo(cell.polygon[i].x, cell.polygon[i].y);
         targetCtx.closePath();
-        if (cell.type === 'public') targetCtx.fillStyle = 'rgba(230, 223, 209, 0.6)';
-        else if (cell.type === 'studio') targetCtx.fillStyle = 'rgba(220, 211, 192, 0.45)';
-        else if (cell.type === 'private') targetCtx.fillStyle = 'rgba(201, 199, 191, 0.35)';
-        else targetCtx.fillStyle = 'rgba(168, 166, 157, 0.55)';
+        if (cell.type === 'public') targetCtx.fillStyle = 'rgba(224, 64, 251, 0.35)';
+        else if (cell.type === 'studio') targetCtx.fillStyle = 'rgba(179, 136, 255, 0.25)';
+        else if (cell.type === 'private') targetCtx.fillStyle = 'rgba(124, 77, 255, 0.18)';
+        else targetCtx.fillStyle = 'rgba(255, 64, 129, 0.35)';
         targetCtx.fill();
-        targetCtx.strokeStyle = '#888880';
+        targetCtx.strokeStyle = '#b388ff';
         targetCtx.lineWidth = 0.8;
         targetCtx.stroke();
       }
@@ -1846,15 +1884,15 @@
         targetCtx.moveTo(cell.polygon[0].x, cell.polygon[0].y);
         for (let i = 1; i < cell.polygon.length; i++) targetCtx.lineTo(cell.polygon[i].x, cell.polygon[i].y);
         targetCtx.closePath();
-        if (cell.type === 'public') targetCtx.fillStyle = 'rgba(230, 223, 209, 0.4)';
-        else if (cell.type === 'service') targetCtx.fillStyle = 'rgba(168, 166, 157, 0.3)';
+        if (cell.type === 'public') targetCtx.fillStyle = 'rgba(224, 64, 251, 0.2)';
+        else if (cell.type === 'service') targetCtx.fillStyle = 'rgba(255, 64, 129, 0.2)';
         targetCtx.fill();
 
         for (const wall of cell.walls) {
           targetCtx.beginPath();
           targetCtx.moveTo(wall.p1.x, wall.p1.y);
           targetCtx.lineTo(wall.p2.x, wall.p2.y);
-          targetCtx.strokeStyle = '#101010';
+          targetCtx.strokeStyle = '#ffffff';
           targetCtx.lineWidth = wall.thickness;
           targetCtx.stroke();
         }
@@ -1862,7 +1900,7 @@
           targetCtx.beginPath();
           targetCtx.moveTo(op.p1.x, op.p1.y);
           targetCtx.lineTo(op.p2.x, op.p2.y);
-          targetCtx.strokeStyle = 'rgba(30,30,30,0.3)';
+          targetCtx.strokeStyle = 'rgba(0, 229, 255, 0.4)';
           targetCtx.lineWidth = 0.8;
           targetCtx.stroke();
         }
@@ -1871,7 +1909,7 @@
         targetCtx.beginPath();
         targetCtx.moveTo(sp.p1.x, sp.p1.y);
         targetCtx.lineTo(sp.p2.x, sp.p2.y);
-        targetCtx.strokeStyle = '#141414';
+        targetCtx.strokeStyle = '#e040fb';
         targetCtx.lineWidth = 1.5;
         targetCtx.setLineDash([4, 3]);
         targetCtx.stroke();
@@ -1882,7 +1920,7 @@
   }
 
   // =========================================================================
-  // 11. SNAPSHOT & HISTORY MANAGER
+  // 12. SNAPSHOT & HISTORY MANAGER
   // =========================================================================
   function saveSnapshot() {
     const snap = {
@@ -1946,7 +1984,7 @@
   }
 
   // =========================================================================
-  // 12. INITIALIZATION & RESIZE
+  // 13. INITIALIZATION & RESIZE
   // =========================================================================
   function initSitePolygon() {
     const w = canvas.width;
@@ -2001,6 +2039,7 @@
     if (state.sitePolygon.length === 0) {
       initSitePolygon();
       initAgents();
+      initBgParticles();
       const center = Vec.centroid(state.sitePolygon);
       state.attractors = [
         { x: center.x - 120, y: center.y, radius: 240, strength: 1.5, type: 'attractor' }
@@ -2012,7 +2051,7 @@
   }
 
   // =========================================================================
-  // 13. MAIN ANIMATION & SIMULATION LOOP
+  // 14. MAIN ANIMATION & SIMULATION LOOP
   // =========================================================================
   function stepSimulation() {
     state.iteration++;
@@ -2035,7 +2074,7 @@
   }
 
   // =========================================================================
-  // 14. UI BINDINGS & SYNCHRONIZATION
+  // 15. UI BINDINGS & SYNCHRONIZATION
   // =========================================================================
   function bindUI() {
     const btnPlay = document.getElementById('btn-play');
@@ -2297,7 +2336,7 @@
   }
 
   // =========================================================================
-  // 15. STARTUP
+  // 16. STARTUP
   // =========================================================================
   window.addEventListener('DOMContentLoaded', () => {
     canvas = document.getElementById('main-canvas');
