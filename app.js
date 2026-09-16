@@ -1,6 +1,7 @@
 /**
  * ARCHITECTURAL MORPHOGENESIS LABORATORY — DESIGN-7-EXPLORATION
  * Agent-based Voronoi Emergent System for Architectural Organization
+ * Includes 3D Axonometric Rendering & 3D OBJ / 3D STL Geometry Exporters
  */
 
 (function () {
@@ -15,7 +16,7 @@
     iteration: 0,
     timeStep: 1,
 
-    // Visualization mode: 'agents' | 'behavior' | 'voronoi' | 'spatial' | 'architecture' | 'all'
+    // Visualization mode: 'agents' | 'behavior' | 'voronoi' | 'spatial' | 'architecture' | '3d-axono' | 'all'
     viewMode: 'architecture',
 
     // Interaction tool: 'select' | 'add-attractor' | 'add-repulsor' | 'edit-site'
@@ -59,6 +60,11 @@
       publicThreshold: 0.50,
       circulationInfluence: 0.70,
 
+      // 3D Geometry Extrusion
+      wallHeight: 3.5,     // meters
+      extParapet: 1.2,     // meters
+      roofOpacity: 0.80,
+
       // Feedback Loop
       feedbackEnabled: true,
       feedbackStrength: 0.8,
@@ -83,7 +89,7 @@
     },
 
     // Dragging & Interaction
-    draggedEntity: null, // { type: 'force' | 'site-vertex', item, index }
+    draggedEntity: null,
     hoveredEntity: null,
 
     // Telemetry
@@ -152,7 +158,6 @@
 
   /**
    * Sutherland-Hodgman Polygon Clipper
-   * Clips subject polygon against convex half planes of clip polygon
    */
   function clipPolygon(subjectPoly, clipPoly) {
     let outputList = subjectPoly.map(p => ({ x: p.x, y: p.y }));
@@ -217,7 +222,7 @@
       this.ay = 0;
       this.wanderAngle = angle;
       this.trail = [{ x, y }];
-      this.trafficScore = 0.5; // smoothed movement activity
+      this.trafficScore = 0.5;
       this.assignedCell = null;
     }
 
@@ -227,11 +232,9 @@
     }
 
     update(boundsPoly) {
-      // Apply velocity
       this.vx += this.ax;
       this.vy += this.ay;
 
-      // Limit speed
       const speed = Math.hypot(this.vx, this.vy);
       const maxSpd = state.params.speed * 1.5;
       if (speed > maxSpd) {
@@ -242,11 +245,9 @@
       this.x += this.vx;
       this.y += this.vy;
 
-      // Reset accelerations
       this.ax = 0;
       this.ay = 0;
 
-      // Update trail & traffic
       const displacement = Math.hypot(this.vx, this.vy);
       this.trafficScore = this.trafficScore * 0.96 + displacement * 0.04;
 
@@ -257,9 +258,7 @@
         }
       }
 
-      // Hard containment safeguard inside site polygon
       if (!Vec.pointInPolygon(this, boundsPoly)) {
-        // Find closest edge and project inside
         let minDist = Infinity;
         let closestPoint = null;
         for (let i = 0; i < boundsPoly.length; i++) {
@@ -288,9 +287,7 @@
   // =========================================================================
   function calculateForces() {
     const { params, sitePolygon, attractors, repulsors, agents } = state;
-    const center = Vec.centroid(sitePolygon);
 
-    // Spatial hash for efficient neighbor lookups
     const cellSize = params.influenceRadius;
     const grid = new Map();
 
@@ -306,7 +303,7 @@
     for (let i = 0; i < agents.length; i++) {
       const a = agents[i];
 
-      // --- 1. ATTRACTOR FORCE ---
+      // Attraction
       if (params.attractionEnabled && attractors.length > 0) {
         for (const attr of attractors) {
           const dx = attr.x - a.x;
@@ -319,7 +316,7 @@
         }
       }
 
-      // --- 2. REPULSOR FORCE ---
+      // Repulsion
       if (params.repulsionEnabled && repulsors.length > 0) {
         for (const rep of repulsors) {
           const dx = a.x - rep.x;
@@ -332,7 +329,7 @@
         }
       }
 
-      // --- 3. SEPARATION & ALIGNMENT (Local Neighbors) ---
+      // Separation & Alignment
       const gx = Math.floor(a.x / cellSize);
       const gy = Math.floor(a.y / cellSize);
       let sepX = 0, sepY = 0, sepCount = 0;
@@ -349,7 +346,6 @@
             const dy = a.y - other.y;
             const d = Math.hypot(dx, dy);
 
-            // Separation (closer range)
             const sepDist = params.influenceRadius * 0.55;
             if (params.separationEnabled && d > 0 && d < sepDist) {
               const str = (1 - d / sepDist) / Math.max(d, 1);
@@ -358,7 +354,6 @@
               sepCount++;
             }
 
-            // Alignment (full influence radius)
             if (params.alignmentEnabled && d > 0 && d < params.influenceRadius) {
               alignX += other.vx;
               alignY += other.vy;
@@ -381,7 +376,7 @@
         a.applyForce(steerX, steerY);
       }
 
-      // --- 4. BOUNDARY AVOIDANCE FORCE ---
+      // Boundary avoidance
       if (params.boundaryEnabled) {
         const buffer = 45;
         for (let k = 0; k < sitePolygon.length; k++) {
@@ -396,7 +391,7 @@
         }
       }
 
-      // --- 5. CONTROLLED WANDER / RANDOMNESS ---
+      // Wander
       if (params.randomness > 0.01) {
         a.wanderAngle += (Math.random() - 0.5) * 0.8 * params.randomness;
         const wx = Math.cos(a.wanderAngle) * params.randomness * 0.25;
@@ -404,25 +399,19 @@
         a.applyForce(wx, wy);
       }
 
-      // --- 6. ARCHITECTURAL FEEDBACK LOOP ---
-      // Architecture guides movement:
-      // Agents gravitate toward expansive public cells & along active circulation axes,
-      // while feeling repulsive resistance from compact, enclosed service/cellular walls.
+      // Feedback loop
       if (params.feedbackEnabled && a.assignedCell) {
         const cell = a.assignedCell;
         const fbStr = params.feedbackStrength * 0.08;
 
         if (cell.type === 'public') {
-          // Public plaza: gentle expansive drift toward cell interior
           const toCentroid = Vec.normalize({ x: cell.centroid.x - a.x, y: cell.centroid.y - a.y });
           a.applyForce(toCentroid.x * fbStr * 0.5, toCentroid.y * fbStr * 0.5);
         } else if (cell.type === 'service') {
-          // Service/dense: push out toward shared openings / adjacent cells
           const outward = Vec.normalize({ x: a.x - cell.centroid.x, y: a.y - cell.centroid.y });
           a.applyForce(outward.x * fbStr * 0.8, outward.y * fbStr * 0.8);
         }
 
-        // Align with detected circulation direction if nearby
         if (cell.circulationVector) {
           a.applyForce(cell.circulationVector.x * fbStr * 0.6, cell.circulationVector.y * fbStr * 0.6);
         }
@@ -437,7 +426,6 @@
     const { agents, sitePolygon, params } = state;
     if (agents.length < 3 || sitePolygon.length < 3) return;
 
-    // Site bounding box for initial Voronoi clipping bounds
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const p of sitePolygon) {
       if (p.x < minX) minX = p.x;
@@ -448,7 +436,6 @@
     const pad = 80;
     const bounds = [minX - pad, minY - pad, maxX + pad, maxY + pad];
 
-    // Compute Voronoi with d3-delaunay
     const points = agents.map(a => [a.x, a.y]);
     let delaunay, voronoi;
     try {
@@ -462,7 +449,6 @@
     const computedCells = [];
     let totalArea = 0;
 
-    // First pass: extract clipped polygon for each agent
     for (let i = 0; i < agents.length; i++) {
       const rawPoly = voronoi.cellPolygon(i);
       let polygon = [];
@@ -485,7 +471,7 @@
         neighbors: Array.from(delaunay.neighbors(i)),
         walls: [],
         openings: [],
-        type: 'studio', // default
+        type: 'studio',
         typeName: 'ACTIVE STUDIO',
       });
     }
@@ -493,14 +479,12 @@
     const meanArea = totalArea / Math.max(1, computedCells.length);
     state.stats.avgArea = Math.round(meanArea);
 
-    // Compute area variance (density indicator)
     let varianceSum = 0;
     for (const c of computedCells) {
       varianceSum += (c.area - meanArea) ** 2;
     }
     state.stats.densityVariance = Number((Math.sqrt(varianceSum / computedCells.length) / Math.max(1, meanArea)).toFixed(2));
 
-    // Second pass: Architectural Classification & Wall Geometry
     let countPublic = 0, countStudio = 0, countPrivate = 0, countService = 0;
 
     for (let i = 0; i < computedCells.length; i++) {
@@ -508,7 +492,6 @@
       const areaRatio = cell.area / Math.max(1, meanArea);
       const traffic = cell.agent.trafficScore;
 
-      // Program classification rules
       if (areaRatio > 1.35 * (1.5 - params.publicThreshold)) {
         cell.type = 'public';
         cell.typeName = 'CIVIC / PLAZA';
@@ -527,10 +510,8 @@
         countPrivate++;
       }
 
-      // Associate back to agent for feedback loop
       cell.agent.assignedCell = cell;
 
-      // Extract architectural wall segments & doors/portals
       const poly = cell.polygon;
       cell.walls = [];
       cell.openings = [];
@@ -541,19 +522,15 @@
         const edgeLen = Vec.dist(p1, p2);
         if (edgeLen < 4) continue;
 
-        // Check if edge is along the site boundary
         const isSiteBorder = isEdgeOnSiteBoundary(p1, p2, sitePolygon);
 
         if (isSiteBorder) {
-          // Exterior envelope wall: solid thick boundary
           cell.walls.push({ p1, p2, isExterior: true, thickness: params.wallThickness * 1.5 });
         } else {
-          // Interior shared wall: determine opening permeability
           const openness = (params.openingThreshold * 0.7) + (traffic * 0.3);
           const shouldHaveOpening = openness > 0.38 && edgeLen > 24 && cell.type !== 'service';
 
           if (shouldHaveOpening) {
-            // Cut a doorway / portal opening in the center of the wall segment
             const openingRatio = Vec.clamp(openness * 0.5, 0.25, 0.55);
             const mid = { x: (p1.x + p2.x) * 0.5, y: (p1.y + p2.y) * 0.5 };
             const dir = Vec.normalize({ x: p2.x - p1.x, y: p2.y - p1.y });
@@ -562,26 +539,20 @@
             const op1 = { x: mid.x - dir.x * halfOpening, y: mid.y - dir.y * halfOpening };
             const op2 = { x: mid.x + dir.x * halfOpening, y: mid.y + dir.y * halfOpening };
 
-            // Two solid wall segments flanking the doorway
             cell.walls.push({ p1, p2: op1, isExterior: false, thickness: params.wallThickness });
             cell.walls.push({ p1: op2, p2, isExterior: false, thickness: params.wallThickness });
-
-            // Architectural opening portal
             cell.openings.push({ p1: op1, p2: op2, width: halfOpening * 2 });
           } else {
-            // Solid partition wall
             cell.walls.push({ p1, p2, isExterior: false, thickness: params.wallThickness });
           }
         }
       }
 
-      // Determine local circulation alignment vector from agent movement
       cell.circulationVector = Vec.normalize({ x: cell.agent.vx, y: cell.agent.vy });
     }
 
     state.cells = computedCells;
 
-    // Update program telemetry
     const totalCells = computedCells.length || 1;
     state.stats.progDist = {
       public: Math.round((countPublic / totalCells) * 100),
@@ -590,7 +561,6 @@
       service: Math.round((countService / totalCells) * 100),
     };
 
-    // Calculate circulation spines through high-traffic adjacent cells
     extractCirculationSpines(computedCells);
   }
 
@@ -637,29 +607,32 @@
   }
 
   // =========================================================================
-  // 6. RENDERER (Clean Architectural / Diagrammatic Style)
+  // 6. RENDERER (2D Diagrammatic & 3D Axonometric)
   // =========================================================================
   function render(targetCtx = ctx, isExport = false) {
     const { width, height } = targetCtx.canvas;
-    const { view, layers, viewMode, params, sitePolygon, agents, attractors, repulsors, cells, circulationSpines } = state;
+    const { view, layers, viewMode, sitePolygon, agents, attractors, repulsors, cells, circulationSpines } = state;
 
     targetCtx.save();
     targetCtx.clearRect(0, 0, width, height);
 
-    // Architectural background
     targetCtx.fillStyle = '#faf9f5';
     targetCtx.fillRect(0, 0, width, height);
 
-    // Apply pan & zoom
     if (!isExport) {
       targetCtx.translate(view.offsetX, view.offsetY);
       targetCtx.scale(view.scale, view.scale);
     }
 
-    // Draw architectural scale grid
+    if (viewMode === '3d-axono') {
+      render3DAxonometric(targetCtx);
+      targetCtx.restore();
+      return;
+    }
+
     drawArchitecturalGrid(targetCtx, sitePolygon);
 
-    // --- LAYER 1: PROGRAM FILLS ---
+    // LAYER 1: PROGRAM FILLS
     if (layers.programs && (viewMode === 'spatial' || viewMode === 'architecture' || viewMode === 'all')) {
       for (const cell of cells) {
         if (cell.polygon.length < 3) continue;
@@ -681,14 +654,13 @@
           targetCtx.fillStyle = 'rgba(201, 199, 191, 0.22)';
           targetCtx.fill();
         } else if (cell.type === 'service') {
-          // Service core: cross hatch or subtle darker tone
           targetCtx.fillStyle = 'rgba(168, 166, 157, 0.35)';
           targetCtx.fill();
         }
       }
     }
 
-    // --- LAYER 2: VORONOI CELL LINES ---
+    // LAYER 2: VORONOI CELL LINES
     if (layers.voronoi && (viewMode === 'voronoi' || viewMode === 'spatial' || viewMode === 'all')) {
       targetCtx.strokeStyle = 'rgba(110, 110, 105, 0.45)';
       targetCtx.lineWidth = 0.8;
@@ -707,7 +679,7 @@
       targetCtx.setLineDash([]);
     }
 
-    // --- LAYER 3: AGENT TRAILS & HEATMAP CIRCULATION ---
+    // LAYER 3: AGENT TRAILS
     if (layers.trails && (viewMode === 'agents' || viewMode === 'behavior' || viewMode === 'all')) {
       targetCtx.lineWidth = 1.0;
       for (const a of agents) {
@@ -722,7 +694,7 @@
       }
     }
 
-    // --- LAYER 4: CIRCULATION SPINES ---
+    // LAYER 4: CIRCULATION SPINES
     if (layers.circulation && (viewMode === 'architecture' || viewMode === 'spatial' || viewMode === 'all')) {
       for (const spine of circulationSpines) {
         targetCtx.beginPath();
@@ -734,7 +706,6 @@
         targetCtx.stroke();
         targetCtx.setLineDash([]);
 
-        // Small directional tick at spine midpoint
         const mx = (spine.p1.x + spine.p2.x) * 0.5;
         const my = (spine.p1.y + spine.p2.y) * 0.5;
         targetCtx.fillStyle = '#181818';
@@ -744,7 +715,7 @@
       }
     }
 
-    // --- LAYER 5: ARCHITECTURAL WALLS & OPENINGS ---
+    // LAYER 5: ARCHITECTURAL WALLS & OPENINGS
     if (layers.walls && (viewMode === 'architecture' || viewMode === 'all')) {
       for (const cell of cells) {
         for (const wall of cell.walls) {
@@ -757,7 +728,6 @@
           targetCtx.stroke();
         }
 
-        // Openings: delicate architectural doorway threshold line
         for (const op of cell.openings) {
           targetCtx.beginPath();
           targetCtx.moveTo(op.p1.x, op.p1.y);
@@ -769,16 +739,14 @@
       }
     }
 
-    // --- LAYER 6: AGENTS & BEHAVIOR VECTORS ---
+    // LAYER 6: AGENTS & BEHAVIOR VECTORS
     if (layers.agents && (viewMode === 'agents' || viewMode === 'behavior' || viewMode === 'all')) {
       for (const a of agents) {
-        // Agent dot
         targetCtx.fillStyle = '#181818';
         targetCtx.beginPath();
         targetCtx.arc(a.x, a.y, 2.5, 0, Math.PI * 2);
         targetCtx.fill();
 
-        // Velocity vector in behavior mode
         if (viewMode === 'behavior' || viewMode === 'all') {
           const vScale = 6;
           targetCtx.beginPath();
@@ -791,22 +759,143 @@
       }
     }
 
-    // --- LAYER 7: ATTRACTORS & REPULSORS ---
+    // LAYER 7: ATTRACTORS & REPULSORS
     if (layers.forces) {
       drawForces(targetCtx, attractors, repulsors);
     }
 
-    // --- LAYER 8: SITE BOUNDARY & EDIT HANDLES ---
+    // LAYER 8: SITE BOUNDARY
     if (layers.site) {
       drawSiteBoundary(targetCtx, sitePolygon);
     }
 
-    // --- LAYER 9: SPATIAL LABELS & ANNOTATIONS ---
+    // LAYER 9: SPATIAL LABELS
     if (layers.labels && (viewMode === 'spatial' || viewMode === 'architecture' || viewMode === 'all')) {
       drawSpatialLabels(targetCtx, cells);
     }
 
     targetCtx.restore();
+  }
+
+  // --- 3D AXONOMETRIC RENDERING ---
+  function render3DAxonometric(tCtx) {
+    const { sitePolygon, cells, params } = state;
+    const center = Vec.centroid(sitePolygon);
+
+    // Isometric projection angle matrix (30 deg axonometric projection)
+    const cosA = Math.cos(Math.PI / 6);
+    const sinA = Math.sin(Math.PI / 6);
+    const zScale = 7.0; // height scaling factor
+
+    function project3D(x, y, z) {
+      const rx = x - center.x;
+      const ry = y - center.y;
+      const isoX = center.x + (rx - ry) * cosA * 0.75;
+      const isoY = center.y + (rx + ry) * sinA * 0.5 - z * zScale;
+      return { x: isoX, y: isoY };
+    }
+
+    // 1. Draw Site Pedestal
+    if (sitePolygon.length >= 3) {
+      tCtx.fillStyle = 'rgba(230, 227, 218, 0.8)';
+      tCtx.strokeStyle = '#141414';
+      tCtx.lineWidth = 1.5;
+
+      const botPts = sitePolygon.map(p => project3D(p.x, p.y, -0.4));
+      const topPts = sitePolygon.map(p => project3D(p.x, p.y, 0));
+
+      // Side faces of pedestal
+      for (let i = 0; i < sitePolygon.length; i++) {
+        const next = (i + 1) % sitePolygon.length;
+        tCtx.beginPath();
+        tCtx.moveTo(botPts[i].x, botPts[i].y);
+        tCtx.lineTo(botPts[next].x, botPts[next].y);
+        tCtx.lineTo(topPts[next].x, topPts[next].y);
+        tCtx.lineTo(topPts[i].x, topPts[i].y);
+        tCtx.closePath();
+        tCtx.fillStyle = 'rgba(215, 212, 202, 0.9)';
+        tCtx.fill();
+        tCtx.stroke();
+      }
+
+      // Top face of site slab
+      tCtx.beginPath();
+      tCtx.moveTo(topPts[0].x, topPts[0].y);
+      for (let i = 1; i < topPts.length; i++) tCtx.lineTo(topPts[i].x, topPts[i].y);
+      tCtx.closePath();
+      tCtx.fillStyle = '#faf9f5';
+      tCtx.fill();
+      tCtx.stroke();
+    }
+
+    // Sort cells by centroid Y depth for proper 3D painter's algorithm
+    const sortedCells = [...cells].sort((a, b) => (a.centroid.x + a.centroid.y) - (b.centroid.x + b.centroid.y));
+
+    // 2. Render Extruded Program Massings & Walls
+    const defaultH = params.wallHeight;
+
+    for (const cell of sortedCells) {
+      if (cell.polygon.length < 3) continue;
+
+      let h = defaultH;
+      if (cell.type === 'service') h = defaultH * 1.5;
+      else if (cell.type === 'public') h = defaultH * 0.6;
+      else if (cell.type === 'private') h = defaultH * 0.95;
+
+      const poly = cell.polygon;
+      const bPts = poly.map(p => project3D(p.x, p.y, 0));
+      const tPts = poly.map(p => project3D(p.x, p.y, h));
+
+      // Color palette based on cell program type
+      let sideColor = 'rgba(215, 207, 192, 0.85)';
+      let topColor = 'rgba(235, 227, 212, 0.92)';
+
+      if (cell.type === 'public') {
+        sideColor = 'rgba(225, 215, 198, 0.7)';
+        topColor = 'rgba(240, 233, 220, 0.85)';
+      } else if (cell.type === 'service') {
+        sideColor = 'rgba(145, 143, 134, 0.9)';
+        topColor = 'rgba(175, 173, 164, 0.95)';
+      } else if (cell.type === 'private') {
+        sideColor = 'rgba(185, 182, 173, 0.8)';
+        topColor = 'rgba(210, 207, 198, 0.9)';
+      }
+
+      // Draw Extruded Facades
+      for (let i = 0; i < poly.length; i++) {
+        const next = (i + 1) % poly.length;
+
+        tCtx.beginPath();
+        tCtx.moveTo(bPts[i].x, bPts[i].y);
+        tCtx.lineTo(bPts[next].x, bPts[next].y);
+        tCtx.lineTo(tPts[next].x, tPts[next].y);
+        tCtx.lineTo(tPts[i].x, tPts[i].y);
+        tCtx.closePath();
+
+        tCtx.fillStyle = sideColor;
+        tCtx.fill();
+        tCtx.strokeStyle = 'rgba(20, 20, 20, 0.6)';
+        tCtx.lineWidth = 0.8;
+        tCtx.stroke();
+      }
+
+      // Draw Roof Cap
+      tCtx.beginPath();
+      tCtx.moveTo(tPts[0].x, tPts[0].y);
+      for (let i = 1; i < tPts.length; i++) tCtx.lineTo(tPts[i].x, tPts[i].y);
+      tCtx.closePath();
+
+      tCtx.fillStyle = topColor;
+      tCtx.fill();
+      tCtx.strokeStyle = '#141414';
+      tCtx.lineWidth = 1.2;
+      tCtx.stroke();
+    }
+
+    // 3D Legend annotation
+    tCtx.font = "700 9px 'Space Mono', monospace";
+    tCtx.fillStyle = '#141414';
+    tCtx.fillText(`3D AXONOMETRIC MASSING MODEL (Scale H=${defaultH.toFixed(1)}m)`, center.x - 140, center.y + 260);
   }
 
   function drawArchitecturalGrid(tCtx, poly) {
@@ -815,7 +904,6 @@
     tCtx.strokeStyle = 'rgba(20, 20, 20, 0.04)';
     tCtx.lineWidth = 0.5;
 
-    // 50px architectural grid lines
     const gridStep = 50;
     const minX = center.x - 600, maxX = center.x + 600;
     const minY = center.y - 450, maxY = center.y + 450;
@@ -833,11 +921,8 @@
   }
 
   function drawForces(tCtx, attractors, repulsors) {
-    // Attractors (Architectural vermilion)
     for (let i = 0; i < attractors.length; i++) {
       const attr = attractors[i];
-
-      // Radius ring
       tCtx.beginPath();
       tCtx.arc(attr.x, attr.y, attr.radius, 0, Math.PI * 2);
       tCtx.strokeStyle = 'rgba(204, 59, 30, 0.25)';
@@ -846,7 +931,6 @@
       tCtx.stroke();
       tCtx.setLineDash([]);
 
-      // Center crosshair
       const ch = 10;
       tCtx.strokeStyle = '#cc3b1e';
       tCtx.lineWidth = 1.5;
@@ -857,23 +941,18 @@
       tCtx.lineTo(attr.x, attr.y + ch);
       tCtx.stroke();
 
-      // Center point
       tCtx.fillStyle = '#cc3b1e';
       tCtx.beginPath();
       tCtx.arc(attr.x, attr.y, 4, 0, Math.PI * 2);
       tCtx.fill();
 
-      // Label
       tCtx.font = "700 8px 'Space Mono', monospace";
       tCtx.fillStyle = '#cc3b1e';
       tCtx.fillText(`ATTRACTOR [A${i + 1}]`, attr.x + 12, attr.y - 6);
     }
 
-    // Repulsors (Architectural cyan / slate)
     for (let i = 0; i < repulsors.length; i++) {
       const rep = repulsors[i];
-
-      // Radius ring
       tCtx.beginPath();
       tCtx.arc(rep.x, rep.y, rep.radius, 0, Math.PI * 2);
       tCtx.strokeStyle = 'rgba(27, 101, 148, 0.25)';
@@ -882,7 +961,6 @@
       tCtx.stroke();
       tCtx.setLineDash([]);
 
-      // Diamond barrier icon
       const sz = 8;
       tCtx.strokeStyle = '#1b6594';
       tCtx.lineWidth = 1.5;
@@ -893,7 +971,6 @@
       tCtx.lineTo(rep.x + sz, rep.y);
       tCtx.stroke();
 
-      // Label
       tCtx.font = "700 8px 'Space Mono', monospace";
       tCtx.fillStyle = '#1b6594';
       tCtx.fillText(`REPULSOR [R${i + 1}]`, rep.x + 12, rep.y - 6);
@@ -903,7 +980,6 @@
   function drawSiteBoundary(tCtx, poly) {
     if (poly.length < 3) return;
 
-    // Perimeter line
     tCtx.beginPath();
     tCtx.moveTo(poly[0].x, poly[0].y);
     for (let i = 1; i < poly.length; i++) {
@@ -914,19 +990,16 @@
     tCtx.lineWidth = 2.0;
     tCtx.stroke();
 
-    // Corner vertex handles & dimension callouts
     for (let i = 0; i < poly.length; i++) {
       const pt = poly[i];
       const next = poly[(i + 1) % poly.length];
 
-      // Handle square
       tCtx.fillStyle = '#ffffff';
       tCtx.strokeStyle = '#141414';
       tCtx.lineWidth = 1.5;
       tCtx.fillRect(pt.x - 4, pt.y - 4, 8, 8);
       tCtx.strokeRect(pt.x - 4, pt.y - 4, 8, 8);
 
-      // Edge dimension
       const lenMeters = (Vec.dist(pt, next) / 10).toFixed(1);
       const mx = (pt.x + next.x) * 0.5;
       const my = (pt.y + next.y) * 0.5;
@@ -976,7 +1049,6 @@
     canvas.addEventListener('mousedown', (e) => {
       const coords = getCanvasCoords(e);
 
-      // Middle click or Space+Click or right drag -> Pan
       if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
         state.view.isPanning = true;
         state.view.panStartX = coords.screenX - state.view.offsetX;
@@ -985,13 +1057,11 @@
       }
 
       if (e.button === 2) {
-        // Right click: delete attractor or repulsor
         e.preventDefault();
         deleteEntityAt(coords.worldX, coords.worldY);
         return;
       }
 
-      // Left click handling based on active tool
       if (e.button === 0) {
         if (state.activeTool === 'add-attractor') {
           state.attractors.push({
@@ -1018,7 +1088,6 @@
         }
 
         if (state.activeTool === 'edit-site') {
-          // Check vertex hit
           for (let i = 0; i < state.sitePolygon.length; i++) {
             const v = state.sitePolygon[i];
             if (Math.hypot(coords.worldX - v.x, coords.worldY - v.y) < 14 / state.view.scale) {
@@ -1026,7 +1095,6 @@
               return;
             }
           }
-          // Check edge to add new vertex
           for (let i = 0; i < state.sitePolygon.length; i++) {
             const v1 = state.sitePolygon[i];
             const v2 = state.sitePolygon[(i + 1) % state.sitePolygon.length];
@@ -1039,12 +1107,10 @@
           }
         }
 
-        // 'select' mode: hit-test attractors, repulsors, and site vertices
         const hit = hitTestEntities(coords.worldX, coords.worldY);
         if (hit) {
           state.draggedEntity = hit;
         } else {
-          // If clicked empty space, start panning
           state.view.isPanning = true;
           state.view.panStartX = coords.screenX - state.view.offsetX;
           state.view.panStartY = coords.screenY - state.view.offsetY;
@@ -1078,7 +1144,6 @@
       state.draggedEntity = null;
     });
 
-    // Zoom on mouse wheel
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
       const rect = canvas.getBoundingClientRect();
@@ -1093,24 +1158,20 @@
       state.view.scale = newScale;
     }, { passive: false });
 
-    // Context menu disable on canvas for right-click interaction
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
   function hitTestEntities(wx, wy) {
-    // Check attractors
     for (const attr of state.attractors) {
       if (Math.hypot(wx - attr.x, wy - attr.y) < 18 / state.view.scale) {
         return { type: 'attractor', item: attr };
       }
     }
-    // Check repulsors
     for (const rep of state.repulsors) {
       if (Math.hypot(wx - rep.x, wy - rep.y) < 18 / state.view.scale) {
         return { type: 'repulsor', item: rep };
       }
     }
-    // Check site handles
     for (let i = 0; i < state.sitePolygon.length; i++) {
       const v = state.sitePolygon[i];
       if (Math.hypot(wx - v.x, wy - v.y) < 12 / state.view.scale) {
@@ -1277,32 +1338,30 @@
   }
 
   // =========================================================================
-  // 9. EXPORT SYSTEM (SVG & HIGH-RES PNG)
+  // 9. EXPORT SYSTEM (SVG, HIGH-RES PNG, 3D OBJ, 3D STL)
   // =========================================================================
   function exportHighResPNG() {
     const exportCanvas = document.createElement('canvas');
-    const scaleFactor = 2; // crisp 2x retina
+    const scaleFactor = 2;
     exportCanvas.width = canvas.width * scaleFactor;
     exportCanvas.height = canvas.height * scaleFactor;
     const expCtx = exportCanvas.getContext('2d');
 
     expCtx.scale(scaleFactor, scaleFactor);
-    // Draw current world view
     expCtx.translate(state.view.offsetX, state.view.offsetY);
     expCtx.scale(state.view.scale, state.view.scale);
 
     render(expCtx, true);
 
     const link = document.createElement('a');
-    link.download = `Design-7-Exploration_iter-${String(state.iteration).padStart(4, '0')}.png`;
+    link.download = `Design-7-Exploration_2D_iter-${String(state.iteration).padStart(4, '0')}.png`;
     link.href = exportCanvas.toDataURL('image/png');
     link.click();
   }
 
   function exportVectorSVG() {
-    const { sitePolygon, cells, circulationSpines, attractors, repulsors, agents, layers, viewMode } = state;
+    const { sitePolygon, cells, circulationSpines, layers } = state;
 
-    // Determine bounding box
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const p of sitePolygon) {
       if (p.x < minX) minX = p.x;
@@ -1333,10 +1392,8 @@
       .label { font-family: monospace; font-size: 7px; fill: #333333; text-anchor: middle; font-weight: bold; }
     </style>\n`;
 
-    // Background
     svg += `<rect x="${vbX}" y="${vbY}" width="${vbW}" height="${vbH}" fill="#faf9f5"/>\n`;
 
-    // Program Fills
     if (layers.programs) {
       svg += `<g id="program-fills">\n`;
       for (const cell of cells) {
@@ -1347,7 +1404,6 @@
       svg += `</g>\n`;
     }
 
-    // Voronoi
     if (layers.voronoi) {
       svg += `<g id="voronoi-mesh">\n`;
       for (const cell of cells) {
@@ -1358,7 +1414,6 @@
       svg += `</g>\n`;
     }
 
-    // Circulation Spines
     if (layers.circulation) {
       svg += `<g id="circulation-spines">\n`;
       for (const spine of circulationSpines) {
@@ -1367,7 +1422,6 @@
       svg += `</g>\n`;
     }
 
-    // Walls & Openings
     if (layers.walls) {
       svg += `<g id="architectural-walls">\n`;
       for (const cell of cells) {
@@ -1382,22 +1436,11 @@
       svg += `</g>\n`;
     }
 
-    // Site boundary
     if (layers.site) {
       const sitePts = sitePolygon.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
       svg += `<polygon points="${sitePts}" class="site-border"/>\n`;
     }
 
-    // Agents
-    if (layers.agents) {
-      svg += `<g id="agents">\n`;
-      for (const a of agents) {
-        svg += `  <circle cx="${a.x.toFixed(1)}" cy="${a.y.toFixed(1)}" r="2.2" class="agent"/>\n`;
-      }
-      svg += `</g>\n`;
-    }
-
-    // Labels
     if (layers.labels) {
       svg += `<g id="spatial-labels">\n`;
       for (const cell of cells) {
@@ -1412,7 +1455,210 @@
 
     const blob = new Blob([svg], { type: 'image/svg+xml' });
     const link = document.createElement('a');
-    link.download = `Design-7-Exploration_iter-${String(state.iteration).padStart(4, '0')}.svg`;
+    link.download = `Design-7-Exploration_2D_iter-${String(state.iteration).padStart(4, '0')}.svg`;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  // --- 3D WAVEFRONT OBJ EXPORTER ---
+  function export3DOBJ() {
+    const { sitePolygon, cells, params } = state;
+    const center = Vec.centroid(sitePolygon);
+
+    let objStr = `# Design-7-Exploration — 3D Architectural Geometry Export\n`;
+    objStr += `# Emergent Morphogenetic Voronoi System\n`;
+    objStr += `# Units: Meters (Scale: 10px = 1.0m)\n\n`;
+
+    let vIdx = 1;
+    const scale = 0.1; // 10px -> 1 meter
+    const defaultH = params.wallHeight;
+
+    // 1. Site Pedestal Base
+    if (sitePolygon.length >= 3) {
+      objStr += `g Site_Pedestal_Slab\n`;
+      const baseH = -0.5;
+      const topH = 0.0;
+
+      // Bottom vertices
+      for (const p of sitePolygon) {
+        const x = (p.x - center.x) * scale;
+        const y = (p.y - center.y) * scale;
+        objStr += `v ${x.toFixed(4)} ${y.toFixed(4)} ${baseH.toFixed(4)}\n`;
+      }
+      // Top vertices
+      for (const p of sitePolygon) {
+        const x = (p.x - center.x) * scale;
+        const y = (p.y - center.y) * scale;
+        objStr += `v ${x.toFixed(4)} ${y.toFixed(4)} ${topH.toFixed(4)}\n`;
+      }
+
+      const n = sitePolygon.length;
+      // Side faces
+      for (let i = 0; i < n; i++) {
+        const next = (i + 1) % n;
+        const b1 = vIdx + i, b2 = vIdx + next;
+        const t1 = vIdx + n + i, t2 = vIdx + n + next;
+        objStr += `f ${b1} ${b2} ${t2} ${t1}\n`;
+      }
+      // Top cap face
+      objStr += `f ` + Array.from({ length: n }, (_, i) => vIdx + n + i).join(' ') + `\n\n`;
+      vIdx += n * 2;
+    }
+
+    // 2. Extruded Architectural Massing Cells & Wall Solids
+    objStr += `g Architectural_Program_Volumes\n`;
+
+    for (let cIdx = 0; cIdx < cells.length; cIdx++) {
+      const cell = cells[cIdx];
+      if (cell.polygon.length < 3) continue;
+
+      let h = defaultH;
+      if (cell.type === 'service') h = defaultH * 1.5;
+      else if (cell.type === 'public') h = defaultH * 0.6;
+      else if (cell.type === 'private') h = defaultH * 0.95;
+
+      const poly = cell.polygon;
+      const n = poly.length;
+
+      objStr += `# Cell_${cIdx + 1}_${cell.type.toUpperCase()}\n`;
+
+      // Bottom vertices at z=0
+      for (const p of poly) {
+        const x = (p.x - center.x) * scale;
+        const y = (p.y - center.y) * scale;
+        objStr += `v ${x.toFixed(4)} ${y.toFixed(4)} 0.0000\n`;
+      }
+
+      // Top vertices at z=h
+      for (const p of poly) {
+        const x = (p.x - center.x) * scale;
+        const y = (p.y - center.y) * scale;
+        objStr += `v ${x.toFixed(4)} ${y.toFixed(4)} ${h.toFixed(4)}\n`;
+      }
+
+      // Side wall faces
+      for (let i = 0; i < n; i++) {
+        const next = (i + 1) % n;
+        const b1 = vIdx + i, b2 = vIdx + next;
+        const t1 = vIdx + n + i, t2 = vIdx + n + next;
+        objStr += `f ${b1} ${b2} ${t2} ${t1}\n`;
+      }
+
+      // Top roof cap face
+      objStr += `f ` + Array.from({ length: n }, (_, i) => vIdx + n + i).join(' ') + `\n\n`;
+      vIdx += n * 2;
+    }
+
+    // 3. Extruded Architectural Wall Segments
+    objStr += `g Architectural_Wall_Partitions\n`;
+
+    for (let cIdx = 0; cIdx < cells.length; cIdx++) {
+      const cell = cells[cIdx];
+      for (const wall of cell.walls) {
+        const t = (wall.thickness || 3.0) * scale * 0.5;
+        const h = wall.isExterior ? defaultH * 1.2 : defaultH;
+
+        const p1 = wall.p1, p2 = wall.p2;
+        const dir = Vec.normalize({ x: p2.x - p1.x, y: p2.y - p1.y });
+        const norm = { x: -dir.y * t, y: dir.x * t };
+
+        // 4 corner points of wall base
+        const wBase = [
+          { x: (p1.x - norm.x - center.x) * scale, y: (p1.y - norm.y - center.y) * scale },
+          { x: (p2.x - norm.x - center.x) * scale, y: (p2.y - norm.y - center.y) * scale },
+          { x: (p2.x + norm.x - center.x) * scale, y: (p2.y + norm.y - center.y) * scale },
+          { x: (p1.x + norm.x - center.x) * scale, y: (p1.y + norm.y - center.y) * scale },
+        ];
+
+        // 4 bottom vertices
+        for (const pt of wBase) objStr += `v ${pt.x.toFixed(4)} ${pt.y.toFixed(4)} 0.0000\n`;
+        // 4 top vertices
+        for (const pt of wBase) objStr += `v ${pt.x.toFixed(4)} ${pt.y.toFixed(4)} ${h.toFixed(4)}\n`;
+
+        const b1 = vIdx, b2 = vIdx + 1, b3 = vIdx + 2, b4 = vIdx + 3;
+        const t1 = vIdx + 4, t2 = vIdx + 5, t3 = vIdx + 6, t4 = vIdx + 7;
+
+        // 6 faces of 3D box solid
+        objStr += `f ${b1} ${b2} ${t2} ${t1}\n`;
+        objStr += `f ${b2} ${b3} ${t3} ${t2}\n`;
+        objStr += `f ${b3} ${b4} ${t4} ${t3}\n`;
+        objStr += `f ${b4} ${b1} ${t1} ${t4}\n`;
+        objStr += `f ${t1} ${t2} ${t3} ${t4}\n\n`;
+
+        vIdx += 8;
+      }
+    }
+
+    const blob = new Blob([objStr], { type: 'text/plain' });
+    const link = document.createElement('a');
+    link.download = `Design-7-Exploration_3D_iter-${String(state.iteration).padStart(4, '0')}.obj`;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  // --- 3D STL EXPORTER (ASCII STL for 3D Printing) ---
+  function export3DSTL() {
+    const { sitePolygon, cells, params } = state;
+    const center = Vec.centroid(sitePolygon);
+    const scale = 0.1;
+    const defaultH = params.wallHeight;
+
+    let stlStr = `solid Design7Exploration_3D\n`;
+
+    function addFacet(v1, v2, v3) {
+      // Calculate normal vector
+      const ax = v2.x - v1.x, ay = v2.y - v1.y, az = v2.z - v1.z;
+      const bx = v3.x - v1.x, by = v3.y - v1.y, bz = v3.z - v1.z;
+      const nx = ay * bz - az * by;
+      const ny = az * bx - ax * bz;
+      const nz = ax * by - ay * bx;
+      const len = Math.hypot(nx, ny, nz) || 1;
+
+      stlStr += `  facet normal ${(nx / len).toFixed(4)} ${(ny / len).toFixed(4)} ${(nz / len).toFixed(4)}\n`;
+      stlStr += `    outer loop\n`;
+      stlStr += `      vertex ${v1.x.toFixed(4)} ${v1.y.toFixed(4)} ${v1.z.toFixed(4)}\n`;
+      stlStr += `      vertex ${v2.x.toFixed(4)} ${v2.y.toFixed(4)} ${v2.z.toFixed(4)}\n`;
+      stlStr += `      vertex ${v3.x.toFixed(4)} ${v3.y.toFixed(4)} ${v3.z.toFixed(4)}\n`;
+      stlStr += `    endloop\n`;
+      stlStr += `  endfacet\n`;
+    }
+
+    // Export each cell massing volume as triangulated solid
+    for (const cell of cells) {
+      if (cell.polygon.length < 3) continue;
+
+      let h = defaultH;
+      if (cell.type === 'service') h = defaultH * 1.5;
+      else if (cell.type === 'public') h = defaultH * 0.6;
+
+      const poly = cell.polygon;
+      const n = poly.length;
+
+      const bPts = poly.map(p => ({ x: (p.x - center.x) * scale, y: (p.y - center.y) * scale, z: 0 }));
+      const tPts = poly.map(p => ({ x: (p.x - center.x) * scale, y: (p.y - center.y) * scale, z: h }));
+
+      // Side wall quads split into 2 triangles
+      for (let i = 0; i < n; i++) {
+        const next = (i + 1) % n;
+        addFacet(bPts[i], bPts[next], tPts[next]);
+        addFacet(bPts[i], tPts[next], tPts[i]);
+      }
+
+      // Roof cap fan triangulation
+      const topCentroid = { x: (cell.centroid.x - center.x) * scale, y: (cell.centroid.y - center.y) * scale, z: h };
+      for (let i = 0; i < n; i++) {
+        const next = (i + 1) % n;
+        addFacet(tPts[i], tPts[next], topCentroid);
+      }
+    }
+
+    stlStr += `endsolid Design7Exploration_3D\n`;
+
+    const blob = new Blob([stlStr], { type: 'text/plain' });
+    const link = document.createElement('a');
+    link.download = `Design-7-Exploration_3D_iter-${String(state.iteration).padStart(4, '0')}.stl`;
     link.href = URL.createObjectURL(blob);
     link.click();
     URL.revokeObjectURL(link.href);
@@ -1456,7 +1702,6 @@
       seqCtx = seqCanvas.getContext('2d');
     }
 
-    // Resize sequence canvas to match its client box
     const rect = seqCanvas.getBoundingClientRect();
     seqCanvas.width = rect.width;
     seqCanvas.height = rect.height;
@@ -1481,7 +1726,6 @@
     const scale = Math.min(w / 900, h / 650);
 
     if (step === 'all') {
-      // 5-stage matrix grid
       document.getElementById('seq-title').textContent = 'MORPHOGENETIC 5-STAGE PIPELINE';
       document.getElementById('seq-desc').textContent = 'Synoptic overview showing the direct causal emergence from autonomous agents to fully resolved architectural organization.';
 
@@ -1500,7 +1744,6 @@
         renderStepLayers(seqCtx, i);
         seqCtx.restore();
 
-        // Column divider line
         if (i > 0) {
           seqCtx.strokeStyle = '#dcd9cd';
           seqCtx.lineWidth = 1;
@@ -1510,7 +1753,6 @@
           seqCtx.stroke();
         }
 
-        // Column Header
         seqCtx.font = "700 9px 'Space Mono', monospace";
         seqCtx.fillStyle = '#141414';
         seqCtx.fillText(`0${i + 1} — ${sequenceInfo[i].title.split(' ')[2]}`, i * stepW + 8, 18);
@@ -1533,7 +1775,6 @@
   function renderStepLayers(targetCtx, stepIdx) {
     const { sitePolygon, agents, cells, circulationSpines, attractors, repulsors } = state;
 
-    // Site boundary (always shown)
     targetCtx.beginPath();
     targetCtx.moveTo(sitePolygon[0].x, sitePolygon[0].y);
     for (let i = 1; i < sitePolygon.length; i++) targetCtx.lineTo(sitePolygon[i].x, sitePolygon[i].y);
@@ -1543,7 +1784,6 @@
     targetCtx.stroke();
 
     if (stepIdx === 0) {
-      // 01 AGENTS ONLY
       for (const a of agents) {
         targetCtx.fillStyle = '#141414';
         targetCtx.beginPath();
@@ -1551,7 +1791,6 @@
         targetCtx.fill();
       }
     } else if (stepIdx === 1) {
-      // 02 BEHAVIOR & VECTORS
       drawForces(targetCtx, attractors, repulsors);
       for (const a of agents) {
         targetCtx.fillStyle = '#141414';
@@ -1567,7 +1806,6 @@
         targetCtx.stroke();
       }
     } else if (stepIdx === 2) {
-      // 03 VORONOI
       targetCtx.strokeStyle = '#60605c';
       targetCtx.lineWidth = 1.2;
       for (const c of cells) {
@@ -1585,7 +1823,6 @@
         targetCtx.fill();
       }
     } else if (stepIdx === 3) {
-      // 04 SPATIAL ORGANIZATION
       for (const cell of cells) {
         if (cell.polygon.length < 3) continue;
         targetCtx.beginPath();
@@ -1603,7 +1840,6 @@
       }
       drawSpatialLabels(targetCtx, cells);
     } else if (stepIdx === 4) {
-      // 05 ARCHITECTURAL TRANSLATION
       for (const cell of cells) {
         if (cell.polygon.length < 3) continue;
         targetCtx.beginPath();
@@ -1631,7 +1867,6 @@
           targetCtx.stroke();
         }
       }
-      // Spines
       for (const sp of circulationSpines) {
         targetCtx.beginPath();
         targetCtx.moveTo(sp.p1.x, sp.p1.y);
@@ -1721,7 +1956,6 @@
     const halfW = 380;
     const halfH = 260;
 
-    // Centered rectangular site with crisp proportions
     state.sitePolygon = [
       { x: cx - halfW, y: cy - halfH },
       { x: cx + halfW, y: cy - halfH },
@@ -1734,7 +1968,6 @@
     state.agents = [];
     const count = state.params.agentCount;
 
-    // Find bounding box of site
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const p of state.sitePolygon) {
       if (p.x < minX) minX = p.x;
@@ -1768,7 +2001,6 @@
     if (state.sitePolygon.length === 0) {
       initSitePolygon();
       initAgents();
-      // Default initial forces: 1 attractor and 1 repulsor
       const center = Vec.centroid(state.sitePolygon);
       state.attractors = [
         { x: center.x - 120, y: center.y, radius: 240, strength: 1.5, type: 'attractor' }
@@ -1806,7 +2038,6 @@
   // 14. UI BINDINGS & SYNCHRONIZATION
   // =========================================================================
   function bindUI() {
-    // Play / Pause / Reset / Step
     const btnPlay = document.getElementById('btn-play');
     btnPlay.addEventListener('click', () => {
       state.running = !state.running;
@@ -1836,6 +2067,10 @@
     document.getElementById('btn-snapshot').addEventListener('click', saveSnapshot);
     document.getElementById('btn-export-png').addEventListener('click', exportHighResPNG);
     document.getElementById('btn-export-svg').addEventListener('click', exportVectorSVG);
+
+    // 3D EXPORT BINDINGS
+    document.getElementById('btn-export-obj').addEventListener('click', export3DOBJ);
+    document.getElementById('btn-export-stl').addEventListener('click', export3DSTL);
 
     // Sequence Modal
     document.getElementById('btn-sequence-mode').addEventListener('click', openSequenceModal);
@@ -1925,6 +2160,11 @@
     bindToggle('toggle-boundary', (v) => { state.params.boundaryEnabled = v; });
     bindRange('param-boundary', 'val-boundary', (v) => { state.params.boundaryStrength = parseFloat(v); });
 
+    // 3D Parameters
+    bindRange('param-wall-height', 'val-wall-height', (v) => { state.params.wallHeight = parseFloat(v); }, 'm');
+    bindRange('param-ext-parapet', 'val-ext-parapet', (v) => { state.params.extParapet = parseFloat(v); }, 'm');
+    bindRange('param-roof-opacity', 'val-roof-opacity', (v) => { state.params.roofOpacity = parseFloat(v); });
+
     bindRange('param-wall-thickness', 'val-wall-thickness', (v) => { state.params.wallThickness = parseFloat(v); }, 'px');
     bindRange('param-opening-threshold', 'val-opening-threshold', (v) => { state.params.openingThreshold = parseFloat(v); });
     bindRange('param-public-threshold', 'val-public-threshold', (v) => { state.params.publicThreshold = parseFloat(v); });
@@ -1936,7 +2176,6 @@
     });
     bindRange('param-feedback', 'val-feedback', (v) => { state.params.feedbackStrength = parseFloat(v); });
 
-    // Layer checkboxes
     const layerKeys = ['site', 'agents', 'trails', 'voronoi', 'forces', 'programs', 'walls', 'circulation', 'labels'];
     layerKeys.forEach(k => {
       const el = document.getElementById(`layer-${k}`);
@@ -1948,7 +2187,6 @@
       }
     });
 
-    // Keyboard Shortcuts
     window.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT') return;
       if (e.code === 'Space') {
@@ -2027,6 +2265,9 @@
     setChk('toggle-boundary', state.params.boundaryEnabled);
     setVal('param-boundary', state.params.boundaryStrength, 'val-boundary');
 
+    setVal('param-wall-height', state.params.wallHeight, 'val-wall-height', 'm');
+    setVal('param-ext-parapet', state.params.extParapet, 'val-ext-parapet', 'm');
+
     setChk('toggle-feedback', state.params.feedbackEnabled);
     setVal('param-feedback', state.params.feedbackStrength, 'val-feedback');
     document.getElementById('hud-feedback-status').textContent = state.params.feedbackEnabled ? 'ACTIVE' : 'OFF';
@@ -2041,7 +2282,6 @@
     document.getElementById('metric-forces').textContent = `${state.attractors.length} / ${state.repulsors.length}`;
     document.getElementById('metric-flux').textContent = `${state.stats.flux}%`;
 
-    // Program bars
     const dist = state.stats.progDist;
     document.getElementById('bar-public').style.width = `${dist.public}%`;
     document.getElementById('pct-public').textContent = `${dist.public}%`;
@@ -2071,7 +2311,6 @@
     computeVoronoiAndArchitecture();
     updateTelemetryUI();
 
-    // Start 60fps simulation loop
     loop();
   });
 
