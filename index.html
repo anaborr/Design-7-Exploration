@@ -27,8 +27,14 @@
 
         <div class="btn-group">
           <button id="btn-snapshot" class="ctrl-btn" title="Save Current State">SNAPSHOT</button>
-          <button id="btn-export-png" class="ctrl-btn" title="Export High-Res PNG">PNG</button>
-          <button id="btn-export-svg" class="ctrl-btn" title="Export Vector SVG">SVG</button>
+          <button id="btn-export-png" class="ctrl-btn" title="Export High-Res 2D PNG">PNG</button>
+          <button id="btn-export-svg" class="ctrl-btn" title="Export Vector 2D SVG">SVG</button>
+        </div>
+
+        <!-- 3D EXPORT BUTTONS -->
+        <div class="btn-group">
+          <button id="btn-export-obj" class="ctrl-btn accent-3d" title="Export 3D Wavefront OBJ Geometry (Rhino/Blender/CAD)">3D OBJ</button>
+          <button id="btn-export-stl" class="ctrl-btn accent-3d" title="Export 3D STL Model (3D Printing)">3D STL</button>
         </div>
 
         <button id="btn-sequence-mode" class="ctrl-btn accent" title="Studio 5-Step Analysis Sequence">DIAGRAM SEQUENCE</button>
@@ -80,7 +86,7 @@
             <button class="mode-tab" data-mode="voronoi">Voronoi</button>
             <button class="mode-tab" data-mode="spatial">Spatial</button>
             <button class="mode-tab active" data-mode="architecture">Architecture</button>
-            <button class="mode-tab" data-mode="all">Combined</button>
+            <button class="mode-tab highlight-3d" data-mode="3d-axono">3D Axono</button>
           </div>
         </div>
 
@@ -139,6 +145,23 @@
             <div class="param-row">
               <label for="param-influence-radius">Influence Radius <span class="param-val" id="val-influence-radius">75px</span></label>
               <input type="range" id="param-influence-radius" min="25" max="200" step="5" value="75">
+            </div>
+          </div>
+
+          <!-- 3D GEOMETRY EXTRUSION CONTROLS -->
+          <div class="param-group">
+            <div class="param-group-title">3D GEOMETRY & EXTRUSION</div>
+            <div class="param-row">
+              <label for="param-wall-height">Wall Height <span class="param-val" id="val-wall-height">3.5m</span></label>
+              <input type="range" id="param-wall-height" min="1.0" max="12.0" step="0.5" value="3.5">
+            </div>
+            <div class="param-row">
+              <label for="param-ext-parapet">Parapet Height <span class="param-val" id="val-ext-parapet">1.2m</span></label>
+              <input type="range" id="param-ext-parapet" min="0.0" max="4.0" step="0.2" value="1.2">
+            </div>
+            <div class="param-row">
+              <label for="param-roof-opacity">Roof Massing Opacity <span class="param-val" id="val-roof-opacity">0.80</span></label>
+              <input type="range" id="param-roof-opacity" min="0.1" max="1.0" step="0.05" value="0.80">
             </div>
           </div>
 
@@ -357,8 +380,8 @@
   </div>
 
   <!-- VENDOR LIBRARIES -->
-  <script src="d3-delaunay.min.js"></script>
+  <script src="./d3-delaunay.min.js"></script>
   <!-- APPLICATION SCRIPTS -->
-  <script src="app.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
