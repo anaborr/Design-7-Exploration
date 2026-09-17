@@ -1,7 +1,6 @@
 /**
- * ARCHITECTURAL MORPHOGENESIS LABORATORY — DESIGN-7-EXPLORATION
- * Agent-based Voronoi Emergent System for Architectural Organization
- * Luminous Cyberpunk / Dark Violet Analytics Aesthetic
+ * EMERGENT / VORONOI SYSTEM — INTERACTIVE GENERATIVE ARCHITECTURE LABORATORY
+ * Agent-based Voronoi System for Architectural Morphogenesis
  */
 
 (function () {
@@ -11,63 +10,63 @@
   // 1. STATE & CONFIGURATION
   // =========================================================================
   const state = {
-    // Simulation
+    // Simulation Clock
     running: true,
     iteration: 0,
-    timeStep: 1,
 
-    // Visualization mode: 'agents' | 'behavior' | 'voronoi' | 'spatial' | 'architecture' | '3d-axono' | 'all'
+    // Display mode: 'agents' | 'behavior' | 'voronoi' | 'spatial' | 'architecture' | 'full'
     viewMode: 'architecture',
 
     // Interaction tool: 'select' | 'add-attractor' | 'add-repulsor' | 'edit-site'
     activeTool: 'select',
 
-    // Layers visibility
+    // Layer visibility controls (12 layers)
     layers: {
       site: true,
       agents: true,
       trails: true,
+      vectors: true,
       voronoi: true,
-      forces: true,
-      programs: true,
-      walls: true,
+      attractors: true,
+      repulsors: true,
       circulation: true,
+      archCells: true,
+      walls: true,
+      openings: true,
       labels: true,
     },
 
-    // Parameters
+    // Normalized Parameter Sliders (0 - 100)
     params: {
-      agentCount: 120,
-      speed: 1.8,
-      randomness: 0.25,
-      influenceRadius: 75,
+      // System
+      agentCount: 100,      // 10 -> 500
+      speed: 35,            // 0 -> 100
+      randomness: 25,       // 0 -> 100
 
       // Forces
-      attractionEnabled: true,
-      attractionStrength: 1.2,
-      repulsionEnabled: true,
-      repulsionStrength: 1.5,
-      separationEnabled: true,
-      separationStrength: 1.4,
-      alignmentEnabled: true,
-      alignmentStrength: 0.6,
-      boundaryEnabled: true,
-      boundaryStrength: 1.8,
+      attraction: 40,       // 0 -> 100
+      repulsion: 50,        // 0 -> 100
+      separation: 45,       // 0 -> 100
+      alignment: 30,        // 0 -> 100
+      boundary: 60,         // 0 -> 100
 
-      // Architectural translation
-      wallThickness: 3.0,
-      openingThreshold: 0.45,
-      publicThreshold: 0.50,
-      circulationInfluence: 0.70,
+      // Spatial
+      influenceRadius: 75,  // 0 -> 200
+      cellExpansion: 30,    // 0 -> 100
+      cellSmoothing: 20,    // 0 -> 100
+      circulationInfluence: 70, // 0 -> 100
 
-      // 3D Geometry Extrusion
-      wallHeight: 3.5,     // meters
-      extParapet: 1.2,     // meters
-      roofOpacity: 0.80,
-
-      // Feedback Loop
+      // Architecture
+      minCellSize: 15,      // 5 -> 80
+      maxCellSize: 180,     // 50 -> 400
+      publicPrivate: 50,    // 0 -> 100
+      circulationThreshold: 55, // 0 -> 100
+      openingThreshold: 45, // 0 -> 100
       feedbackEnabled: true,
-      feedbackStrength: 0.8,
+
+      // Site Dimensions
+      siteWidth: 760,
+      siteHeight: 520,
     },
 
     // Geometry & Entities
@@ -77,7 +76,6 @@
     repulsors: [],
     cells: [],
     circulationSpines: [],
-    bgParticles: [], // floating ambient energy particles
 
     // Viewport Transform (Pan & Zoom)
     view: {
@@ -91,31 +89,41 @@
 
     // Dragging & Interaction
     draggedEntity: null,
-    hoveredEntity: null,
 
-    // Telemetry
+    // Real Analytical Metrics
     stats: {
+      iteration: 0,
+      agents: 100,
       avgArea: 0,
-      densityVariance: 0,
-      flux: 0,
+      avgSize: 0,
+      density: 0,
+      attractors: 0,
+      repulsors: 0,
+      circulationPct: 0,
+      openEdges: 0,
       progDist: { public: 25, studio: 35, private: 25, service: 15 },
     },
 
-    // Saved snapshots
+    // Saved states
     snapshots: [],
   };
 
   // Canvas and contexts
   let canvas, ctx;
-  let animFrameId = null;
+
+  // Pseudo-random seed generator for deterministic zero-randomness simulation
+  let rngSeed = 12345;
+  function pseudoRandom() {
+    rngSeed = (rngSeed * 9301 + 49297) % 233280;
+    return rngSeed / 233280;
+  }
 
   // =========================================================================
-  // 2. VECTOR & POLYGON GEOMETRY UTILITIES
+  // 2. VECTOR & GEOMETRY UTILITIES
   // =========================================================================
   const Vec = {
     distSq: (p1, p2) => (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2,
     dist: (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y),
-    len: (v) => Math.hypot(v.x, v.y),
     normalize: (v) => {
       const l = Math.hypot(v.x, v.y);
       return l > 1e-6 ? { x: v.x / l, y: v.y / l } : { x: 0, y: 0 };
@@ -209,47 +217,16 @@
   }
 
   // =========================================================================
-  // 3. AMBIENT ENERGY PARTICLES (Cyberpunk Glow)
-  // =========================================================================
-  function initBgParticles() {
-    state.bgParticles = [];
-    for (let i = 0; i < 80; i++) {
-      state.bgParticles.push({
-        x: Math.random() * 1200 - 100,
-        y: Math.random() * 900 - 100,
-        size: Math.random() * 2.2 + 0.6,
-        alpha: Math.random() * 0.5 + 0.1,
-        vx: (Math.random() - 0.5) * 0.4,
-        vy: -Math.random() * 0.5 - 0.1,
-        color: Math.random() > 0.4 ? '#e040fb' : '#00e5ff',
-      });
-    }
-  }
-
-  function updateBgParticles() {
-    for (const p of state.bgParticles) {
-      p.x += p.vx;
-      p.y += p.vy;
-      p.alpha += (Math.random() - 0.5) * 0.02;
-      p.alpha = Vec.clamp(p.alpha, 0.05, 0.6);
-
-      if (p.y < -100) p.y = 900;
-      if (p.x < -100) p.x = 1200;
-      if (p.x > 1200) p.x = -100;
-    }
-  }
-
-  // =========================================================================
-  // 4. AGENT MODEL & BEHAVIOR
+  // 3. AGENT MODEL & BEHAVIOR
   // =========================================================================
   class Agent {
     constructor(x, y) {
       this.x = x;
       this.y = y;
-      const angle = Math.random() * Math.PI * 2;
-      const speed = (0.5 + Math.random() * 0.8) * state.params.speed;
-      this.vx = Math.cos(angle) * speed;
-      this.vy = Math.sin(angle) * speed;
+      const angle = (pseudoRandom ? pseudoRandom() : Math.random()) * Math.PI * 2;
+      const spdFactor = (state.params.speed / 100) * 4.0;
+      this.vx = Math.cos(angle) * (0.8 + spdFactor);
+      this.vy = Math.sin(angle) * (0.8 + spdFactor);
       this.ax = 0;
       this.ay = 0;
       this.wanderAngle = angle;
@@ -267,11 +244,11 @@
       this.vx += this.ax;
       this.vy += this.ay;
 
-      const speed = Math.hypot(this.vx, this.vy);
-      const maxSpd = state.params.speed * 1.5;
-      if (speed > maxSpd) {
-        this.vx = (this.vx / speed) * maxSpd;
-        this.vy = (this.vy / speed) * maxSpd;
+      const currentSpeed = Math.hypot(this.vx, this.vy);
+      const maxSpd = Math.max(0.5, (state.params.speed / 100) * 6.0);
+      if (currentSpeed > maxSpd) {
+        this.vx = (this.vx / currentSpeed) * maxSpd;
+        this.vy = (this.vy / currentSpeed) * maxSpd;
       }
 
       this.x += this.vx;
@@ -281,15 +258,16 @@
       this.ay = 0;
 
       const displacement = Math.hypot(this.vx, this.vy);
-      this.trafficScore = this.trafficScore * 0.96 + displacement * 0.04;
+      this.trafficScore = this.trafficScore * 0.95 + displacement * 0.05;
 
       if (state.iteration % 2 === 0) {
         this.trail.push({ x: this.x, y: this.y });
-        if (this.trail.length > 24) {
+        if (this.trail.length > 20) {
           this.trail.shift();
         }
       }
 
+      // Hard containment inside site polygon
       if (!Vec.pointInPolygon(this, boundsPoly)) {
         let minDist = Infinity;
         let closestPoint = null;
@@ -307,63 +285,69 @@
           const dir = Vec.normalize({ x: center.x - closestPoint.x, y: center.y - closestPoint.y });
           this.x = closestPoint.x + dir.x * 6;
           this.y = closestPoint.y + dir.y * 6;
-          this.vx = dir.x * state.params.speed * 0.5;
-          this.vy = dir.y * state.params.speed * 0.5;
+          this.vx = dir.x * maxSpd * 0.5;
+          this.vy = dir.y * maxSpd * 0.5;
         }
       }
     }
   }
 
   // =========================================================================
-  // 5. SIMULATION FORCES & FEEDBACK ENGINE
+  // 4. SIMULATION FORCES & FEEDBACK ENGINE
   // =========================================================================
   function calculateForces() {
     const { params, sitePolygon, attractors, repulsors, agents } = state;
+    const inflRad = Math.max(20, params.influenceRadius);
 
-    const cellSize = params.influenceRadius;
     const grid = new Map();
-
     for (let i = 0; i < agents.length; i++) {
       const a = agents[i];
-      const gx = Math.floor(a.x / cellSize);
-      const gy = Math.floor(a.y / cellSize);
+      const gx = Math.floor(a.x / inflRad);
+      const gy = Math.floor(a.y / inflRad);
       const key = `${gx},${gy}`;
       if (!grid.has(key)) grid.set(key, []);
       grid.get(key).push(i);
     }
 
+    const attStr = (params.attraction / 100) * 0.08;
+    const repStr = (params.repulsion / 100) * 0.12;
+    const sepStr = (params.separation / 100) * 0.45;
+    const alignStr = (params.alignment / 100) * 0.08;
+    const boundStr = (params.boundary / 100) * 0.35;
+    const noiseLevel = (params.randomness / 100);
+
     for (let i = 0; i < agents.length; i++) {
       const a = agents[i];
 
-      // Attraction
-      if (params.attractionEnabled && attractors.length > 0) {
+      // 1. ATTRACTION
+      if (params.attraction > 0 && attractors.length > 0) {
         for (const attr of attractors) {
           const dx = attr.x - a.x;
           const dy = attr.y - a.y;
           const d = Math.hypot(dx, dy);
           if (d > 5 && d < attr.radius) {
-            const force = (1 - d / attr.radius) * attr.strength * params.attractionStrength * 0.04;
+            const force = (1 - d / attr.radius) * attr.strength * attStr;
             a.applyForce((dx / d) * force, (dy / d) * force);
           }
         }
       }
 
-      // Repulsion
-      if (params.repulsionEnabled && repulsors.length > 0) {
+      // 2. REPULSION
+      if (params.repulsion > 0 && repulsors.length > 0) {
         for (const rep of repulsors) {
           const dx = a.x - rep.x;
           const dy = a.y - rep.y;
           const d = Math.hypot(dx, dy);
           if (d > 1 && d < rep.radius) {
-            const force = ((rep.radius - d) / rep.radius) * rep.strength * params.repulsionStrength * 0.08;
+            const force = ((rep.radius - d) / rep.radius) * rep.strength * repStr;
             a.applyForce((dx / d) * force, (dy / d) * force);
           }
         }
       }
 
-      // Separation & Alignment
-      const gx = Math.floor(a.x / cellSize);
-      const gy = Math.floor(a.y / cellSize);
+      // 3. SEPARATION & ALIGNMENT
+      const gx = Math.floor(a.x / inflRad);
+      const gy = Math.floor(a.y / inflRad);
       let sepX = 0, sepY = 0, sepCount = 0;
       let alignX = 0, alignY = 0, alignCount = 0;
 
@@ -378,15 +362,15 @@
             const dy = a.y - other.y;
             const d = Math.hypot(dx, dy);
 
-            const sepDist = params.influenceRadius * 0.55;
-            if (params.separationEnabled && d > 0 && d < sepDist) {
+            const sepDist = inflRad * 0.55;
+            if (params.separation > 0 && d > 0 && d < sepDist) {
               const str = (1 - d / sepDist) / Math.max(d, 1);
               sepX += dx * str;
               sepY += dy * str;
               sepCount++;
             }
 
-            if (params.alignmentEnabled && d > 0 && d < params.influenceRadius) {
+            if (params.alignment > 0 && d > 0 && d < inflRad) {
               alignX += other.vx;
               alignY += other.vy;
               alignCount++;
@@ -396,20 +380,17 @@
       }
 
       if (sepCount > 0) {
-        const f = params.separationStrength * 0.35;
-        a.applyForce(sepX * f, sepY * f);
+        a.applyForce(sepX * sepStr, sepY * sepStr);
       }
 
       if (alignCount > 0) {
         const avgVx = alignX / alignCount;
         const avgVy = alignY / alignCount;
-        const steerX = (avgVx - a.vx) * params.alignmentStrength * 0.06;
-        const steerY = (avgVy - a.vy) * params.alignmentStrength * 0.06;
-        a.applyForce(steerX, steerY);
+        a.applyForce((avgVx - a.vx) * alignStr, (avgVy - a.vy) * alignStr);
       }
 
-      // Boundary avoidance
-      if (params.boundaryEnabled) {
+      // 4. BOUNDARY AVOIDANCE
+      if (params.boundary > 0) {
         const buffer = 45;
         for (let k = 0; k < sitePolygon.length; k++) {
           const p1 = sitePolygon[k];
@@ -417,24 +398,25 @@
           const { dist, closest } = Vec.distToSegment(a, p1, p2);
           if (dist < buffer) {
             const pushDir = Vec.normalize({ x: a.x - closest.x, y: a.y - closest.y });
-            const pushMag = ((buffer - dist) / buffer) ** 1.5 * params.boundaryStrength * 0.25;
+            const pushMag = ((buffer - dist) / buffer) ** 1.5 * boundStr;
             a.applyForce(pushDir.x * pushMag, pushDir.y * pushMag);
           }
         }
       }
 
-      // Wander
-      if (params.randomness > 0.01) {
-        a.wanderAngle += (Math.random() - 0.5) * 0.8 * params.randomness;
-        const wx = Math.cos(a.wanderAngle) * params.randomness * 0.25;
-        const wy = Math.sin(a.wanderAngle) * params.randomness * 0.25;
+      // 5. CONTROLLED RANDOMNESS (Noise)
+      if (noiseLevel > 0.001) {
+        const rVal = pseudoRandom();
+        a.wanderAngle += (rVal - 0.5) * 0.8 * noiseLevel;
+        const wx = Math.cos(a.wanderAngle) * noiseLevel * 0.3;
+        const wy = Math.sin(a.wanderAngle) * noiseLevel * 0.3;
         a.applyForce(wx, wy);
       }
 
-      // Feedback loop
+      // 6. ARCHITECTURAL FEEDBACK LOOP
       if (params.feedbackEnabled && a.assignedCell) {
         const cell = a.assignedCell;
-        const fbStr = params.feedbackStrength * 0.08;
+        const fbStr = 0.08;
 
         if (cell.type === 'public') {
           const toCentroid = Vec.normalize({ x: cell.centroid.x - a.x, y: cell.centroid.y - a.y });
@@ -452,7 +434,7 @@
   }
 
   // =========================================================================
-  // 6. VORONOI TESSELLATION & ARCHITECTURAL TRANSLATION
+  // 5. VORONOI TESSELLATION & ARCHITECTURAL TRANSLATION
   // =========================================================================
   function computeVoronoiAndArchitecture() {
     const { agents, sitePolygon, params } = state;
@@ -480,6 +462,7 @@
 
     const computedCells = [];
     let totalArea = 0;
+    let openEdgeCount = 0;
 
     for (let i = 0; i < agents.length; i++) {
       const rawPoly = voronoi.cellPolygon(i);
@@ -504,18 +487,19 @@
         walls: [],
         openings: [],
         type: 'studio',
-        typeName: 'ACTIVE STUDIO',
+        typeName: 'PRIMARY SPACE',
       });
     }
 
     const meanArea = totalArea / Math.max(1, computedCells.length);
-    state.stats.avgArea = Math.round(meanArea);
+    state.stats.avgArea = Number((meanArea * 0.1).toFixed(1));
+    state.stats.avgSize = Number((Math.sqrt(meanArea) * 0.1).toFixed(1));
 
     let varianceSum = 0;
     for (const c of computedCells) {
       varianceSum += (c.area - meanArea) ** 2;
     }
-    state.stats.densityVariance = Number((Math.sqrt(varianceSum / computedCells.length) / Math.max(1, meanArea)).toFixed(2));
+    state.stats.density = Number((Math.sqrt(varianceSum / computedCells.length) / Math.max(1, meanArea)).toFixed(2));
 
     let countPublic = 0, countStudio = 0, countPrivate = 0, countService = 0;
 
@@ -524,21 +508,23 @@
       const areaRatio = cell.area / Math.max(1, meanArea);
       const traffic = cell.agent.trafficScore;
 
-      if (areaRatio > 1.35 * (1.5 - params.publicThreshold)) {
+      const pubRatio = (params.publicPrivate / 100);
+
+      if (areaRatio > 1.35 * (1.5 - pubRatio)) {
         cell.type = 'public';
-        cell.typeName = 'CIVIC / PLAZA';
+        cell.typeName = 'PUBLIC TERRITORY';
         countPublic++;
       } else if (traffic > 0.65 || areaRatio > 0.95) {
         cell.type = 'studio';
-        cell.typeName = 'ACTIVE STUDIO';
+        cell.typeName = 'PRIMARY SPACE';
         countStudio++;
-      } else if (areaRatio < 0.60 * (params.publicThreshold + 0.5)) {
+      } else if (areaRatio < 0.60 * (pubRatio + 0.5)) {
         cell.type = 'service';
         cell.typeName = 'SERVICE CORE';
         countService++;
       } else {
         cell.type = 'private';
-        cell.typeName = 'CELLULAR SUITE';
+        cell.typeName = 'PRIVATE TERRITORY';
         countPrivate++;
       }
 
@@ -557,12 +543,14 @@
         const isSiteBorder = isEdgeOnSiteBoundary(p1, p2, sitePolygon);
 
         if (isSiteBorder) {
-          cell.walls.push({ p1, p2, isExterior: true, thickness: params.wallThickness * 1.5 });
+          cell.walls.push({ p1, p2, isExterior: true, thickness: 3.5 });
         } else {
-          const openness = (params.openingThreshold * 0.7) + (traffic * 0.3);
+          const openThresh = (params.openingThreshold / 100);
+          const openness = (openThresh * 0.7) + (traffic * 0.3);
           const shouldHaveOpening = openness > 0.38 && edgeLen > 24 && cell.type !== 'service';
 
           if (shouldHaveOpening) {
+            openEdgeCount++;
             const openingRatio = Vec.clamp(openness * 0.5, 0.25, 0.55);
             const mid = { x: (p1.x + p2.x) * 0.5, y: (p1.y + p2.y) * 0.5 };
             const dir = Vec.normalize({ x: p2.x - p1.x, y: p2.y - p1.y });
@@ -571,11 +559,11 @@
             const op1 = { x: mid.x - dir.x * halfOpening, y: mid.y - dir.y * halfOpening };
             const op2 = { x: mid.x + dir.x * halfOpening, y: mid.y + dir.y * halfOpening };
 
-            cell.walls.push({ p1, p2: op1, isExterior: false, thickness: params.wallThickness });
-            cell.walls.push({ p1: op2, p2, isExterior: false, thickness: params.wallThickness });
+            cell.walls.push({ p1, p2: op1, isExterior: false, thickness: 2.0 });
+            cell.walls.push({ p1: op2, p2, isExterior: false, thickness: 2.0 });
             cell.openings.push({ p1: op1, p2: op2, width: halfOpening * 2 });
           } else {
-            cell.walls.push({ p1, p2, isExterior: false, thickness: params.wallThickness });
+            cell.walls.push({ p1, p2, isExterior: false, thickness: 2.0 });
           }
         }
       }
@@ -584,6 +572,7 @@
     }
 
     state.cells = computedCells;
+    state.stats.openEdges = Math.round(openEdgeCount / 2);
 
     const totalCells = computedCells.length || 1;
     state.stats.progDist = {
@@ -635,25 +624,21 @@
       }
     }
     state.circulationSpines = spines;
-    state.stats.flux = Math.min(100, Math.round((spines.length / Math.max(1, cells.length)) * 100));
+    state.stats.circulationPct = Number((Math.min(100, (spines.length / Math.max(1, cells.length)) * 100)).toFixed(1));
   }
 
   // =========================================================================
-  // 7. RENDERER (LUMINOUS CYBERPUNK / VIOLET HUD AESTHETIC)
+  // 6. RENDERER (Clean Architectural Diagrammatic Style)
   // =========================================================================
   function render(targetCtx = ctx, isExport = false) {
     const { width, height } = targetCtx.canvas;
-    const { view, layers, viewMode, sitePolygon, agents, attractors, repulsors, cells, circulationSpines, bgParticles } = state;
+    const { view, layers, viewMode, sitePolygon, agents, attractors, repulsors, cells, circulationSpines } = state;
 
     targetCtx.save();
     targetCtx.clearRect(0, 0, width, height);
 
-    // Dark Violet Background
-    const bgGrad = targetCtx.createRadialGradient(width * 0.5, height * 0.3, 50, width * 0.5, height * 0.5, Math.max(width, height));
-    bgGrad.addColorStop(0, '#15092b');
-    bgGrad.addColorStop(0.6, '#0c0517');
-    bgGrad.addColorStop(1, '#06020c');
-    targetCtx.fillStyle = bgGrad;
+    // Off-white / white background
+    targetCtx.fillStyle = '#ffffff';
     targetCtx.fillRect(0, 0, width, height);
 
     if (!isExport) {
@@ -661,27 +646,10 @@
       targetCtx.scale(view.scale, view.scale);
     }
 
-    // Floating Ambient Energy Dust Particles
-    updateBgParticles();
-    for (const p of bgParticles) {
-      targetCtx.fillStyle = p.color;
-      targetCtx.globalAlpha = p.alpha;
-      targetCtx.beginPath();
-      targetCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-      targetCtx.fill();
-    }
-    targetCtx.globalAlpha = 1.0;
-
-    if (viewMode === '3d-axono') {
-      render3DAxonometric(targetCtx);
-      targetCtx.restore();
-      return;
-    }
-
     drawArchitecturalGrid(targetCtx, sitePolygon);
 
     // LAYER 1: PROGRAM FILLS
-    if (layers.programs && (viewMode === 'spatial' || viewMode === 'architecture' || viewMode === 'all')) {
+    if (layers.archCells && (viewMode === 'spatial' || viewMode === 'architecture' || viewMode === 'full')) {
       for (const cell of cells) {
         if (cell.polygon.length < 3) continue;
 
@@ -693,27 +661,25 @@
         targetCtx.closePath();
 
         if (cell.type === 'public') {
-          targetCtx.fillStyle = 'rgba(224, 64, 251, 0.16)';
+          targetCtx.fillStyle = 'rgba(225, 220, 208, 0.45)';
           targetCtx.fill();
         } else if (cell.type === 'studio') {
-          targetCtx.fillStyle = 'rgba(179, 136, 255, 0.12)';
+          targetCtx.fillStyle = 'rgba(210, 205, 192, 0.35)';
           targetCtx.fill();
         } else if (cell.type === 'private') {
-          targetCtx.fillStyle = 'rgba(124, 77, 255, 0.08)';
+          targetCtx.fillStyle = 'rgba(195, 190, 178, 0.25)';
           targetCtx.fill();
         } else if (cell.type === 'service') {
-          targetCtx.fillStyle = 'rgba(255, 64, 129, 0.18)';
+          targetCtx.fillStyle = 'rgba(160, 155, 142, 0.45)';
           targetCtx.fill();
         }
       }
     }
 
-    // LAYER 2: VORONOI CELL LINES WITH NEON GLOW
-    if (layers.voronoi && (viewMode === 'voronoi' || viewMode === 'spatial' || viewMode === 'all')) {
-      targetCtx.strokeStyle = 'rgba(224, 64, 251, 0.45)';
-      targetCtx.lineWidth = 0.9;
-      targetCtx.shadowBlur = 6;
-      targetCtx.shadowColor = '#e040fb';
+    // LAYER 2: VORONOI MESH
+    if (layers.voronoi && (viewMode === 'voronoi' || viewMode === 'spatial' || viewMode === 'full')) {
+      targetCtx.strokeStyle = 'rgba(100, 100, 95, 0.5)';
+      targetCtx.lineWidth = 0.8;
       targetCtx.setLineDash([4, 3]);
 
       for (const cell of cells) {
@@ -727,12 +693,11 @@
         targetCtx.stroke();
       }
       targetCtx.setLineDash([]);
-      targetCtx.shadowBlur = 0;
     }
 
-    // LAYER 3: AGENT MOTION TRAILS
-    if (layers.trails && (viewMode === 'agents' || viewMode === 'behavior' || viewMode === 'all')) {
-      targetCtx.lineWidth = 1.2;
+    // LAYER 3: TRAILS
+    if (layers.trails && (viewMode === 'agents' || viewMode === 'behavior' || viewMode === 'full')) {
+      targetCtx.lineWidth = 0.8;
       for (const a of agents) {
         if (a.trail.length < 2) continue;
         targetCtx.beginPath();
@@ -740,87 +705,80 @@
         for (let i = 1; i < a.trail.length; i++) {
           targetCtx.lineTo(a.trail[i].x, a.trail[i].y);
         }
-        targetCtx.strokeStyle = 'rgba(224, 64, 251, 0.25)';
+        targetCtx.strokeStyle = 'rgba(20, 20, 20, 0.12)';
         targetCtx.stroke();
       }
     }
 
-    // LAYER 4: CIRCULATION SPINES (GLOWING MAGENTA RAYS)
-    if (layers.circulation && (viewMode === 'architecture' || viewMode === 'spatial' || viewMode === 'all')) {
+    // LAYER 4: CIRCULATION SPINES
+    if (layers.circulation && (viewMode === 'architecture' || viewMode === 'spatial' || viewMode === 'full')) {
       for (const spine of circulationSpines) {
         targetCtx.beginPath();
         targetCtx.moveTo(spine.p1.x, spine.p1.y);
         targetCtx.lineTo(spine.p2.x, spine.p2.y);
-        targetCtx.strokeStyle = '#e040fb';
-        targetCtx.lineWidth = 1.8;
-        targetCtx.shadowBlur = 8;
-        targetCtx.shadowColor = '#e040fb';
+        targetCtx.strokeStyle = '#111111';
+        targetCtx.lineWidth = 1.6;
         targetCtx.setLineDash([5, 4]);
         targetCtx.stroke();
         targetCtx.setLineDash([]);
-        targetCtx.shadowBlur = 0;
 
         const mx = (spine.p1.x + spine.p2.x) * 0.5;
         const my = (spine.p1.y + spine.p2.y) * 0.5;
-        targetCtx.fillStyle = '#ffffff';
+        targetCtx.fillStyle = '#111111';
         targetCtx.beginPath();
-        targetCtx.arc(mx, my, 2.0, 0, Math.PI * 2);
+        targetCtx.arc(mx, my, 1.8, 0, Math.PI * 2);
         targetCtx.fill();
       }
     }
 
-    // LAYER 5: ARCHITECTURAL WALLS & OPENINGS
-    if (layers.walls && (viewMode === 'architecture' || viewMode === 'all')) {
+    // LAYER 5: WALLS & OPENINGS
+    if (layers.walls && (viewMode === 'architecture' || viewMode === 'full')) {
       for (const cell of cells) {
         for (const wall of cell.walls) {
           targetCtx.beginPath();
           targetCtx.moveTo(wall.p1.x, wall.p1.y);
           targetCtx.lineTo(wall.p2.x, wall.p2.y);
-          targetCtx.strokeStyle = wall.isExterior ? '#ffffff' : '#b388ff';
+          targetCtx.strokeStyle = wall.isExterior ? '#000000' : '#222222';
           targetCtx.lineWidth = wall.thickness;
-          targetCtx.shadowBlur = wall.isExterior ? 10 : 4;
-          targetCtx.shadowColor = wall.isExterior ? 'rgba(255,255,255,0.7)' : '#b388ff';
           targetCtx.lineCap = 'square';
           targetCtx.stroke();
-          targetCtx.shadowBlur = 0;
         }
 
-        for (const op of cell.openings) {
-          targetCtx.beginPath();
-          targetCtx.moveTo(op.p1.x, op.p1.y);
-          targetCtx.lineTo(op.p2.x, op.p2.y);
-          targetCtx.strokeStyle = 'rgba(0, 229, 255, 0.4)';
-          targetCtx.lineWidth = 0.85;
-          targetCtx.stroke();
+        if (layers.openings) {
+          for (const op of cell.openings) {
+            targetCtx.beginPath();
+            targetCtx.moveTo(op.p1.x, op.p1.y);
+            targetCtx.lineTo(op.p2.x, op.p2.y);
+            targetCtx.strokeStyle = 'rgba(30, 30, 30, 0.25)';
+            targetCtx.lineWidth = 0.75;
+            targetCtx.stroke();
+          }
         }
       }
     }
 
-    // LAYER 6: AGENTS & BEHAVIOR VECTORS (GLOWING NEON SPARS)
-    if (layers.agents && (viewMode === 'agents' || viewMode === 'behavior' || viewMode === 'all')) {
+    // LAYER 6: AGENTS & VECTORS
+    if (layers.agents && (viewMode === 'agents' || viewMode === 'behavior' || viewMode === 'full')) {
       for (const a of agents) {
-        targetCtx.fillStyle = '#ffffff';
-        targetCtx.shadowBlur = 8;
-        targetCtx.shadowColor = '#e040fb';
+        targetCtx.fillStyle = '#111111';
         targetCtx.beginPath();
-        targetCtx.arc(a.x, a.y, 2.8, 0, Math.PI * 2);
+        targetCtx.arc(a.x, a.y, 2.4, 0, Math.PI * 2);
         targetCtx.fill();
-        targetCtx.shadowBlur = 0;
 
-        if (viewMode === 'behavior' || viewMode === 'all') {
-          const vScale = 7;
+        if (layers.vectors && (viewMode === 'behavior' || viewMode === 'full')) {
+          const vScale = 6;
           targetCtx.beginPath();
           targetCtx.moveTo(a.x, a.y);
           targetCtx.lineTo(a.x + a.vx * vScale, a.y + a.vy * vScale);
-          targetCtx.strokeStyle = '#00e5ff';
-          targetCtx.lineWidth = 1.2;
+          targetCtx.strokeStyle = 'rgba(20, 20, 20, 0.6)';
+          targetCtx.lineWidth = 0.9;
           targetCtx.stroke();
         }
       }
     }
 
     // LAYER 7: ATTRACTORS & REPULSORS
-    if (layers.forces) {
+    if (layers.attractors || layers.repulsors) {
       drawForces(targetCtx, attractors, repulsors);
     }
 
@@ -829,129 +787,18 @@
       drawSiteBoundary(targetCtx, sitePolygon);
     }
 
-    // LAYER 9: SPATIAL LABELS
-    if (layers.labels && (viewMode === 'spatial' || viewMode === 'architecture' || viewMode === 'all')) {
+    // LAYER 9: LABELS
+    if (layers.labels && (viewMode === 'spatial' || viewMode === 'architecture' || viewMode === 'full')) {
       drawSpatialLabels(targetCtx, cells);
     }
 
     targetCtx.restore();
   }
 
-  // --- 3D AXONOMETRIC RENDERING ---
-  function render3DAxonometric(tCtx) {
-    const { sitePolygon, cells, params } = state;
-    const center = Vec.centroid(sitePolygon);
-
-    const cosA = Math.cos(Math.PI / 6);
-    const sinA = Math.sin(Math.PI / 6);
-    const zScale = 7.0;
-
-    function project3D(x, y, z) {
-      const rx = x - center.x;
-      const ry = y - center.y;
-      const isoX = center.x + (rx - ry) * cosA * 0.75;
-      const isoY = center.y + (rx + ry) * sinA * 0.5 - z * zScale;
-      return { x: isoX, y: isoY };
-    }
-
-    // Site Pedestal
-    if (sitePolygon.length >= 3) {
-      tCtx.fillStyle = 'rgba(26, 13, 44, 0.8)';
-      tCtx.strokeStyle = '#e040fb';
-      tCtx.lineWidth = 1.5;
-
-      const botPts = sitePolygon.map(p => project3D(p.x, p.y, -0.4));
-      const topPts = sitePolygon.map(p => project3D(p.x, p.y, 0));
-
-      for (let i = 0; i < sitePolygon.length; i++) {
-        const next = (i + 1) % sitePolygon.length;
-        tCtx.beginPath();
-        tCtx.moveTo(botPts[i].x, botPts[i].y);
-        tCtx.lineTo(botPts[next].x, botPts[next].y);
-        tCtx.lineTo(topPts[next].x, topPts[next].y);
-        tCtx.lineTo(topPts[i].x, topPts[i].y);
-        tCtx.closePath();
-        tCtx.fillStyle = 'rgba(18, 9, 32, 0.9)';
-        tCtx.fill();
-        tCtx.stroke();
-      }
-
-      tCtx.beginPath();
-      tCtx.moveTo(topPts[0].x, topPts[0].y);
-      for (let i = 1; i < topPts.length; i++) tCtx.lineTo(topPts[i].x, topPts[i].y);
-      tCtx.closePath();
-      tCtx.fillStyle = 'rgba(30, 15, 52, 0.85)';
-      tCtx.fill();
-      tCtx.stroke();
-    }
-
-    const sortedCells = [...cells].sort((a, b) => (a.centroid.x + a.centroid.y) - (b.centroid.x + b.centroid.y));
-    const defaultH = params.wallHeight;
-
-    for (const cell of sortedCells) {
-      if (cell.polygon.length < 3) continue;
-
-      let h = defaultH;
-      if (cell.type === 'service') h = defaultH * 1.5;
-      else if (cell.type === 'public') h = defaultH * 0.6;
-      else if (cell.type === 'private') h = defaultH * 0.95;
-
-      const poly = cell.polygon;
-      const bPts = poly.map(p => project3D(p.x, p.y, 0));
-      const tPts = poly.map(p => project3D(p.x, p.y, h));
-
-      let sideColor = 'rgba(124, 77, 255, 0.45)';
-      let topColor = 'rgba(179, 136, 255, 0.70)';
-
-      if (cell.type === 'public') {
-        sideColor = 'rgba(224, 64, 251, 0.4)';
-        topColor = 'rgba(240, 98, 252, 0.75)';
-      } else if (cell.type === 'service') {
-        sideColor = 'rgba(255, 42, 141, 0.5)';
-        topColor = 'rgba(255, 128, 171, 0.8)';
-      }
-
-      for (let i = 0; i < poly.length; i++) {
-        const next = (i + 1) % poly.length;
-
-        tCtx.beginPath();
-        tCtx.moveTo(bPts[i].x, bPts[i].y);
-        tCtx.lineTo(bPts[next].x, bPts[next].y);
-        tCtx.lineTo(tPts[next].x, tPts[next].y);
-        tCtx.lineTo(tPts[i].x, tPts[i].y);
-        tCtx.closePath();
-
-        tCtx.fillStyle = sideColor;
-        tCtx.fill();
-        tCtx.strokeStyle = 'rgba(224, 64, 251, 0.6)';
-        tCtx.lineWidth = 0.8;
-        tCtx.stroke();
-      }
-
-      tCtx.beginPath();
-      tCtx.moveTo(tPts[0].x, tPts[0].y);
-      for (let i = 1; i < tPts.length; i++) tCtx.lineTo(tPts[i].x, tPts[i].y);
-      tCtx.closePath();
-
-      tCtx.fillStyle = topColor;
-      tCtx.fill();
-      tCtx.strokeStyle = '#ffffff';
-      tCtx.lineWidth = 1.2;
-      tCtx.shadowBlur = 6;
-      tCtx.shadowColor = '#e040fb';
-      tCtx.stroke();
-      tCtx.shadowBlur = 0;
-    }
-
-    tCtx.font = "700 9px 'Space Mono', monospace";
-    tCtx.fillStyle = '#e040fb';
-    tCtx.fillText(`3D CYBERNETIC MASSING MODEL (Scale H=${defaultH.toFixed(1)}m)`, center.x - 140, center.y + 260);
-  }
-
   function drawArchitecturalGrid(tCtx, poly) {
     if (!poly || poly.length < 3) return;
     const center = Vec.centroid(poly);
-    tCtx.strokeStyle = 'rgba(224, 64, 251, 0.06)';
+    tCtx.strokeStyle = 'rgba(20, 20, 20, 0.04)';
     tCtx.lineWidth = 0.5;
 
     const gridStep = 50;
@@ -971,65 +818,63 @@
   }
 
   function drawForces(tCtx, attractors, repulsors) {
-    for (let i = 0; i < attractors.length; i++) {
-      const attr = attractors[i];
-      tCtx.beginPath();
-      tCtx.arc(attr.x, attr.y, attr.radius, 0, Math.PI * 2);
-      tCtx.strokeStyle = 'rgba(255, 42, 141, 0.35)';
-      tCtx.lineWidth = 1;
-      tCtx.setLineDash([4, 4]);
-      tCtx.stroke();
-      tCtx.setLineDash([]);
+    if (state.layers.attractors) {
+      for (let i = 0; i < attractors.length; i++) {
+        const attr = attractors[i];
+        tCtx.beginPath();
+        tCtx.arc(attr.x, attr.y, attr.radius, 0, Math.PI * 2);
+        tCtx.strokeStyle = 'rgba(211, 69, 36, 0.25)';
+        tCtx.lineWidth = 1;
+        tCtx.setLineDash([4, 4]);
+        tCtx.stroke();
+        tCtx.setLineDash([]);
 
-      const ch = 10;
-      tCtx.strokeStyle = '#ff2a8d';
-      tCtx.lineWidth = 1.8;
-      tCtx.shadowBlur = 10;
-      tCtx.shadowColor = '#ff2a8d';
-      tCtx.beginPath();
-      tCtx.moveTo(attr.x - ch, attr.y);
-      tCtx.lineTo(attr.x + ch, attr.y);
-      tCtx.moveTo(attr.x, attr.y - ch);
-      tCtx.lineTo(attr.x, attr.y + ch);
-      tCtx.stroke();
+        const ch = 10;
+        tCtx.strokeStyle = '#d34524';
+        tCtx.lineWidth = 1.5;
+        tCtx.beginPath();
+        tCtx.moveTo(attr.x - ch, attr.y);
+        tCtx.lineTo(attr.x + ch, attr.y);
+        tCtx.moveTo(attr.x, attr.y - ch);
+        tCtx.lineTo(attr.x, attr.y + ch);
+        tCtx.stroke();
 
-      tCtx.fillStyle = '#ff2a8d';
-      tCtx.beginPath();
-      tCtx.arc(attr.x, attr.y, 4, 0, Math.PI * 2);
-      tCtx.fill();
-      tCtx.shadowBlur = 0;
+        tCtx.fillStyle = '#d34524';
+        tCtx.beginPath();
+        tCtx.arc(attr.x, attr.y, 4, 0, Math.PI * 2);
+        tCtx.fill();
 
-      tCtx.font = "700 8px 'Space Mono', monospace";
-      tCtx.fillStyle = '#ff2a8d';
-      tCtx.fillText(`ATTRACTOR [A${i + 1}]`, attr.x + 12, attr.y - 6);
+        tCtx.font = "700 8px 'Space Mono', monospace";
+        tCtx.fillStyle = '#d34524';
+        tCtx.fillText(`ATTRACTOR [A${i + 1}]`, attr.x + 12, attr.y - 6);
+      }
     }
 
-    for (let i = 0; i < repulsors.length; i++) {
-      const rep = repulsors[i];
-      tCtx.beginPath();
-      tCtx.arc(rep.x, rep.y, rep.radius, 0, Math.PI * 2);
-      tCtx.strokeStyle = 'rgba(0, 229, 255, 0.35)';
-      tCtx.lineWidth = 1;
-      tCtx.setLineDash([3, 4]);
-      tCtx.stroke();
-      tCtx.setLineDash([]);
+    if (state.layers.repulsors) {
+      for (let i = 0; i < repulsors.length; i++) {
+        const rep = repulsors[i];
+        tCtx.beginPath();
+        tCtx.arc(rep.x, rep.y, rep.radius, 0, Math.PI * 2);
+        tCtx.strokeStyle = 'rgba(27, 101, 148, 0.25)';
+        tCtx.lineWidth = 1;
+        tCtx.setLineDash([3, 4]);
+        tCtx.stroke();
+        tCtx.setLineDash([]);
 
-      const sz = 8;
-      tCtx.strokeStyle = '#00e5ff';
-      tCtx.lineWidth = 1.8;
-      tCtx.shadowBlur = 10;
-      tCtx.shadowColor = '#00e5ff';
-      tCtx.strokeRect(rep.x - sz * 0.5, rep.y - sz * 0.5, sz, sz);
+        const sz = 8;
+        tCtx.strokeStyle = '#1b6594';
+        tCtx.lineWidth = 1.5;
+        tCtx.strokeRect(rep.x - sz * 0.5, rep.y - sz * 0.5, sz, sz);
 
-      tCtx.beginPath();
-      tCtx.moveTo(rep.x - sz, rep.y);
-      tCtx.lineTo(rep.x + sz, rep.y);
-      tCtx.stroke();
-      tCtx.shadowBlur = 0;
+        tCtx.beginPath();
+        tCtx.moveTo(rep.x - sz, rep.y);
+        tCtx.lineTo(rep.x + sz, rep.y);
+        tCtx.stroke();
 
-      tCtx.font = "700 8px 'Space Mono', monospace";
-      tCtx.fillStyle = '#00e5ff';
-      tCtx.fillText(`REPULSOR [R${i + 1}]`, rep.x + 12, rep.y - 6);
+        tCtx.font = "700 8px 'Space Mono', monospace";
+        tCtx.fillStyle = '#1b6594';
+        tCtx.fillText(`REPULSOR [R${i + 1}]`, rep.x + 12, rep.y - 6);
+      }
     }
   }
 
@@ -1042,19 +887,16 @@
       tCtx.lineTo(poly[i].x, poly[i].y);
     }
     tCtx.closePath();
-    tCtx.strokeStyle = '#e040fb';
+    tCtx.strokeStyle = '#111111';
     tCtx.lineWidth = 2.0;
-    tCtx.shadowBlur = 12;
-    tCtx.shadowColor = '#e040fb';
     tCtx.stroke();
-    tCtx.shadowBlur = 0;
 
     for (let i = 0; i < poly.length; i++) {
       const pt = poly[i];
       const next = poly[(i + 1) % poly.length];
 
-      tCtx.fillStyle = '#0c0617';
-      tCtx.strokeStyle = '#00e5ff';
+      tCtx.fillStyle = '#ffffff';
+      tCtx.strokeStyle = '#111111';
       tCtx.lineWidth = 1.5;
       tCtx.fillRect(pt.x - 4, pt.y - 4, 8, 8);
       tCtx.strokeRect(pt.x - 4, pt.y - 4, 8, 8);
@@ -1064,7 +906,7 @@
       const my = (pt.y + next.y) * 0.5;
 
       tCtx.font = "600 7.5px 'Space Mono', monospace";
-      tCtx.fillStyle = '#c5a4eb';
+      tCtx.fillStyle = '#666666';
       tCtx.fillText(`${lenMeters}m`, mx + 4, my - 4);
     }
   }
@@ -1076,11 +918,11 @@
 
     for (const cell of cells) {
       if (cell.area > 2200) {
-        tCtx.fillStyle = '#f5ebff';
+        tCtx.fillStyle = '#222222';
         tCtx.fillText(cell.typeName, cell.centroid.x, cell.centroid.y);
 
         tCtx.font = "400 6.5px 'Space Mono', monospace";
-        tCtx.fillStyle = '#c5a4eb';
+        tCtx.fillStyle = '#777777';
         tCtx.fillText(`${Math.round(cell.area * 0.1)}m²`, cell.centroid.x, cell.centroid.y + 9);
         tCtx.font = "700 7px 'Space Mono', monospace";
       }
@@ -1090,7 +932,7 @@
   }
 
   // =========================================================================
-  // 8. INTERACTION & TOOL HANDLING
+  // 7. INTERACTION & TOOL HANDLING
   // =========================================================================
   function getCanvasCoords(e) {
     const rect = canvas.getBoundingClientRect();
@@ -1256,7 +1098,7 @@
   }
 
   // =========================================================================
-  // 9. PRESET CONFIGURATIONS
+  // 8. PRESETS
   // =========================================================================
   function loadPreset(name) {
     const center = Vec.centroid(state.sitePolygon);
@@ -1264,13 +1106,12 @@
     switch (name) {
       case 'uniform':
         state.params.agentCount = 120;
-        state.params.speed = 1.0;
-        state.params.randomness = 0.15;
-        state.params.attractionEnabled = false;
-        state.params.repulsionEnabled = false;
-        state.params.separationEnabled = true;
-        state.params.separationStrength = 1.8;
-        state.params.alignmentEnabled = false;
+        state.params.speed = 25;
+        state.params.randomness = 10;
+        state.params.attraction = 0;
+        state.params.repulsion = 0;
+        state.params.separation = 60;
+        state.params.alignment = 15;
         state.params.feedbackEnabled = false;
         state.attractors = [];
         state.repulsors = [];
@@ -1279,13 +1120,11 @@
 
       case 'central':
         state.params.agentCount = 140;
-        state.params.speed = 1.8;
-        state.params.randomness = 0.2;
-        state.params.attractionEnabled = true;
-        state.params.attractionStrength = 1.6;
-        state.params.repulsionEnabled = true;
-        state.params.separationEnabled = true;
-        state.params.separationStrength = 1.2;
+        state.params.speed = 35;
+        state.params.randomness = 15;
+        state.params.attraction = 60;
+        state.params.repulsion = 20;
+        state.params.separation = 40;
         state.params.feedbackEnabled = false;
         state.attractors = [
           { x: center.x, y: center.y, radius: 260, strength: 1.8, type: 'attractor' }
@@ -1296,13 +1135,11 @@
 
       case 'multi':
         state.params.agentCount = 160;
-        state.params.speed = 1.8;
-        state.params.randomness = 0.25;
-        state.params.attractionEnabled = true;
-        state.params.attractionStrength = 1.5;
-        state.params.repulsionEnabled = true;
-        state.params.repulsionStrength = 1.8;
-        state.params.separationEnabled = true;
+        state.params.speed = 35;
+        state.params.randomness = 20;
+        state.params.attraction = 50;
+        state.params.repulsion = 60;
+        state.params.separation = 45;
         state.params.feedbackEnabled = false;
         state.attractors = [
           { x: center.x - 180, y: center.y - 50, radius: 200, strength: 1.6, type: 'attractor' },
@@ -1316,12 +1153,11 @@
 
       case 'flow':
         state.params.agentCount = 140;
-        state.params.speed = 2.4;
-        state.params.randomness = 0.1;
-        state.params.attractionEnabled = true;
-        state.params.alignmentEnabled = true;
-        state.params.alignmentStrength = 1.4;
-        state.params.separationStrength = 0.8;
+        state.params.speed = 50;
+        state.params.randomness = 5;
+        state.params.attraction = 45;
+        state.params.alignment = 75;
+        state.params.separation = 30;
         state.params.feedbackEnabled = false;
         state.attractors = [
           { x: center.x + 320, y: center.y, radius: 450, strength: 1.5, type: 'attractor' }
@@ -1331,18 +1167,18 @@
         ];
         initAgents();
         for (const a of state.agents) {
-          a.vx = Math.abs(a.vx) + 1.2;
+          a.vx = Math.abs(a.vx) + 1.5;
         }
         break;
 
       case 'collision':
         state.params.agentCount = 180;
-        state.params.speed = 1.6;
-        state.params.randomness = 0.3;
-        state.params.attractionEnabled = false;
-        state.params.separationEnabled = true;
-        state.params.separationStrength = 2.4;
-        state.params.alignmentEnabled = false;
+        state.params.speed = 30;
+        state.params.randomness = 25;
+        state.params.attraction = 0;
+        state.params.separation = 85;
+        state.params.repulsion = 75;
+        state.params.alignment = 0;
         state.params.feedbackEnabled = false;
         state.attractors = [];
         state.repulsors = [];
@@ -1351,14 +1187,11 @@
 
       case 'organic':
         state.params.agentCount = 150;
-        state.params.speed = 1.9;
-        state.params.randomness = 0.45;
-        state.params.attractionEnabled = true;
-        state.params.attractionStrength = 1.2;
-        state.params.separationEnabled = true;
-        state.params.separationStrength = 1.5;
-        state.params.alignmentEnabled = true;
-        state.params.alignmentStrength = 0.7;
+        state.params.speed = 40;
+        state.params.randomness = 45;
+        state.params.attraction = 45;
+        state.params.separation = 50;
+        state.params.alignment = 35;
         state.params.feedbackEnabled = false;
         state.attractors = [
           { x: center.x - 120, y: center.y - 100, radius: 220, strength: 1.2, type: 'attractor' },
@@ -1372,14 +1205,11 @@
 
       case 'feedback':
         state.params.agentCount = 150;
-        state.params.speed = 2.0;
-        state.params.randomness = 0.25;
-        state.params.attractionEnabled = true;
-        state.params.attractionStrength = 1.3;
-        state.params.separationEnabled = true;
-        state.params.separationStrength = 1.4;
+        state.params.speed = 40;
+        state.params.randomness = 25;
+        state.params.attraction = 50;
+        state.params.separation = 50;
         state.params.feedbackEnabled = true;
-        state.params.feedbackStrength = 1.2;
         state.attractors = [
           { x: center.x - 150, y: center.y, radius: 220, strength: 1.4, type: 'attractor' },
           { x: center.x + 160, y: center.y, radius: 220, strength: 1.4, type: 'attractor' },
@@ -1397,7 +1227,7 @@
   }
 
   // =========================================================================
-  // 10. EXPORT SYSTEM (SVG, HIGH-RES PNG, 3D OBJ, 3D STL)
+  // 9. EXPORTS (PNG, SVG, 3D OBJ, 3D STL)
   // =========================================================================
   function exportHighResPNG() {
     const exportCanvas = document.createElement('canvas');
@@ -1437,23 +1267,23 @@
     let svg = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     svg += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" width="${vbW}" height="${vbH}">\n`;
     svg += `<style>
-      .site-border { fill: none; stroke: #e040fb; stroke-width: 2.0; }
-      .wall-ext { stroke: #ffffff; stroke-width: 3.5; stroke-linecap: square; }
-      .wall-int { stroke: #b388ff; stroke-width: 2.2; stroke-linecap: square; }
-      .opening { stroke: rgba(0, 229, 255, 0.4); stroke-width: 0.8; fill: none; }
-      .spine { stroke: #e040fb; stroke-width: 1.8; stroke-dasharray: 5,4; fill: none; }
-      .voronoi { fill: none; stroke: rgba(224, 64, 251, 0.45); stroke-width: 0.9; stroke-dasharray: 4,3; }
-      .agent { fill: #ffffff; }
-      .public-fill { fill: #e040fb; fill-opacity: 0.16; }
-      .studio-fill { fill: #b388ff; fill-opacity: 0.12; }
-      .private-fill { fill: #7c4dff; fill-opacity: 0.08; }
-      .service-fill { fill: #ff4081; fill-opacity: 0.18; }
-      .label { font-family: monospace; font-size: 7px; fill: #f5ebff; text-anchor: middle; font-weight: bold; }
+      .site-border { fill: none; stroke: #111111; stroke-width: 2.0; }
+      .wall-ext { stroke: #000000; stroke-width: 3.5; stroke-linecap: square; }
+      .wall-int { stroke: #222222; stroke-width: 2.0; stroke-linecap: square; }
+      .opening { stroke: rgba(30,30,30,0.25); stroke-width: 0.75; fill: none; }
+      .spine { stroke: #111111; stroke-width: 1.6; stroke-dasharray: 5,4; fill: none; }
+      .voronoi { fill: none; stroke: rgba(100,100,95,0.5); stroke-width: 0.8; stroke-dasharray: 4,3; }
+      .agent { fill: #111111; }
+      .public-fill { fill: rgba(225,220,208,0.45); }
+      .studio-fill { fill: rgba(210,205,192,0.35); }
+      .private-fill { fill: rgba(195,190,178,0.25); }
+      .service-fill { fill: rgba(160,155,142,0.45); }
+      .label { font-family: monospace; font-size: 7px; fill: #222222; text-anchor: middle; font-weight: bold; }
     </style>\n`;
 
-    svg += `<rect x="${vbX}" y="${vbY}" width="${vbW}" height="${vbH}" fill="#0b0514"/>\n`;
+    svg += `<rect x="${vbX}" y="${vbY}" width="${vbW}" height="${vbH}" fill="#ffffff"/>\n`;
 
-    if (layers.programs) {
+    if (layers.archCells) {
       svg += `<g id="program-fills">\n`;
       for (const cell of cells) {
         if (cell.polygon.length < 3) continue;
@@ -1488,8 +1318,10 @@
           const cls = wall.isExterior ? 'wall-ext' : 'wall-int';
           svg += `  <line x1="${wall.p1.x.toFixed(1)}" y1="${wall.p1.y.toFixed(1)}" x2="${wall.p2.x.toFixed(1)}" y2="${wall.p2.y.toFixed(1)}" class="${cls}"/>\n`;
         }
-        for (const op of cell.openings) {
-          svg += `  <line x1="${op.p1.x.toFixed(1)}" y1="${op.p1.y.toFixed(1)}" x2="${op.p2.x.toFixed(1)}" y2="${op.p2.y.toFixed(1)}" class="opening"/>\n`;
+        if (layers.openings) {
+          for (const op of cell.openings) {
+            svg += `  <line x1="${op.p1.x.toFixed(1)}" y1="${op.p1.y.toFixed(1)}" x2="${op.p2.x.toFixed(1)}" y2="${op.p2.y.toFixed(1)}" class="opening"/>\n`;
+          }
         }
       }
       svg += `</g>\n`;
@@ -1520,9 +1352,8 @@
     URL.revokeObjectURL(link.href);
   }
 
-  // --- 3D WAVEFRONT OBJ EXPORTER ---
   function export3DOBJ() {
-    const { sitePolygon, cells, params } = state;
+    const { sitePolygon, cells } = state;
     const center = Vec.centroid(sitePolygon);
 
     let objStr = `# Design-7-Exploration — 3D Architectural Geometry Export\n`;
@@ -1531,37 +1362,27 @@
 
     let vIdx = 1;
     const scale = 0.1;
-    const defaultH = params.wallHeight;
+    const defaultH = 3.5;
 
     if (sitePolygon.length >= 3) {
       objStr += `g Site_Pedestal_Slab\n`;
-      const baseH = -0.5;
-      const topH = 0.0;
-
+      const baseH = -0.5, topH = 0.0;
       for (const p of sitePolygon) {
-        const x = (p.x - center.x) * scale;
-        const y = (p.y - center.y) * scale;
-        objStr += `v ${x.toFixed(4)} ${y.toFixed(4)} ${baseH.toFixed(4)}\n`;
+        objStr += `v ${((p.x - center.x) * scale).toFixed(4)} ${((p.y - center.y) * scale).toFixed(4)} ${baseH.toFixed(4)}\n`;
       }
       for (const p of sitePolygon) {
-        const x = (p.x - center.x) * scale;
-        const y = (p.y - center.y) * scale;
-        objStr += `v ${x.toFixed(4)} ${y.toFixed(4)} ${topH.toFixed(4)}\n`;
+        objStr += `v ${((p.x - center.x) * scale).toFixed(4)} ${((p.y - center.y) * scale).toFixed(4)} ${topH.toFixed(4)}\n`;
       }
-
       const n = sitePolygon.length;
       for (let i = 0; i < n; i++) {
         const next = (i + 1) % n;
-        const b1 = vIdx + i, b2 = vIdx + next;
-        const t1 = vIdx + n + i, t2 = vIdx + n + next;
-        objStr += `f ${b1} ${b2} ${t2} ${t1}\n`;
+        objStr += `f ${vIdx + i} ${vIdx + next} ${vIdx + n + next} ${vIdx + n + i}\n`;
       }
       objStr += `f ` + Array.from({ length: n }, (_, i) => vIdx + n + i).join(' ') + `\n\n`;
       vIdx += n * 2;
     }
 
     objStr += `g Architectural_Program_Volumes\n`;
-
     for (let cIdx = 0; cIdx < cells.length; cIdx++) {
       const cell = cells[cIdx];
       if (cell.polygon.length < 3) continue;
@@ -1569,67 +1390,23 @@
       let h = defaultH;
       if (cell.type === 'service') h = defaultH * 1.5;
       else if (cell.type === 'public') h = defaultH * 0.6;
-      else if (cell.type === 'private') h = defaultH * 0.95;
 
       const poly = cell.polygon;
       const n = poly.length;
 
       objStr += `# Cell_${cIdx + 1}_${cell.type.toUpperCase()}\n`;
-
       for (const p of poly) {
-        const x = (p.x - center.x) * scale;
-        const y = (p.y - center.y) * scale;
-        objStr += `v ${x.toFixed(4)} ${y.toFixed(4)} 0.0000\n`;
+        objStr += `v ${((p.x - center.x) * scale).toFixed(4)} ${((p.y - center.y) * scale).toFixed(4)} 0.0000\n`;
       }
       for (const p of poly) {
-        const x = (p.x - center.x) * scale;
-        const y = (p.y - center.y) * scale;
-        objStr += `v ${x.toFixed(4)} ${y.toFixed(4)} ${h.toFixed(4)}\n`;
+        objStr += `v ${((p.x - center.x) * scale).toFixed(4)} ${((p.y - center.y) * scale).toFixed(4)} ${h.toFixed(4)}\n`;
       }
-
       for (let i = 0; i < n; i++) {
         const next = (i + 1) % n;
-        const b1 = vIdx + i, b2 = vIdx + next;
-        const t1 = vIdx + n + i, t2 = vIdx + n + next;
-        objStr += `f ${b1} ${b2} ${t2} ${t1}\n`;
+        objStr += `f ${vIdx + i} ${vIdx + next} ${vIdx + n + next} ${vIdx + n + i}\n`;
       }
       objStr += `f ` + Array.from({ length: n }, (_, i) => vIdx + n + i).join(' ') + `\n\n`;
       vIdx += n * 2;
-    }
-
-    objStr += `g Architectural_Wall_Partitions\n`;
-
-    for (let cIdx = 0; cIdx < cells.length; cIdx++) {
-      const cell = cells[cIdx];
-      for (const wall of cell.walls) {
-        const t = (wall.thickness || 3.0) * scale * 0.5;
-        const h = wall.isExterior ? defaultH * 1.2 : defaultH;
-
-        const p1 = wall.p1, p2 = wall.p2;
-        const dir = Vec.normalize({ x: p2.x - p1.x, y: p2.y - p1.y });
-        const norm = { x: -dir.y * t, y: dir.x * t };
-
-        const wBase = [
-          { x: (p1.x - norm.x - center.x) * scale, y: (p1.y - norm.y - center.y) * scale },
-          { x: (p2.x - norm.x - center.x) * scale, y: (p2.y - norm.y - center.y) * scale },
-          { x: (p2.x + norm.x - center.x) * scale, y: (p2.y + norm.y - center.y) * scale },
-          { x: (p1.x + norm.x - center.x) * scale, y: (p1.y + norm.y - center.y) * scale },
-        ];
-
-        for (const pt of wBase) objStr += `v ${pt.x.toFixed(4)} ${pt.y.toFixed(4)} 0.0000\n`;
-        for (const pt of wBase) objStr += `v ${pt.x.toFixed(4)} ${pt.y.toFixed(4)} ${h.toFixed(4)}\n`;
-
-        const b1 = vIdx, b2 = vIdx + 1, b3 = vIdx + 2, b4 = vIdx + 3;
-        const t1 = vIdx + 4, t2 = vIdx + 5, t3 = vIdx + 6, t4 = vIdx + 7;
-
-        objStr += `f ${b1} ${b2} ${t2} ${t1}\n`;
-        objStr += `f ${b2} ${b3} ${t3} ${t2}\n`;
-        objStr += `f ${b3} ${b4} ${t4} ${t3}\n`;
-        objStr += `f ${b4} ${b1} ${t1} ${t4}\n`;
-        objStr += `f ${t1} ${t2} ${t3} ${t4}\n\n`;
-
-        vIdx += 8;
-      }
     }
 
     const blob = new Blob([objStr], { type: 'text/plain' });
@@ -1640,12 +1417,11 @@
     URL.revokeObjectURL(link.href);
   }
 
-  // --- 3D STL EXPORTER ---
   function export3DSTL() {
-    const { sitePolygon, cells, params } = state;
+    const { sitePolygon, cells } = state;
     const center = Vec.centroid(sitePolygon);
     const scale = 0.1;
-    const defaultH = params.wallHeight;
+    const defaultH = 3.5;
 
     let stlStr = `solid Design7Exploration_3D\n`;
 
@@ -1703,31 +1479,31 @@
   }
 
   // =========================================================================
-  // 11. STUDIO 5-STAGE SEQUENCE ANALYSIS MODAL
+  // 10. ANALYSIS SEQUENCE MODAL (With PREVIOUS / NEXT Step Navigation)
   // =========================================================================
   let seqCanvas, seqCtx;
-  let activeSeqStep = '0';
+  let currentSeqStep = 0;
 
   const sequenceInfo = [
     {
       title: '01 — AGENTS (Point Distribution)',
-      desc: 'Autonomous spatial agents initialized across the architectural boundary. Each agent represents an occupant or activity locus whose position determines subsequent spatial subdivision.',
+      desc: 'Show only agent positions within the architectural site boundary.',
     },
     {
-      title: '02 — BEHAVIOR (Movement Vectors & Forces)',
-      desc: 'Local forces (attraction, repulsion, separation, and alignment) generate dynamic trajectories. Vector arrows depict steering forces and velocity fields.',
+      title: '02 — BEHAVIOR (Vectors, Trails & Forces)',
+      desc: 'Show agent positions, movement vectors, attractors, repulsors, and movement trails.',
     },
     {
       title: '03 — VORONOI (Geometric Partition)',
-      desc: 'Continuous Voronoi tessellation where cell boundaries represent perpendicular bisectors between neighboring agents. Density fluctuations manifest as scale variation.',
+      desc: 'Show agent positions and resulting Voronoi tessellation cells.',
     },
     {
-      title: '04 — SPATIAL ORGANIZATION (Program Classification)',
-      desc: 'Tessellated cells mapped to programmatic zones: Civic plazas in large expanses, active forums in high flux, and private/service suites in compact clusters.',
+      title: '04 — SPATIAL ORGANIZATION (Density & Hierarchy)',
+      desc: 'Show cell density, area hierarchy, circulation paths, and spatial relationships.',
     },
     {
-      title: '05 — ARCHITECTURAL TRANSLATION (Walls, Portals, Circulation)',
-      desc: 'Shared edges materialize into thick partition walls with doorway thresholds. High-traffic corridors crystallize into primary circulation spines.',
+      title: '05 — ARCHITECTURAL TRANSLATION (Walls & Openings)',
+      desc: 'Show architectural boundaries, wall openings, circulation spines, and public/private spatial territories.',
     },
   ];
 
@@ -1744,70 +1520,42 @@
     seqCanvas.width = rect.width;
     seqCanvas.height = rect.height;
 
-    renderSequenceStep(activeSeqStep);
+    renderSequenceStep(currentSeqStep);
   }
 
   function closeSequenceModal() {
     document.getElementById('sequence-modal').classList.add('hidden');
   }
 
-  function renderSequenceStep(step) {
+  function renderSequenceStep(stepIndex) {
     if (!seqCtx) return;
+    currentSeqStep = Vec.clamp(stepIndex, 0, 4);
+
     const w = seqCanvas.width;
     const h = seqCanvas.height;
 
     seqCtx.clearRect(0, 0, w, h);
-    seqCtx.fillStyle = '#07030e';
+    seqCtx.fillStyle = '#ffffff';
     seqCtx.fillRect(0, 0, w, h);
+
+    document.querySelectorAll('.seq-step-btn').forEach((b, idx) => {
+      b.classList.toggle('active', idx === currentSeqStep);
+    });
+
+    const info = sequenceInfo[currentSeqStep];
+    document.getElementById('seq-title').textContent = info.title;
+    document.getElementById('seq-desc').textContent = info.desc;
 
     const center = Vec.centroid(state.sitePolygon);
     const scale = Math.min(w / 900, h / 650);
 
-    if (step === 'all') {
-      document.getElementById('seq-title').textContent = 'MORPHOGENETIC 5-STAGE PIPELINE';
-      document.getElementById('seq-desc').textContent = 'Synoptic overview showing the direct causal emergence from autonomous agents to fully resolved architectural organization.';
+    seqCtx.save();
+    seqCtx.translate(w * 0.5, h * 0.5);
+    seqCtx.scale(scale * 0.85, scale * 0.85);
+    seqCtx.translate(-center.x, -center.y);
 
-      const cols = 5;
-      const stepW = w / cols;
-      for (let i = 0; i < cols; i++) {
-        seqCtx.save();
-        seqCtx.beginPath();
-        seqCtx.rect(i * stepW, 0, stepW, h);
-        seqCtx.clip();
-
-        seqCtx.translate(i * stepW + stepW * 0.5, h * 0.5);
-        seqCtx.scale(scale * 0.45, scale * 0.45);
-        seqCtx.translate(-center.x, -center.y);
-
-        renderStepLayers(seqCtx, i);
-        seqCtx.restore();
-
-        if (i > 0) {
-          seqCtx.strokeStyle = '#2d174d';
-          seqCtx.lineWidth = 1;
-          seqCtx.beginPath();
-          seqCtx.moveTo(i * stepW, 0);
-          seqCtx.lineTo(i * stepW, h);
-          seqCtx.stroke();
-        }
-
-        seqCtx.font = "700 9px 'Space Mono', monospace";
-        seqCtx.fillStyle = '#e040fb';
-        seqCtx.fillText(`0${i + 1} — ${sequenceInfo[i].title.split(' ')[2]}`, i * stepW + 8, 18);
-      }
-    } else {
-      const stepIdx = parseInt(step, 10);
-      document.getElementById('seq-title').textContent = sequenceInfo[stepIdx].title;
-      document.getElementById('seq-desc').textContent = sequenceInfo[stepIdx].desc;
-
-      seqCtx.save();
-      seqCtx.translate(w * 0.5, h * 0.5);
-      seqCtx.scale(scale * 0.85, scale * 0.85);
-      seqCtx.translate(-center.x, -center.y);
-
-      renderStepLayers(seqCtx, stepIdx);
-      seqCtx.restore();
-    }
+    renderStepLayers(seqCtx, currentSeqStep);
+    seqCtx.restore();
   }
 
   function renderStepLayers(targetCtx, stepIdx) {
@@ -1817,35 +1565,35 @@
     targetCtx.moveTo(sitePolygon[0].x, sitePolygon[0].y);
     for (let i = 1; i < sitePolygon.length; i++) targetCtx.lineTo(sitePolygon[i].x, sitePolygon[i].y);
     targetCtx.closePath();
-    targetCtx.strokeStyle = '#e040fb';
+    targetCtx.strokeStyle = '#111111';
     targetCtx.lineWidth = 2.0;
     targetCtx.stroke();
 
     if (stepIdx === 0) {
       for (const a of agents) {
-        targetCtx.fillStyle = '#ffffff';
+        targetCtx.fillStyle = '#111111';
         targetCtx.beginPath();
-        targetCtx.arc(a.x, a.y, 3.2, 0, Math.PI * 2);
+        targetCtx.arc(a.x, a.y, 3.0, 0, Math.PI * 2);
         targetCtx.fill();
       }
     } else if (stepIdx === 1) {
       drawForces(targetCtx, attractors, repulsors);
       for (const a of agents) {
-        targetCtx.fillStyle = '#ffffff';
+        targetCtx.fillStyle = '#111111';
         targetCtx.beginPath();
         targetCtx.arc(a.x, a.y, 2.5, 0, Math.PI * 2);
         targetCtx.fill();
 
-        targetCtx.strokeStyle = '#00e5ff';
-        targetCtx.lineWidth = 1.2;
+        targetCtx.strokeStyle = 'rgba(20,20,20,0.6)';
+        targetCtx.lineWidth = 1.0;
         targetCtx.beginPath();
         targetCtx.moveTo(a.x, a.y);
         targetCtx.lineTo(a.x + a.vx * 8, a.y + a.vy * 8);
         targetCtx.stroke();
       }
     } else if (stepIdx === 2) {
-      targetCtx.strokeStyle = 'rgba(224, 64, 251, 0.5)';
-      targetCtx.lineWidth = 1.2;
+      targetCtx.strokeStyle = 'rgba(100, 100, 95, 0.6)';
+      targetCtx.lineWidth = 1.0;
       for (const c of cells) {
         if (c.polygon.length < 3) continue;
         targetCtx.beginPath();
@@ -1855,9 +1603,9 @@
         targetCtx.stroke();
       }
       for (const a of agents) {
-        targetCtx.fillStyle = '#c5a4eb';
+        targetCtx.fillStyle = '#111111';
         targetCtx.beginPath();
-        targetCtx.arc(a.x, a.y, 1.8, 0, Math.PI * 2);
+        targetCtx.arc(a.x, a.y, 2.2, 0, Math.PI * 2);
         targetCtx.fill();
       }
     } else if (stepIdx === 3) {
@@ -1867,12 +1615,12 @@
         targetCtx.moveTo(cell.polygon[0].x, cell.polygon[0].y);
         for (let i = 1; i < cell.polygon.length; i++) targetCtx.lineTo(cell.polygon[i].x, cell.polygon[i].y);
         targetCtx.closePath();
-        if (cell.type === 'public') targetCtx.fillStyle = 'rgba(224, 64, 251, 0.35)';
-        else if (cell.type === 'studio') targetCtx.fillStyle = 'rgba(179, 136, 255, 0.25)';
-        else if (cell.type === 'private') targetCtx.fillStyle = 'rgba(124, 77, 255, 0.18)';
-        else targetCtx.fillStyle = 'rgba(255, 64, 129, 0.35)';
+        if (cell.type === 'public') targetCtx.fillStyle = 'rgba(225, 220, 208, 0.5)';
+        else if (cell.type === 'studio') targetCtx.fillStyle = 'rgba(210, 205, 192, 0.4)';
+        else if (cell.type === 'private') targetCtx.fillStyle = 'rgba(195, 190, 178, 0.3)';
+        else targetCtx.fillStyle = 'rgba(160, 155, 142, 0.5)';
         targetCtx.fill();
-        targetCtx.strokeStyle = '#b388ff';
+        targetCtx.strokeStyle = '#888880';
         targetCtx.lineWidth = 0.8;
         targetCtx.stroke();
       }
@@ -1884,15 +1632,15 @@
         targetCtx.moveTo(cell.polygon[0].x, cell.polygon[0].y);
         for (let i = 1; i < cell.polygon.length; i++) targetCtx.lineTo(cell.polygon[i].x, cell.polygon[i].y);
         targetCtx.closePath();
-        if (cell.type === 'public') targetCtx.fillStyle = 'rgba(224, 64, 251, 0.2)';
-        else if (cell.type === 'service') targetCtx.fillStyle = 'rgba(255, 64, 129, 0.2)';
+        if (cell.type === 'public') targetCtx.fillStyle = 'rgba(225, 220, 208, 0.4)';
+        else if (cell.type === 'service') targetCtx.fillStyle = 'rgba(160, 155, 142, 0.4)';
         targetCtx.fill();
 
         for (const wall of cell.walls) {
           targetCtx.beginPath();
           targetCtx.moveTo(wall.p1.x, wall.p1.y);
           targetCtx.lineTo(wall.p2.x, wall.p2.y);
-          targetCtx.strokeStyle = '#ffffff';
+          targetCtx.strokeStyle = '#000000';
           targetCtx.lineWidth = wall.thickness;
           targetCtx.stroke();
         }
@@ -1900,7 +1648,7 @@
           targetCtx.beginPath();
           targetCtx.moveTo(op.p1.x, op.p1.y);
           targetCtx.lineTo(op.p2.x, op.p2.y);
-          targetCtx.strokeStyle = 'rgba(0, 229, 255, 0.4)';
+          targetCtx.strokeStyle = 'rgba(30, 30, 30, 0.25)';
           targetCtx.lineWidth = 0.8;
           targetCtx.stroke();
         }
@@ -1909,7 +1657,7 @@
         targetCtx.beginPath();
         targetCtx.moveTo(sp.p1.x, sp.p1.y);
         targetCtx.lineTo(sp.p2.x, sp.p2.y);
-        targetCtx.strokeStyle = '#e040fb';
+        targetCtx.strokeStyle = '#111111';
         targetCtx.lineWidth = 1.5;
         targetCtx.setLineDash([4, 3]);
         targetCtx.stroke();
@@ -1920,7 +1668,7 @@
   }
 
   // =========================================================================
-  // 12. SNAPSHOT & HISTORY MANAGER
+  // 11. SAVED STATES TIMELINE
   // =========================================================================
   function saveSnapshot() {
     const snap = {
@@ -1961,7 +1709,7 @@
     document.getElementById('snapshot-count').textContent = state.snapshots.length;
 
     if (state.snapshots.length === 0) {
-      container.innerHTML = '<div class="empty-snapshots">No saved states yet. Click [SNAPSHOT] to capture interesting configurations.</div>';
+      container.innerHTML = '<div class="empty-snapshots">No saved states yet. Click [SAVE STATE] to capture configurations.</div>';
       return;
     }
 
@@ -1970,7 +1718,7 @@
       const div = document.createElement('div');
       div.className = 'snapshot-item';
       div.innerHTML = `
-        <span class="snapshot-title" data-id="${snap.id}">SNAP #${idx + 1} (Iter ${snap.iteration})</span>
+        <span class="snapshot-title" data-id="${snap.id}">STATE ${String(idx + 1).padStart(2, '0')} (Iter ${snap.iteration})</span>
         <button class="snapshot-del-btn" data-del-id="${snap.id}">&times;</button>
       `;
       div.querySelector('.snapshot-title').addEventListener('click', () => restoreSnapshot(snap.id));
@@ -1984,15 +1732,15 @@
   }
 
   // =========================================================================
-  // 13. INITIALIZATION & RESIZE
+  // 12. INITIALIZATION & RESIZE
   // =========================================================================
-  function initSitePolygon() {
-    const w = canvas.width;
-    const h = canvas.height;
-    const cx = w * 0.5;
-    const cy = h * 0.5;
-    const halfW = 380;
-    const halfH = 260;
+  function updateSiteDimensions() {
+    const w = state.params.siteWidth;
+    const h = state.params.siteHeight;
+    const cx = canvas.width * 0.5;
+    const cy = canvas.height * 0.5;
+    const halfW = w * 0.5;
+    const halfH = h * 0.5;
 
     state.sitePolygon = [
       { x: cx - halfW, y: cy - halfH },
@@ -2036,10 +1784,9 @@
     canvas.width = container.clientWidth;
     canvas.height = container.clientHeight;
 
-    if (state.sitePolygon.length === 0) {
-      initSitePolygon();
+    updateSiteDimensions();
+    if (state.agents.length === 0) {
       initAgents();
-      initBgParticles();
       const center = Vec.centroid(state.sitePolygon);
       state.attractors = [
         { x: center.x - 120, y: center.y, radius: 240, strength: 1.5, type: 'attractor' }
@@ -2051,7 +1798,7 @@
   }
 
   // =========================================================================
-  // 14. MAIN ANIMATION & SIMULATION LOOP
+  // 13. MAIN ANIMATION & SIMULATION LOOP
   // =========================================================================
   function stepSimulation() {
     state.iteration++;
@@ -2070,11 +1817,11 @@
       stepSimulation();
     }
     render();
-    animFrameId = requestAnimationFrame(loop);
+    requestAnimationFrame(loop);
   }
 
   // =========================================================================
-  // 15. UI BINDINGS & SYNCHRONIZATION
+  // 14. UI BINDINGS & SYNCHRONIZATION
   // =========================================================================
   function bindUI() {
     const btnPlay = document.getElementById('btn-play');
@@ -2111,23 +1858,21 @@
     document.getElementById('btn-export-obj').addEventListener('click', export3DOBJ);
     document.getElementById('btn-export-stl').addEventListener('click', export3DSTL);
 
-    // Sequence Modal
-    document.getElementById('btn-sequence-mode').addEventListener('click', openSequenceModal);
+    // Sequence / Analysis Modal & Previous/Next buttons
+    document.getElementById('btn-analysis-mode').addEventListener('click', openSequenceModal);
     document.getElementById('modal-close').addEventListener('click', closeSequenceModal);
     document.getElementById('modal-done-btn').addEventListener('click', closeSequenceModal);
-    document.getElementById('btn-export-sequence-png').addEventListener('click', () => {
-      const link = document.createElement('a');
-      link.download = `Design-7-Exploration_Sequence_${activeSeqStep}.png`;
-      link.href = seqCanvas.toDataURL('image/png');
-      link.click();
+
+    document.getElementById('btn-seq-prev').addEventListener('click', () => {
+      renderSequenceStep(currentSeqStep - 1);
+    });
+    document.getElementById('btn-seq-next').addEventListener('click', () => {
+      renderSequenceStep(currentSeqStep + 1);
     });
 
-    document.querySelectorAll('.seq-step-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.seq-step-btn').forEach(b => b.classList.remove('active'));
-        e.target.classList.add('active');
-        activeSeqStep = e.target.dataset.seqStep;
-        renderSequenceStep(activeSeqStep);
+    document.querySelectorAll('.seq-step-btn').forEach((btn, idx) => {
+      btn.addEventListener('click', () => {
+        renderSequenceStep(idx);
       });
     });
 
@@ -2145,13 +1890,13 @@
 
         const hint = document.getElementById('tool-hint');
         if (state.activeTool === 'select') hint.textContent = 'Click & drag attractors/repulsors. Right click to delete.';
-        else if (state.activeTool === 'add-attractor') hint.textContent = 'Click canvas to place Attractor. Right click to delete.';
-        else if (state.activeTool === 'add-repulsor') hint.textContent = 'Click canvas to place Repulsor. Right click to delete.';
+        else if (state.activeTool === 'add-attractor') hint.textContent = 'Click canvas to place Attractor ○. Right click to delete.';
+        else if (state.activeTool === 'add-repulsor') hint.textContent = 'Click canvas to place Repulsor ×. Right click to delete.';
         else if (state.activeTool === 'edit-site') hint.textContent = 'Drag boundary vertices; click an edge to insert vertex.';
       });
     });
 
-    // View Mode Tabs
+    // Display Mode Tabs
     document.querySelectorAll('.mode-tab').forEach(tab => {
       tab.addEventListener('click', () => {
         document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
@@ -2180,44 +1925,47 @@
       state.params.agentCount = parseInt(v, 10);
       adjustAgentCount();
     });
-    bindRange('param-speed', 'val-speed', (v) => { state.params.speed = parseFloat(v); });
-    bindRange('param-randomness', 'val-randomness', (v) => { state.params.randomness = parseFloat(v); });
-    bindRange('param-influence-radius', 'val-influence-radius', (v) => { state.params.influenceRadius = parseFloat(v); }, 'px');
+    bindRange('param-speed', 'val-speed', (v) => { state.params.speed = parseInt(v, 10); });
+    bindRange('param-randomness', 'val-randomness', (v) => { state.params.randomness = parseInt(v, 10); });
 
-    bindToggle('toggle-attraction', (v) => { state.params.attractionEnabled = v; });
-    bindRange('param-attraction', 'val-attraction', (v) => { state.params.attractionStrength = parseFloat(v); });
+    bindRange('param-attraction', 'val-attraction', (v) => { state.params.attraction = parseInt(v, 10); });
+    bindRange('param-repulsion', 'val-repulsion', (v) => { state.params.repulsion = parseInt(v, 10); });
+    bindRange('param-separation', 'val-separation', (v) => { state.params.separation = parseInt(v, 10); });
+    bindRange('param-alignment', 'val-alignment', (v) => { state.params.alignment = parseInt(v, 10); });
+    bindRange('param-boundary', 'val-boundary', (v) => { state.params.boundary = parseInt(v, 10); });
 
-    bindToggle('toggle-repulsion', (v) => { state.params.repulsionEnabled = v; });
-    bindRange('param-repulsion', 'val-repulsion', (v) => { state.params.repulsionStrength = parseFloat(v); });
+    bindRange('param-influence-radius', 'val-influence-radius', (v) => { state.params.influenceRadius = parseInt(v, 10); });
+    bindRange('param-cell-expansion', 'val-cell-expansion', (v) => { state.params.cellExpansion = parseInt(v, 10); });
+    bindRange('param-cell-smoothing', 'val-cell-smoothing', (v) => { state.params.cellSmoothing = parseInt(v, 10); });
+    bindRange('param-circulation-influence', 'val-circulation-influence', (v) => { state.params.circulationInfluence = parseInt(v, 10); });
 
-    bindToggle('toggle-separation', (v) => { state.params.separationEnabled = v; });
-    bindRange('param-separation', 'val-separation', (v) => { state.params.separationStrength = parseFloat(v); });
-
-    bindToggle('toggle-alignment', (v) => { state.params.alignmentEnabled = v; });
-    bindRange('param-alignment', 'val-alignment', (v) => { state.params.alignmentStrength = parseFloat(v); });
-
-    bindToggle('toggle-boundary', (v) => { state.params.boundaryEnabled = v; });
-    bindRange('param-boundary', 'val-boundary', (v) => { state.params.boundaryStrength = parseFloat(v); });
-
-    // 3D Parameters
-    bindRange('param-wall-height', 'val-wall-height', (v) => { state.params.wallHeight = parseFloat(v); }, 'm');
-    bindRange('param-ext-parapet', 'val-ext-parapet', (v) => { state.params.extParapet = parseFloat(v); }, 'm');
-    bindRange('param-roof-opacity', 'val-roof-opacity', (v) => { state.params.roofOpacity = parseFloat(v); });
-
-    bindRange('param-wall-thickness', 'val-wall-thickness', (v) => { state.params.wallThickness = parseFloat(v); }, 'px');
-    bindRange('param-opening-threshold', 'val-opening-threshold', (v) => { state.params.openingThreshold = parseFloat(v); });
-    bindRange('param-public-threshold', 'val-public-threshold', (v) => { state.params.publicThreshold = parseFloat(v); });
-    bindRange('param-circulation-influence', 'val-circulation-influence', (v) => { state.params.circulationInfluence = parseFloat(v); });
+    bindRange('param-min-cell-size', 'val-min-cell-size', (v) => { state.params.minCellSize = parseInt(v, 10); });
+    bindRange('param-max-cell-size', 'val-max-cell-size', (v) => { state.params.maxCellSize = parseInt(v, 10); });
+    bindRange('param-public-private', 'val-public-private', (v) => { state.params.publicPrivate = parseInt(v, 10); });
+    bindRange('param-circulation-threshold', 'val-circulation-threshold', (v) => { state.params.circulationThreshold = parseInt(v, 10); });
+    bindRange('param-opening-threshold', 'val-opening-threshold', (v) => { state.params.openingThreshold = parseInt(v, 10); });
 
     bindToggle('toggle-feedback', (v) => {
       state.params.feedbackEnabled = v;
-      document.getElementById('hud-feedback-status').textContent = v ? 'ACTIVE' : 'OFF';
+      document.getElementById('hud-feedback-status').textContent = v ? 'ON' : 'OFF';
+      document.getElementById('val-feedback').textContent = v ? 'ON' : 'OFF';
     });
-    bindRange('param-feedback', 'val-feedback', (v) => { state.params.feedbackStrength = parseFloat(v); });
 
-    const layerKeys = ['site', 'agents', 'trails', 'voronoi', 'forces', 'programs', 'walls', 'circulation', 'labels'];
+    bindRange('param-site-width', 'val-site-width', (v) => {
+      state.params.siteWidth = parseInt(v, 10);
+      updateSiteDimensions();
+      computeVoronoiAndArchitecture();
+    }, 'px');
+    bindRange('param-site-height', 'val-site-height', (v) => {
+      state.params.siteHeight = parseInt(v, 10);
+      updateSiteDimensions();
+      computeVoronoiAndArchitecture();
+    }, 'px');
+
+    // Layer checkboxes
+    const layerKeys = ['site', 'agents', 'trails', 'vectors', 'voronoi', 'attractors', 'repulsors', 'circulation', 'archCells', 'walls', 'openings', 'labels'];
     layerKeys.forEach(k => {
-      const el = document.getElementById(`layer-${k}`);
+      const el = document.getElementById(`layer-${k.toLowerCase() === 'archcells' ? 'arch-cells' : k}`);
       if (el) {
         el.addEventListener('change', () => {
           state.layers[k] = el.checked;
@@ -2291,35 +2039,39 @@
     setVal('param-agent-count', state.params.agentCount, 'val-agent-count');
     setVal('param-speed', state.params.speed, 'val-speed');
     setVal('param-randomness', state.params.randomness, 'val-randomness');
-    setVal('param-influence-radius', state.params.influenceRadius, 'val-influence-radius', 'px');
 
-    setChk('toggle-attraction', state.params.attractionEnabled);
-    setVal('param-attraction', state.params.attractionStrength, 'val-attraction');
-    setChk('toggle-repulsion', state.params.repulsionEnabled);
-    setVal('param-repulsion', state.params.repulsionStrength, 'val-repulsion');
-    setChk('toggle-separation', state.params.separationEnabled);
-    setVal('param-separation', state.params.separationStrength, 'val-separation');
-    setChk('toggle-alignment', state.params.alignmentEnabled);
-    setVal('param-alignment', state.params.alignmentStrength, 'val-alignment');
-    setChk('toggle-boundary', state.params.boundaryEnabled);
-    setVal('param-boundary', state.params.boundaryStrength, 'val-boundary');
+    setVal('param-attraction', state.params.attraction, 'val-attraction');
+    setVal('param-repulsion', state.params.repulsion, 'val-repulsion');
+    setVal('param-separation', state.params.separation, 'val-separation');
+    setVal('param-alignment', state.params.alignment, 'val-alignment');
+    setVal('param-boundary', state.params.boundary, 'val-boundary');
 
-    setVal('param-wall-height', state.params.wallHeight, 'val-wall-height', 'm');
-    setVal('param-ext-parapet', state.params.extParapet, 'val-ext-parapet', 'm');
+    setVal('param-influence-radius', state.params.influenceRadius, 'val-influence-radius');
+    setVal('param-cell-expansion', state.params.cellExpansion, 'val-cell-expansion');
+    setVal('param-cell-smoothing', state.params.cellSmoothing, 'val-cell-smoothing');
+    setVal('param-circulation-influence', state.params.circulationInfluence, 'val-circulation-influence');
+
+    setVal('param-min-cell-size', state.params.minCellSize, 'val-min-cell-size');
+    setVal('param-max-cell-size', state.params.maxCellSize, 'val-max-cell-size');
+    setVal('param-public-private', state.params.publicPrivate, 'val-public-private');
+    setVal('param-circulation-threshold', state.params.circulationThreshold, 'val-circulation-threshold');
+    setVal('param-opening-threshold', state.params.openingThreshold, 'val-opening-threshold');
 
     setChk('toggle-feedback', state.params.feedbackEnabled);
-    setVal('param-feedback', state.params.feedbackStrength, 'val-feedback');
-    document.getElementById('hud-feedback-status').textContent = state.params.feedbackEnabled ? 'ACTIVE' : 'OFF';
+    document.getElementById('hud-feedback-status').textContent = state.params.feedbackEnabled ? 'ON' : 'OFF';
   }
 
   function updateTelemetryUI() {
     document.getElementById('hud-iteration').textContent = String(state.iteration).padStart(5, '0');
+    document.getElementById('metric-iteration').textContent = state.iteration;
     document.getElementById('metric-agents').textContent = state.agents.length;
-    document.getElementById('metric-cells').textContent = state.cells.length;
-    document.getElementById('metric-avg-area').textContent = `${(state.stats.avgArea * 0.1).toFixed(0)} m²`;
-    document.getElementById('metric-density').textContent = state.stats.densityVariance;
-    document.getElementById('metric-forces').textContent = `${state.attractors.length} / ${state.repulsors.length}`;
-    document.getElementById('metric-flux').textContent = `${state.stats.flux}%`;
+    document.getElementById('metric-avg-area').textContent = `${state.stats.avgArea} m²`;
+    document.getElementById('metric-avg-size').textContent = `${state.stats.avgSize} m`;
+    document.getElementById('metric-density').textContent = state.stats.density;
+    document.getElementById('metric-attractors').textContent = state.attractors.length;
+    document.getElementById('metric-repulsors').textContent = state.repulsors.length;
+    document.getElementById('metric-flux').textContent = `${state.stats.circulationPct}%`;
+    document.getElementById('metric-open-edges').textContent = state.stats.openEdges;
 
     const dist = state.stats.progDist;
     document.getElementById('bar-public').style.width = `${dist.public}%`;
@@ -2336,7 +2088,7 @@
   }
 
   // =========================================================================
-  // 16. STARTUP
+  // 15. STARTUP
   // =========================================================================
   window.addEventListener('DOMContentLoaded', () => {
     canvas = document.getElementById('main-canvas');

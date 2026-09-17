@@ -6,7 +6,7 @@
   <title>Design-7-Exploration</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,7 +15,7 @@
     <header id="top-bar">
       <div class="brand-block">
         <span class="brand-tag">EMERGENT / VORONOI SYSTEM</span>
-        <span class="brand-sub">ARCHITECTURAL MORPHOGENESIS LABORATORY</span>
+        <span class="brand-sub">INTERACTIVE GENERATIVE ARCHITECTURE LABORATORY</span>
       </div>
 
       <div class="header-controls">
@@ -26,18 +26,14 @@
         </div>
 
         <div class="btn-group">
-          <button id="btn-snapshot" class="ctrl-btn" title="Save Current State">SNAPSHOT</button>
-          <button id="btn-export-png" class="ctrl-btn" title="Export High-Res 2D PNG">PNG</button>
-          <button id="btn-export-svg" class="ctrl-btn" title="Export Vector 2D SVG">SVG</button>
+          <button id="btn-snapshot" class="ctrl-btn" title="Save Current State">SAVE STATE</button>
+          <button id="btn-export-png" class="ctrl-btn" title="Export High-Res 2D PNG">EXPORT PNG</button>
+          <button id="btn-export-svg" class="ctrl-btn" title="Export Vector 2D SVG">EXPORT SVG</button>
+          <button id="btn-export-obj" class="ctrl-btn" title="Export 3D Wavefront OBJ">EXPORT 3D OBJ</button>
+          <button id="btn-export-stl" class="ctrl-btn" title="Export 3D STL Mesh">EXPORT 3D STL</button>
         </div>
 
-        <!-- 3D EXPORT BUTTONS -->
-        <div class="btn-group">
-          <button id="btn-export-obj" class="ctrl-btn accent-3d" title="Export 3D Wavefront OBJ Geometry (Rhino/Blender/CAD)">3D OBJ</button>
-          <button id="btn-export-stl" class="ctrl-btn accent-3d" title="Export 3D STL Model (3D Printing)">3D STL</button>
-        </div>
-
-        <button id="btn-sequence-mode" class="ctrl-btn accent" title="Studio 5-Step Analysis Sequence">DIAGRAM SEQUENCE</button>
+        <button id="btn-analysis-mode" class="ctrl-btn accent" title="Visual 5-Stage Analysis Mode">ANALYSIS MODE</button>
       </div>
     </header>
 
@@ -48,16 +44,16 @@
         <!-- PRESETS -->
         <div class="sidebar-section">
           <div class="section-header">
-            <h3>PRESET CONFIGURATIONS</h3>
+            <h3>SYSTEM PRESETS</h3>
           </div>
           <div class="preset-grid">
-            <button class="preset-btn" data-preset="uniform">01 Uniform</button>
-            <button class="preset-btn" data-preset="central">02 Central Attractor</button>
-            <button class="preset-btn" data-preset="multi">03 Multi Attractors</button>
-            <button class="preset-btn" data-preset="flow">04 Flow Promenade</button>
-            <button class="preset-btn" data-preset="collision">05 Collision Mosaic</button>
-            <button class="preset-btn" data-preset="organic">06 Organic Growth</button>
-            <button class="preset-btn highlight" data-preset="feedback">07 Arch Feedback</button>
+            <button class="preset-btn" data-preset="uniform">01 UNIFORM</button>
+            <button class="preset-btn" data-preset="central">02 CENTRAL ATTRACTOR</button>
+            <button class="preset-btn" data-preset="multi">03 MULTI ATTRACTORS</button>
+            <button class="preset-btn" data-preset="flow">04 FLOW PROMENADE</button>
+            <button class="preset-btn" data-preset="collision">05 COLLISION MOSAIC</button>
+            <button class="preset-btn" data-preset="organic">06 ORGANIC GROWTH</button>
+            <button class="preset-btn highlight" data-preset="feedback">07 ARCH FEEDBACK</button>
           </div>
         </div>
 
@@ -67,313 +63,313 @@
             <h3>INTERACTION TOOL</h3>
           </div>
           <div class="tool-selector">
-            <button class="tool-btn active" data-tool="select" title="Move attractors/repulsors or boundary points">Select / Move</button>
-            <button class="tool-btn" data-tool="add-attractor" title="Click on canvas to add Attractor">+ Attractor</button>
-            <button class="tool-btn" data-tool="add-repulsor" title="Click on canvas to add Repulsor">+ Repulsor</button>
-            <button class="tool-btn" data-tool="edit-site" title="Click edges to add vertices, drag vertices">Site Boundary</button>
+            <button class="tool-btn active" data-tool="select">Select / Move</button>
+            <button class="tool-btn" data-tool="add-attractor">+ ATTRACTOR</button>
+            <button class="tool-btn" data-tool="add-repulsor">+ REPULSOR</button>
+            <button class="tool-btn" data-tool="edit-site">EDIT SITE</button>
           </div>
           <p class="tool-hint" id="tool-hint">Click & drag attractors/repulsors. Right click to delete.</p>
         </div>
 
-        <!-- VIEW MODE SELECTOR -->
+        <!-- DISPLAY MODES -->
         <div class="sidebar-section">
           <div class="section-header">
-            <h3>VISUALIZATION MODE</h3>
+            <h3>DISPLAY MODE</h3>
           </div>
           <div class="view-mode-tabs">
-            <button class="mode-tab" data-mode="agents">Agents</button>
-            <button class="mode-tab" data-mode="behavior">Vectors</button>
-            <button class="mode-tab" data-mode="voronoi">Voronoi</button>
-            <button class="mode-tab" data-mode="spatial">Spatial</button>
-            <button class="mode-tab active" data-mode="architecture">Architecture</button>
-            <button class="mode-tab highlight-3d" data-mode="3d-axono">3D Axono</button>
+            <button class="mode-tab" data-mode="agents">AGENTS</button>
+            <button class="mode-tab" data-mode="behavior">BEHAVIOR</button>
+            <button class="mode-tab" data-mode="voronoi">VORONOI</button>
+            <button class="mode-tab" data-mode="spatial">SPATIAL</button>
+            <button class="mode-tab active" data-mode="architecture">ARCHITECTURAL</button>
+            <button class="mode-tab" data-mode="full">FULL SYSTEM</button>
           </div>
         </div>
 
-        <!-- PARAMETER SLIDERS -->
+        <!-- PARAMETER PANEL -->
         <div class="sidebar-scrollable">
-          <!-- SYSTEM -->
+          <!-- SYSTEM SECTION -->
           <div class="param-group">
             <div class="param-group-title">SYSTEM</div>
             <div class="param-row">
-              <label for="param-agent-count">Agent Count <span class="param-val" id="val-agent-count">120</span></label>
-              <input type="range" id="param-agent-count" min="20" max="400" step="5" value="120">
+              <label for="param-agent-count">Agent Count <span class="param-val" id="val-agent-count">100</span></label>
+              <input type="range" id="param-agent-count" min="10" max="500" step="5" value="100">
             </div>
             <div class="param-row">
-              <label for="param-speed">Agent Speed <span class="param-val" id="val-speed">1.8</span></label>
-              <input type="range" id="param-speed" min="0.2" max="5.0" step="0.1" value="1.8">
+              <label for="param-speed">Agent Speed <span class="param-val" id="val-speed">35</span></label>
+              <input type="range" id="param-speed" min="0" max="100" step="1" value="35">
             </div>
             <div class="param-row">
-              <label for="param-randomness">Wander Noise <span class="param-val" id="val-randomness">0.25</span></label>
-              <input type="range" id="param-randomness" min="0.0" max="1.0" step="0.05" value="0.25">
+              <label for="param-randomness">Randomness <span class="param-val" id="val-randomness">25</span></label>
+              <input type="range" id="param-randomness" min="0" max="100" step="1" value="25">
             </div>
           </div>
 
-          <!-- FORCES -->
+          <!-- FORCES SECTION -->
           <div class="param-group">
-            <div class="param-group-title">BEHAVIORAL FORCES</div>
-            <div class="param-toggle-row">
-              <label><input type="checkbox" id="toggle-attraction" checked> Attraction Strength</label>
-              <span class="param-val" id="val-attraction">1.2</span>
-            </div>
-            <input type="range" id="param-attraction" min="0" max="3" step="0.1" value="1.2">
-
-            <div class="param-toggle-row">
-              <label><input type="checkbox" id="toggle-repulsion" checked> Repulsion Strength</label>
-              <span class="param-val" id="val-repulsion">1.5</span>
-            </div>
-            <input type="range" id="param-repulsion" min="0" max="3" step="0.1" value="1.5">
-
-            <div class="param-toggle-row">
-              <label><input type="checkbox" id="toggle-separation" checked> Separation</label>
-              <span class="param-val" id="val-separation">1.4</span>
-            </div>
-            <input type="range" id="param-separation" min="0" max="3" step="0.1" value="1.4">
-
-            <div class="param-toggle-row">
-              <label><input type="checkbox" id="toggle-alignment" checked> Alignment</label>
-              <span class="param-val" id="val-alignment">0.6</span>
-            </div>
-            <input type="range" id="param-alignment" min="0" max="2" step="0.05" value="0.6">
-
-            <div class="param-toggle-row">
-              <label><input type="checkbox" id="toggle-boundary" checked> Boundary Avoidance</label>
-              <span class="param-val" id="val-boundary">1.8</span>
-            </div>
-            <input type="range" id="param-boundary" min="0.1" max="4" step="0.1" value="1.8">
-
+            <div class="param-group-title">FORCES</div>
             <div class="param-row">
-              <label for="param-influence-radius">Influence Radius <span class="param-val" id="val-influence-radius">75px</span></label>
-              <input type="range" id="param-influence-radius" min="25" max="200" step="5" value="75">
+              <label for="param-attraction">Attraction <span class="param-val" id="val-attraction">40</span></label>
+              <input type="range" id="param-attraction" min="0" max="100" step="1" value="40">
+            </div>
+            <div class="param-row">
+              <label for="param-repulsion">Repulsion <span class="param-val" id="val-repulsion">50</span></label>
+              <input type="range" id="param-repulsion" min="0" max="100" step="1" value="50">
+            </div>
+            <div class="param-row">
+              <label for="param-separation">Separation <span class="param-val" id="val-separation">45</span></label>
+              <input type="range" id="param-separation" min="0" max="100" step="1" value="45">
+            </div>
+            <div class="param-row">
+              <label for="param-alignment">Alignment <span class="param-val" id="val-alignment">30</span></label>
+              <input type="range" id="param-alignment" min="0" max="100" step="1" value="30">
+            </div>
+            <div class="param-row">
+              <label for="param-boundary">Boundary <span class="param-val" id="val-boundary">60</span></label>
+              <input type="range" id="param-boundary" min="0" max="100" step="1" value="60">
             </div>
           </div>
 
-          <!-- 3D GEOMETRY EXTRUSION CONTROLS -->
+          <!-- SPATIAL SECTION -->
           <div class="param-group">
-            <div class="param-group-title">3D GEOMETRY & EXTRUSION</div>
+            <div class="param-group-title">SPATIAL</div>
             <div class="param-row">
-              <label for="param-wall-height">Wall Height <span class="param-val" id="val-wall-height">3.5m</span></label>
-              <input type="range" id="param-wall-height" min="1.0" max="12.0" step="0.5" value="3.5">
+              <label for="param-influence-radius">Influence Radius <span class="param-val" id="val-influence-radius">75</span></label>
+              <input type="range" id="param-influence-radius" min="0" max="200" step="5" value="75">
             </div>
             <div class="param-row">
-              <label for="param-ext-parapet">Parapet Height <span class="param-val" id="val-ext-parapet">1.2m</span></label>
-              <input type="range" id="param-ext-parapet" min="0.0" max="4.0" step="0.2" value="1.2">
+              <label for="param-cell-expansion">Cell Expansion <span class="param-val" id="val-cell-expansion">30</span></label>
+              <input type="range" id="param-cell-expansion" min="0" max="100" step="1" value="30">
             </div>
             <div class="param-row">
-              <label for="param-roof-opacity">Roof Massing Opacity <span class="param-val" id="val-roof-opacity">0.80</span></label>
-              <input type="range" id="param-roof-opacity" min="0.1" max="1.0" step="0.05" value="0.80">
+              <label for="param-cell-smoothing">Cell Smoothing <span class="param-val" id="val-cell-smoothing">20</span></label>
+              <input type="range" id="param-cell-smoothing" min="0" max="100" step="1" value="20">
+            </div>
+            <div class="param-row">
+              <label for="param-circulation-influence">Circulation Influence <span class="param-val" id="val-circulation-influence">70</span></label>
+              <input type="range" id="param-circulation-influence" min="0" max="100" step="1" value="70">
             </div>
           </div>
 
-          <!-- ARCHITECTURE & FEEDBACK LOOP -->
+          <!-- ARCHITECTURE SECTION -->
           <div class="param-group">
-            <div class="param-group-title">ARCHITECTURAL TRANSLATION</div>
+            <div class="param-group-title">ARCHITECTURE</div>
             <div class="param-row">
-              <label for="param-wall-thickness">Wall Thickness <span class="param-val" id="val-wall-thickness">3.0px</span></label>
-              <input type="range" id="param-wall-thickness" min="1.0" max="6.0" step="0.5" value="3.0">
+              <label for="param-min-cell-size">Minimum Cell Size <span class="param-val" id="val-min-cell-size">15</span></label>
+              <input type="range" id="param-min-cell-size" min="5" max="80" step="1" value="15">
             </div>
             <div class="param-row">
-              <label for="param-opening-threshold">Opening Permeability <span class="param-val" id="val-opening-threshold">0.45</span></label>
-              <input type="range" id="param-opening-threshold" min="0.1" max="0.9" step="0.05" value="0.45">
+              <label for="param-max-cell-size">Maximum Cell Size <span class="param-val" id="val-max-cell-size">180</span></label>
+              <input type="range" id="param-max-cell-size" min="50" max="400" step="5" value="180">
             </div>
             <div class="param-row">
-              <label for="param-public-threshold">Public/Private Threshold <span class="param-val" id="val-public-threshold">0.50</span></label>
-              <input type="range" id="param-public-threshold" min="0.1" max="0.9" step="0.05" value="0.50">
+              <label for="param-public-private">Public / Private <span class="param-val" id="val-public-private">50</span></label>
+              <input type="range" id="param-public-private" min="0" max="100" step="1" value="50">
             </div>
             <div class="param-row">
-              <label for="param-circulation-influence">Circulation Trail Memory <span class="param-val" id="val-circulation-influence">0.70</span></label>
-              <input type="range" id="param-circulation-influence" min="0.1" max="0.95" step="0.05" value="0.70">
+              <label for="param-circulation-threshold">Circulation Threshold <span class="param-val" id="val-circulation-threshold">55</span></label>
+              <input type="range" id="param-circulation-threshold" min="0" max="100" step="1" value="55">
+            </div>
+            <div class="param-row">
+              <label for="param-opening-threshold">Opening Threshold <span class="param-val" id="val-opening-threshold">45</span></label>
+              <input type="range" id="param-opening-threshold" min="0" max="100" step="1" value="45">
             </div>
 
-            <!-- FEEDBACK LOOP -->
             <div class="feedback-box">
               <div class="param-toggle-row highlight">
                 <label><input type="checkbox" id="toggle-feedback" checked> Architectural Feedback</label>
-                <span class="param-val" id="val-feedback">0.8</span>
+                <span class="param-val" id="val-feedback">ON</span>
               </div>
-              <input type="range" id="param-feedback" min="0" max="2.0" step="0.1" value="0.8">
               <div class="feedback-caption">
-                Spaces affect movement: agents channel into open plazas & circulation spines while avoiding enclosed cores.
+                Architectural conditions influence agent movement, creating continuous reciprocal morphogenesis.
               </div>
             </div>
           </div>
 
-          <!-- LAYER VISIBILITY TOGGLES -->
+          <!-- SITE BOUNDARY SECTION -->
           <div class="param-group">
-            <div class="param-group-title">DISPLAY / EXPORT LAYERS</div>
+            <div class="param-group-title">SITE DIMENSIONS</div>
+            <div class="param-row">
+              <label for="param-site-width">Site Width <span class="param-val" id="val-site-width">760px</span></label>
+              <input type="range" id="param-site-width" min="300" max="1200" step="20" value="760">
+            </div>
+            <div class="param-row">
+              <label for="param-site-height">Site Height <span class="param-val" id="val-site-height">520px</span></label>
+              <input type="range" id="param-site-height" min="200" max="800" step="20" value="520">
+            </div>
+          </div>
+
+          <!-- LAYER VISIBILITY MENU -->
+          <div class="param-group">
+            <div class="param-group-title">LAYER CONTROLS</div>
             <div class="layer-checkbox-grid">
-              <label><input type="checkbox" id="layer-site" checked> Site Boundary</label>
-              <label><input type="checkbox" id="layer-agents" checked> Agents</label>
-              <label><input type="checkbox" id="layer-trails" checked> Movement Trails</label>
-              <label><input type="checkbox" id="layer-voronoi" checked> Voronoi Mesh</label>
-              <label><input type="checkbox" id="layer-forces" checked> Attractors/Repulsors</label>
-              <label><input type="checkbox" id="layer-programs" checked> Program Fills</label>
-              <label><input type="checkbox" id="layer-walls" checked> Architectural Walls</label>
-              <label><input type="checkbox" id="layer-circulation" checked> Circulation Spines</label>
-              <label><input type="checkbox" id="layer-labels" checked> Spatial Labels</label>
+              <label><input type="checkbox" id="layer-site" checked> SITE</label>
+              <label><input type="checkbox" id="layer-agents" checked> AGENTS</label>
+              <label><input type="checkbox" id="layer-trails" checked> TRAILS</label>
+              <label><input type="checkbox" id="layer-vectors" checked> VECTORS</label>
+              <label><input type="checkbox" id="layer-voronoi" checked> VORONOI</label>
+              <label><input type="checkbox" id="layer-attractors" checked> ATTRACTORS</label>
+              <label><input type="checkbox" id="layer-repulsors" checked> REPULSORS</label>
+              <label><input type="checkbox" id="layer-circulation" checked> CIRCULATION</label>
+              <label><input type="checkbox" id="layer-arch-cells" checked> ARCH CELLS</label>
+              <label><input type="checkbox" id="layer-walls" checked> WALLS</label>
+              <label><input type="checkbox" id="layer-openings" checked> OPENINGS</label>
+              <label><input type="checkbox" id="layer-labels" checked> LABELS</label>
             </div>
           </div>
         </div>
       </aside>
 
-      <!-- CENTER: CANVAS CONTAINER -->
+      <!-- CENTER: MAIN CANVASES -->
       <main id="canvas-container">
-        <!-- TOP CANVAS HUD OVERLAY -->
+        <!-- TOP HUD -->
         <div id="canvas-hud">
           <div class="hud-left">
             <span class="hud-tag">ITERATION: <strong id="hud-iteration">00000</strong></span>
-            <span class="hud-tag">MODE: <strong id="hud-mode">ARCHITECTURE</strong></span>
-            <span class="hud-tag">FEEDBACK: <strong id="hud-feedback-status">ACTIVE</strong></span>
+            <span class="hud-tag">MODE: <strong id="hud-mode">ARCHITECTURAL</strong></span>
+            <span class="hud-tag">FEEDBACK: <strong id="hud-feedback-status">ON</strong></span>
           </div>
           <div class="hud-right">
-            <button id="btn-fit-screen" class="hud-btn" title="Reset Pan & Zoom">FIT VIEW</button>
-            <button id="btn-clear-forces" class="hud-btn" title="Clear Attractors and Repulsors">CLEAR FORCES</button>
+            <button id="btn-fit-screen" class="hud-btn" title="Reset View">FIT VIEW</button>
+            <button id="btn-clear-forces" class="hud-btn" title="Clear Forces">CLEAR FORCES</button>
           </div>
         </div>
 
         <canvas id="main-canvas"></canvas>
 
-        <!-- BOTTOM CANVAS LEGEND -->
+        <!-- LEGEND -->
         <div id="canvas-legend">
-          <div class="legend-item"><span class="legend-swatch attractor"></span> Attractor</div>
-          <div class="legend-item"><span class="legend-swatch repulsor"></span> Repulsor</div>
-          <div class="legend-item"><span class="legend-swatch public"></span> Civic / Public Plaza</div>
-          <div class="legend-item"><span class="legend-swatch studio"></span> Active Studio</div>
-          <div class="legend-item"><span class="legend-swatch private"></span> Cellular Space</div>
+          <div class="legend-item"><span class="legend-swatch attractor"></span> Attractor ○</div>
+          <div class="legend-item"><span class="legend-swatch repulsor"></span> Repulsor ×</div>
+          <div class="legend-item"><span class="legend-swatch public"></span> Public Territory</div>
+          <div class="legend-item"><span class="legend-swatch studio"></span> Primary Territory</div>
+          <div class="legend-item"><span class="legend-swatch private"></span> Private Territory</div>
           <div class="legend-item"><span class="legend-swatch service"></span> Service Core</div>
           <div class="legend-item"><span class="legend-swatch spine"></span> Circulation Spine</div>
         </div>
       </main>
 
-      <!-- RIGHT SIDEBAR: LIVE SPATIAL TELEMETRY & SNAPSHOTS -->
+      <!-- RIGHT SIDEBAR: ANALYTICAL METRICS & SAVED STATES -->
       <aside id="right-sidebar" class="sidebar">
         <div class="sidebar-section">
           <div class="section-header">
-            <h3>SPATIAL TELEMETRY</h3>
+            <h3>ANALYTICAL METRICS</h3>
           </div>
           <div class="telemetry-grid">
             <div class="metric-card">
-              <span class="metric-label">ACTIVE AGENTS</span>
-              <span class="metric-value" id="metric-agents">120</span>
+              <span class="metric-label">ITERATION</span>
+              <span class="metric-value" id="metric-iteration">0</span>
             </div>
             <div class="metric-card">
-              <span class="metric-label">VORONOI CELLS</span>
-              <span class="metric-value" id="metric-cells">120</span>
+              <span class="metric-label">AGENTS</span>
+              <span class="metric-value" id="metric-agents">100</span>
             </div>
             <div class="metric-card">
-              <span class="metric-label">AVG CELL AREA</span>
-              <span class="metric-value" id="metric-avg-area">3,420 m²</span>
+              <span class="metric-label">AVERAGE CELL AREA</span>
+              <span class="metric-value" id="metric-avg-area">342.0 m²</span>
             </div>
             <div class="metric-card">
-              <span class="metric-label">DENSITY VARIANCE</span>
-              <span class="metric-value" id="metric-density">0.42</span>
+              <span class="metric-label">AVERAGE CELL SIZE</span>
+              <span class="metric-value" id="metric-avg-size">18.5 m</span>
             </div>
             <div class="metric-card">
-              <span class="metric-label">ATTRACTORS / REPULSORS</span>
-              <span class="metric-value" id="metric-forces">2 / 1</span>
+              <span class="metric-label">DENSITY</span>
+              <span class="metric-value" id="metric-density">0.68</span>
             </div>
             <div class="metric-card">
-              <span class="metric-label">CIRCULATION FLUX</span>
-              <span class="metric-value" id="metric-flux">78.4%</span>
+              <span class="metric-label">ATTRACTORS</span>
+              <span class="metric-value" id="metric-attractors">1</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">REPULSORS</span>
+              <span class="metric-value" id="metric-repulsors">1</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">CIRCULATION</span>
+              <span class="metric-value" id="metric-flux">14.2%</span>
+            </div>
+            <div class="metric-card full-w">
+              <span class="metric-label">OPEN EDGES</span>
+              <span class="metric-value" id="metric-open-edges">37</span>
             </div>
           </div>
         </div>
 
-        <!-- PROGRAM DISTRIBUTION -->
+        <!-- SPATIAL HIERARCHY -->
         <div class="sidebar-section">
           <div class="section-header">
-            <h3>PROGRAM COMPOSITION</h3>
+            <h3>SPATIAL TERRITORIES</h3>
           </div>
           <div class="prog-bars">
             <div class="prog-row">
-              <span class="prog-name">Plaza / Civic</span>
+              <span class="prog-name">Public Territory</span>
               <div class="prog-bar-track"><div class="prog-bar-fill public" id="bar-public" style="width: 28%;"></div></div>
               <span class="prog-pct" id="pct-public">28%</span>
             </div>
             <div class="prog-row">
-              <span class="prog-name">Active Studio</span>
+              <span class="prog-name">Primary Territory</span>
               <div class="prog-bar-track"><div class="prog-bar-fill studio" id="bar-studio" style="width: 36%;"></div></div>
               <span class="prog-pct" id="pct-studio">36%</span>
             </div>
             <div class="prog-row">
-              <span class="prog-name">Cellular Suites</span>
+              <span class="prog-name">Private Territory</span>
               <div class="prog-bar-track"><div class="prog-bar-fill private" id="bar-private" style="width: 24%;"></div></div>
               <span class="prog-pct" id="pct-private">24%</span>
             </div>
             <div class="prog-row">
-              <span class="prog-name">Service Cores</span>
+              <span class="prog-name">Service Core</span>
               <div class="prog-bar-track"><div class="prog-bar-fill service" id="bar-service" style="width: 12%;"></div></div>
               <span class="prog-pct" id="pct-service">12%</span>
             </div>
           </div>
         </div>
 
-        <!-- CAUSAL DIAGRAM NOTES -->
-        <div class="sidebar-section">
-          <div class="section-header">
-            <h3>EMERGENCE PIPELINE</h3>
-          </div>
-          <div class="pipeline-card">
-            <div class="pipeline-step"><span class="step-num">1</span> <strong>AGENTS</strong>: Local forces & wander</div>
-            <div class="pipeline-arrow">↓</div>
-            <div class="pipeline-step"><span class="step-num">2</span> <strong>MOVEMENT</strong>: Dynamic velocity field</div>
-            <div class="pipeline-arrow">↓</div>
-            <div class="pipeline-step"><span class="step-num">3</span> <strong>DISTRIBUTION</strong>: Clustering & voids</div>
-            <div class="pipeline-arrow">↓</div>
-            <div class="pipeline-step"><span class="step-num">4</span> <strong>VORONOI</strong>: Geometric partition</div>
-            <div class="pipeline-arrow">↓</div>
-            <div class="pipeline-step"><span class="step-num">5</span> <strong>ARCHITECTURE</strong>: Walls, openings, programs</div>
-            <div class="pipeline-arrow">↻</div>
-            <div class="pipeline-step active"><span class="step-num">6</span> <strong>FEEDBACK</strong>: Architecture directs flow</div>
-          </div>
-        </div>
-
-        <!-- SNAPSHOTS GALLERY -->
+        <!-- SAVED STATES TIMELINE -->
         <div class="sidebar-section snapshots-section">
           <div class="section-header">
-            <h3>SAVED SNAPSHOTS</h3>
+            <h3>SAVED STATES</h3>
             <span id="snapshot-count" class="badge">0</span>
           </div>
           <div id="snapshot-list" class="snapshot-list">
-            <div class="empty-snapshots">No saved states yet. Click [SNAPSHOT] to capture interesting configurations.</div>
+            <div class="empty-snapshots">No saved states yet. Click [SAVE STATE] to capture configurations.</div>
           </div>
         </div>
       </aside>
     </div>
 
-    <!-- STUDIO 5-STEP SEQUENCE MODAL -->
+    <!-- ANALYSIS SEQUENCE MODAL -->
     <div id="sequence-modal" class="modal-overlay hidden">
       <div class="modal-window">
         <div class="modal-header">
           <div class="modal-title-group">
-            <h2>MORPHOGENETIC SEQUENCE ANALYSIS</h2>
-            <p>Deconstruction of Emergent Spatial Organization from Local Rules to Architectural Form</p>
+            <h2>DIAGRAM ANALYSIS MODE</h2>
+            <p>5-Stage Deconstruction of Emergent Architectural Morphogenesis</p>
           </div>
           <button id="modal-close" class="modal-close-btn">&times;</button>
         </div>
 
         <div class="modal-body">
           <div class="sequence-nav">
+            <button id="btn-seq-prev" class="ctrl-btn">&larr; PREVIOUS</button>
             <button class="seq-step-btn active" data-seq-step="0">01 — AGENTS</button>
             <button class="seq-step-btn" data-seq-step="1">02 — BEHAVIOR</button>
             <button class="seq-step-btn" data-seq-step="2">03 — VORONOI</button>
             <button class="seq-step-btn" data-seq-step="3">04 — SPATIAL</button>
             <button class="seq-step-btn" data-seq-step="4">05 — ARCHITECTURAL</button>
-            <button class="seq-step-btn" data-seq-step="all">5-STAGE MATRIX</button>
+            <button id="btn-seq-next" class="ctrl-btn">NEXT &rarr;</button>
           </div>
 
           <div class="sequence-display-container">
             <canvas id="sequence-canvas"></canvas>
             <div class="sequence-explanation" id="sequence-explanation">
               <h4 id="seq-title">01 — AGENTS (Point Distribution)</h4>
-              <p id="seq-desc">Discrete spatial agents initialized across the defined architectural boundary. Each point represents an autonomous occupant or attractor locus within the site.</p>
+              <p id="seq-desc">Show only agent positions within the site boundary.</p>
             </div>
           </div>
         </div>
 
         <div class="modal-footer">
-          <button id="btn-export-sequence-png" class="ctrl-btn">EXPORT SEQUENCE DIAGRAM</button>
-          <button id="modal-done-btn" class="ctrl-btn primary">RETURN TO STUDIO</button>
+          <button id="modal-done-btn" class="ctrl-btn primary">CLOSE ANALYSIS</button>
         </div>
       </div>
     </div>
