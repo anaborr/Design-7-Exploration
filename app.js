@@ -1,10 +1,10 @@
 /**
  * ============================================================================
  * DESIGN 7 EXPLORATION - DESCRIPTOR-DRIVEN ARCHITECTURAL EVOLUTION SYSTEM
- * MILESTONE 1 CONTROLLER
- * Handles zero-initial geometry start screen, browser-based Rhino .3dm import,
- * exact coordinate rendering, viewport auto-fitting, object metadata counts,
- * and 6-child seed clone technical proof test.
+ * CHECKPOINT A CONTROLLER: RHINO FIDELITY & MEMORY MODEL
+ * Preserves original native Rhino objects in memory, supports original vs
+ * editable seed memory separation, displays real NURBS control polygons,
+ * and provides full import audit verification.
  * ============================================================================
  */
 
@@ -13,21 +13,24 @@
 // ============================================================================
 
 let appState = {
-  // Imported Generation 0 Rhino Seed Data
-  rhinoSeed: null,
+  // Immutable 3DM Source Truth
+  originalRhinoGeometry: null,
 
-  // Active Selected Geometry (Parent or Clone)
+  // Editable Working Copy used for Mutation Seed
+  editableSeedGeometry: null,
+
+  // Active Selected Geometry (Parent Seed or Clone)
   activeGeometry: null,
   activeIterIndex: 0, // 0 = Parent Seed, 1..6 = Clones
 
   // 6 Descendant Clones for Technical Proof
   clones: [],
 
-  // Lineage Tree
+  // Multi-generation Lineage Tree
   generationTree: [],
 
-  // View Mode: 'FINAL' (Geometry) or 'CONTROL' (Points)
-  currentViewMode: 'FINAL'
+  // View Mode: 'EDITABLE', 'ORIGINAL', 'OVERLAY', 'CONTROL'
+  currentViewMode: 'EDITABLE'
 };
 
 // ============================================================================
@@ -35,30 +38,30 @@ let appState = {
 // ============================================================================
 
 const svgCanvas = document.getElementById('svg-canvas');
-const rhinoGeometryLayer = document.getElementById('rhino-geometry-layer');
+const rhinoOriginalLayer = document.getElementById('rhino-original-layer');
+const rhinoEditableLayer = document.getElementById('rhino-editable-layer');
 const rhinoControlLayer = document.getElementById('rhino-control-layer');
 
-// Overlays
+// Overlays & Badges
 const startScreenCard = document.getElementById('start-screen-card');
 const canvasTagsOverlay = document.getElementById('canvas-tags-overlay');
 const diagnosticsOverlay = document.getElementById('diagnostics-overlay');
 const viewerTogglesOverlay = document.getElementById('viewer-toggles-overlay');
 
-// Badges & Buttons
 const currentGenBadge = document.getElementById('current-generation-badge');
 const currentIterBadge = document.getElementById('current-iteration-badge');
 
+// Action Buttons
 const btnRhinoFileInput = document.getElementById('rhino-file-input');
 const btnRhinoFileInputMain = document.getElementById('rhino-file-input-main');
 const btnLoadSampleSeed = document.getElementById('btn-load-sample-seed');
 const btnStartSample = document.getElementById('btn-start-sample');
+const btnVerifyRhinoImport = document.getElementById('btn-verify-rhino-import');
 const btnCloneSeedTest = document.getElementById('btn-clone-seed-test');
-const btnGenerateIterations = document.getElementById('btn-generate-iterations');
-const btnUseAsNextSeed = document.getElementById('btn-use-as-next-seed');
 const btnExportSvg = document.getElementById('btn-export-svg');
 const viewToggleBtns = document.querySelectorAll('.view-toggle-btn');
 
-// Diagnostics Elements
+// Diagnostics & Inspector Elements
 const diagFilename = document.getElementById('diag-filename');
 const diagObjects = document.getElementById('diag-objects');
 const diagCurves = document.getElementById('diag-curves');
@@ -69,7 +72,6 @@ const diagUnits = document.getElementById('diag-units');
 const diagBounds = document.getElementById('diag-bounds');
 const diagStatus = document.getElementById('diag-status');
 
-// Inspector Elements
 const seedInspectorTitle = document.getElementById('seed-inspector-title');
 const seedInspectorDesc = document.getElementById('seed-inspector-desc');
 const metaObjectsCount = document.getElementById('meta-objects-count');
@@ -80,6 +82,11 @@ const metaPointsCount = document.getElementById('meta-points-count');
 const metaWidth = document.getElementById('meta-width');
 const metaHeight = document.getElementById('meta-height');
 const metaUnits = document.getElementById('meta-units');
+
+// Modal Elements
+const verifyImportModal = document.getElementById('verify-import-modal');
+const btnCloseVerifyModal = document.getElementById('btn-close-verify-modal');
+const verifyModalContent = document.getElementById('verify-modal-content');
 
 // Container Strips
 const generationTreeContainer = document.getElementById('generation-tree-container');
@@ -99,13 +106,51 @@ async function getRhinoModule() {
 }
 
 /**
- * Parses binary buffer of a Rhino .3dm file into exact geometric object primitives.
+ * Helper to clone points array for deep copy.
+ */
+function cloneControlPoints(pts) {
+  return pts.map(pt => ({ x: pt.x, y: pt.y, z: pt.z, w: pt.w !== undefined ? pt.w : 1.0 }));
+}
+
+/**
+ * Deep clones entire Rhino Seed structure.
+ */
+function cloneRhinoSeed(seed) {
+  if (!seed) return null;
+  return {
+    filename: seed.filename,
+    units: seed.units,
+    objectCount: seed.objectCount,
+    counts: { ...seed.counts },
+    bounds: { ...seed.bounds },
+    layers: seed.layers ? seed.layers.map(l => ({ ...l })) : [],
+    unsupportedObjects: seed.unsupportedObjects ? seed.unsupportedObjects.map(u => ({ ...u })) : [],
+    objects: seed.objects.map(obj => ({
+      id: obj.id,
+      rhinoId: obj.rhinoId,
+      layerIndex: obj.layerIndex,
+      layerName: obj.layerName,
+      geometryType: obj.geometryType,
+      type: obj.type,
+      degree: obj.degree,
+      isClosed: obj.isClosed,
+      isRational: obj.isRational,
+      domain: obj.domain ? [...obj.domain] : [0, 1],
+      knots: obj.knots ? [...obj.knots] : [],
+      controlPoints: cloneControlPoints(obj.controlPoints),
+      renderPoints: cloneControlPoints(obj.renderPoints)
+    }))
+  };
+}
+
+/**
+ * Parses binary buffer of a Rhino .3dm file with full NURBS fidelity.
  */
 async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
   try {
     const rhino = await getRhinoModule();
     if (!rhino) {
-      alert('Rhino3dm module is loading. Please try again in a moment.');
+      alert('Rhino3dm module loading. Please try again in a moment.');
       return;
     }
 
@@ -117,8 +162,21 @@ async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
       return;
     }
 
+    // Extract Layers Table
+    const layersTable = doc.layers();
+    const parsedLayers = [];
+    for (let l = 0; l < layersTable.count; l++) {
+      const lay = layersTable.get(l);
+      parsedLayers.push({
+        index: l,
+        name: lay.name || `Layer_${l}`,
+        color: lay.color ? `rgb(${lay.color.r},${lay.color.g},${lay.color.b})` : '#e2c97c'
+      });
+    }
+
     const objectsTable = doc.objects();
     const parsedObjects = [];
+    const unsupportedObjects = [];
 
     let countCurves = 0;
     let countPolylines = 0;
@@ -129,10 +187,16 @@ async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
 
     for (let i = 0; i < objectsTable.count; i++) {
       const fileObj = objectsTable.get(i);
+      const attrs = fileObj.attributes();
       const geom = fileObj.geometry();
       if (!geom) continue;
 
-      // Check Point geometry
+      const objId = `obj_${i}`;
+      const rhinoId = attrs ? attrs.id : `uuid_${i}`;
+      const layerIdx = attrs ? attrs.layerIndex : 0;
+      const layerName = parsedLayers[layerIdx] ? parsedLayers[layerIdx].name : 'Default';
+
+      // 1. Point Geometry
       if (geom.location) {
         countPoints++;
         const pt = geom.location;
@@ -143,32 +207,63 @@ async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
         minX = Math.min(minX, px); maxX = Math.max(maxX, px);
         minY = Math.min(minY, py); maxY = Math.max(maxY, py);
 
+        const pointData = { x: px, y: py, z: pz, w: 1.0 };
         parsedObjects.push({
-          id: `obj_${i}`,
+          id: objId,
+          rhinoId,
+          layerIndex: layerIdx,
+          layerName,
+          geometryType: 'Point',
           type: 'point',
+          degree: 0,
           isClosed: false,
-          rhinoTypeStr: 'Point',
-          points: [{ x: px, y: py, z: pz }]
+          isRational: false,
+          domain: [0, 0],
+          controlPoints: [pointData],
+          renderPoints: [pointData]
         });
       }
-      // Check Curve / Polyline / Closed Curve geometry
+      // 2. Curve / Polyline / NURBS Geometry
       else if (typeof geom.domain !== 'undefined' || typeof geom.isClosed !== 'undefined') {
         const isClosed = Boolean(geom.isClosed);
-        const isPolyline = Boolean(geom.isPolyline || geom.degree === 1);
-        let typeStr = 'curve';
+        const degree = geom.degree !== undefined ? geom.degree : 1;
+        const isPolyline = Boolean(geom.isPolyline || degree === 1);
+        const isRational = Boolean(geom.isRational);
+        const geomType = geom.objectType ? (geom.objectType.name || 'Curve') : (isPolyline ? 'PolylineCurve' : 'NurbsCurve');
 
+        let categoryType = 'curve';
         if (isClosed) {
-          typeStr = 'closed_curve';
+          categoryType = 'closed_curve';
           countClosed++;
         } else if (isPolyline) {
-          typeStr = 'polyline';
+          categoryType = 'polyline';
           countPolylines++;
         } else {
-          typeStr = 'curve';
+          categoryType = 'curve';
           countCurves++;
         }
 
-        const pts = [];
+        // Extract Control Points
+        const controlPoints = [];
+        let cvColl = null;
+        try {
+          if (typeof geom.controlPoints === 'function') cvColl = geom.controlPoints();
+          else if (typeof geom.points === 'function') cvColl = geom.points();
+        } catch (e) {}
+
+        if (cvColl && cvColl.count) {
+          for (let cIdx = 0; cIdx < cvColl.count; cIdx++) {
+            const cv = cvColl.get(cIdx);
+            const cx = Array.isArray(cv) ? cv[0] : cv.x;
+            const cy = Array.isArray(cv) ? cv[1] : cv.y;
+            const cz = Array.isArray(cv) ? (cv[2] || 0) : (cv.z || 0);
+            const cw = (Array.isArray(cv) && cv.length > 3) ? cv[3] : (cv.w !== undefined ? cv.w : 1.0);
+            controlPoints.push({ x: cx, y: cy, z: cz, w: cw });
+          }
+        }
+
+        // Evaluate High-Fidelity Render Points along parameter domain
+        const renderPoints = [];
         let poly = null;
         try {
           if (typeof geom.toPolyline === 'function') poly = geom.toPolyline();
@@ -180,23 +275,22 @@ async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
             const px = Array.isArray(pt) ? pt[0] : pt.x;
             const py = Array.isArray(pt) ? pt[1] : pt.y;
             const pz = Array.isArray(pt) ? (pt[2] || 0) : (pt.z || 0);
-            pts.push({ x: px, y: py, z: pz });
+            renderPoints.push({ x: px, y: py, z: pz, w: 1.0 });
 
             minX = Math.min(minX, px); maxX = Math.max(maxX, px);
             minY = Math.min(minY, py); maxY = Math.max(maxY, py);
           }
         } else {
-          // Sample curve parameter domain
-          const domain = geom.domain || [0, 1];
-          const numSamples = isPolyline ? 10 : 50;
+          const dom = geom.domain || [0, 1];
+          const numSamples = isPolyline ? 10 : 60;
           for (let s = 0; s <= numSamples; s++) {
-            const t = domain[0] + (domain[1] - domain[0]) * (s / numSamples);
+            const t = dom[0] + (dom[1] - dom[0]) * (s / numSamples);
             const pt = geom.pointAt(t);
             if (pt) {
               const px = Array.isArray(pt) ? pt[0] : pt.x;
               const py = Array.isArray(pt) ? pt[1] : pt.y;
               const pz = Array.isArray(pt) ? (pt[2] || 0) : (pt.z || 0);
-              pts.push({ x: px, y: py, z: pz });
+              renderPoints.push({ x: px, y: py, z: pz, w: 1.0 });
 
               minX = Math.min(minX, px); maxX = Math.max(maxX, px);
               minY = Math.min(minY, py); maxY = Math.max(maxY, py);
@@ -204,12 +298,34 @@ async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
           }
         }
 
+        // Fallback for controlPoints if CV collection not available
+        if (controlPoints.length === 0) {
+          renderPoints.forEach(p => controlPoints.push({ ...p }));
+        }
+
         parsedObjects.push({
-          id: `obj_${i}`,
-          type: typeStr,
+          id: objId,
+          rhinoId,
+          layerIndex: layerIdx,
+          layerName,
+          geometryType: geomType,
+          type: categoryType,
+          degree,
           isClosed,
-          rhinoTypeStr: geom.objectType ? (geom.objectType.name || typeStr) : typeStr,
-          points: pts
+          isRational,
+          domain: geom.domain ? [geom.domain[0], geom.domain[1]] : [0, 1],
+          knots: [],
+          controlPoints,
+          renderPoints
+        });
+      }
+      // 3. Unsupported 3D / Non-Section Object (Mesh, Text, etc.)
+      else {
+        unsupportedObjects.push({
+          id: objId,
+          rhinoId,
+          layerName,
+          geometryType: geom.objectType ? (geom.objectType.name || 'Unknown') : 'UnsupportedObject'
         });
       }
     }
@@ -218,38 +334,42 @@ async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
 
     const width = Math.max(10, maxX - minX);
     const height = Math.max(10, maxY - minY);
-
     const unitsStr = doc.settings()?.modelUnits?.name || 'mm';
 
     const rhinoSeed = {
       filename,
+      units: unitsStr,
       objectCount: parsedObjects.length,
       counts: {
         curves: countCurves,
         polylines: countPolylines,
         closedCurves: countClosed,
-        points: countPoints
+        points: countPoints,
+        unsupported: unsupportedObjects.length
       },
+      layers: parsedLayers,
+      unsupportedObjects,
       objects: parsedObjects,
-      bounds: { minX, minY, maxX, maxY, width, height },
-      units: unitsStr
+      bounds: { minX, minY, maxX, maxY, width, height }
     };
 
-    appState.rhinoSeed = rhinoSeed;
-    appState.activeGeometry = rhinoSeed;
+    // Instantiate Memory Model
+    appState.originalRhinoGeometry = rhinoSeed;
+    appState.editableSeedGeometry = cloneRhinoSeed(rhinoSeed);
+    appState.activeGeometry = appState.editableSeedGeometry;
+
     appState.generationTree = [
       {
         genIndex: 0,
         title: 'Generation 0: Rhino Seed',
-        geometry: rhinoSeed
+        geometry: appState.editableSeedGeometry
       }
     ];
 
-    // Enable Clone Seed Test Button
+    btnVerifyRhinoImport.disabled = false;
     btnCloneSeedTest.disabled = false;
 
-    // Render imported seed
-    renderRhinoSeedView(rhinoSeed);
+    renderRhinoSeedView(appState.activeGeometry);
     runCloneSeedTest();
   } catch (err) {
     console.error('Error parsing Rhino file:', err);
@@ -270,7 +390,7 @@ async function loadSampleRhinoSeed() {
 
     const doc = new rhino.File3dm();
 
-    // 1. Curve 1: Roof Arc/Spline (3 curves requirement)
+    // 1. Curve 1: Roof Arc/Spline (Degree 3, 4 CVs)
     const curve1 = new rhino.NurbsCurve(3, 4);
     const cpts1 = curve1.points();
     cpts1.set(0, [20, 180, 0, 1.0]);
@@ -297,7 +417,7 @@ async function loadSampleRhinoSeed() {
     cpts3.set(3, [380, 110, 0, 1.0]);
     doc.objects().addCurve(curve3);
 
-    // 4. Polyline 1: Structural Column Grid (2 polylines requirement)
+    // 4. Polyline 1: Structural Column Grid (Degree 1, 3 Points)
     const poly1 = new rhino.Polyline(3);
     poly1.add(50, 40, 0);
     poly1.add(50, 195, 0);
@@ -312,13 +432,12 @@ async function loadSampleRhinoSeed() {
     poly2.add(180, 115, 0);
     doc.objects().addPolyline(poly2);
 
-    // 6. Closed Curve 1: Carved Central Void (1 closed curve requirement)
-    const closedCircle = new rhino.Circle(100); // radius 100
+    // 6. Closed Curve 1: Carved Central Void
+    const closedCircle = new rhino.Circle(100);
     const circleCurve = closedCircle.toNurbsCurve();
     circleCurve.translate([200, 120, 0]);
     doc.objects().addCurve(circleCurve);
 
-    // Convert document to byte array
     const byteArray = doc.toByteArray();
     await processRhinoBuffer(byteArray.buffer, 'Sample_Rhino_Seed.3dm');
   } catch (e) {
@@ -330,44 +449,19 @@ async function loadSampleRhinoSeed() {
 // 4. CLONE GEOMETRY & TEST PROOF
 // ============================================================================
 
-/**
- * Deep clones imported Rhino seed object structure.
- */
-function cloneRhinoSeed(seed) {
-  if (!seed) return null;
-  return {
-    filename: seed.filename,
-    objectCount: seed.objectCount,
-    counts: { ...seed.counts },
-    units: seed.units,
-    bounds: { ...seed.bounds },
-    objects: seed.objects.map(obj => ({
-      id: obj.id,
-      type: obj.type,
-      isClosed: obj.isClosed,
-      rhinoTypeStr: obj.rhinoTypeStr,
-      points: obj.points.map(pt => ({ x: pt.x, y: pt.y, z: pt.z }))
-    }))
-  };
-}
-
-/**
- * Executes Milestone 1 Clone Test: Clones Rhino seed 6 times and populates carousel.
- */
 function runCloneSeedTest() {
-  if (!appState.rhinoSeed) return;
+  if (!appState.editableSeedGeometry) return;
 
   const clones = [];
   for (let i = 1; i <= 6; i++) {
-    clones.push(cloneRhinoSeed(appState.rhinoSeed));
+    clones.push(cloneRhinoSeed(appState.editableSeedGeometry));
   }
   appState.clones = clones;
-
   renderBottomThumbnailsCarousel();
 }
 
 // ============================================================================
-// 5. VIEWPORT RENDERING & FIT
+// 5. VIEWPORT RENDERING & OVERLAY MODES
 // ============================================================================
 
 function fitImportedGeometryToViewport(bounds) {
@@ -377,10 +471,7 @@ function fitImportedGeometryToViewport(bounds) {
   const padY = Math.max(10, bounds.height * 0.12);
 
   const vX = Math.round(bounds.minX - padX);
-  // SVG Y is inverted relative to standard Rhino Y (Y+ Up in Rhino -> Y- in SVG)
-  // We flip Y coordinates when building path d strings: svgY = -rhinoY
   const minSvgY = -bounds.maxY;
-  const maxSvgY = -bounds.minY;
   const vY = Math.round(minSvgY - padY);
   const vW = Math.round(bounds.width + padX * 2);
   const vH = Math.round(bounds.height + padY * 2);
@@ -389,82 +480,153 @@ function fitImportedGeometryToViewport(bounds) {
   svgCanvas.setAttribute('viewBox', viewBoxStr);
 }
 
-function renderRhinoSeedView(seed) {
-  if (!seed) return;
+/**
+ * Helper to build SVG path string from point array.
+ */
+function buildPathString(points, isClosed) {
+  if (!points || points.length === 0) return '';
+  let d = '';
+  points.forEach((pt, pIdx) => {
+    const svgX = pt.x.toFixed(2);
+    const svgY = (-pt.y).toFixed(2);
+    d += (pIdx === 0 ? `M ${svgX},${svgY}` : ` L ${svgX},${svgY}`);
+  });
+  if (isClosed) d += ' Z';
+  return d;
+}
 
-  // Hide start screen overlay
+/**
+ * Renders objects into a specific SVG layer element with customized styling.
+ */
+function renderObjectsIntoLayer(containerGroup, seedData, styleOptions = {}) {
+  containerGroup.innerHTML = '';
+  if (!seedData || !seedData.objects) return;
+
+  seedData.objects.forEach(obj => {
+    if (obj.type === 'point') {
+      const pt = obj.controlPoints[0] || obj.renderPoints[0];
+      if (pt) {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', pt.x.toFixed(2));
+        circle.setAttribute('cy', (-pt.y).toFixed(2));
+        circle.setAttribute('r', '3.5');
+        circle.setAttribute('fill', styleOptions.pointColor || 'var(--accent-gold)');
+        containerGroup.appendChild(circle);
+      }
+    } else if (obj.renderPoints.length > 0) {
+      const d = buildPathString(obj.renderPoints, obj.isClosed);
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d);
+
+      if (styleOptions.isOriginal) {
+        // ORIGINAL RHINO LAYER (Dashed Cyan)
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', '#52c5d8');
+        path.setAttribute('stroke-width', '2');
+        path.setAttribute('stroke-dasharray', '6 4');
+      } else {
+        // EDITABLE SEED LAYER (Solid Gold / Cyan Polylines)
+        if (obj.isClosed) {
+          path.setAttribute('fill', 'rgba(226, 201, 124, 0.12)');
+          path.setAttribute('stroke', '#e2c97c');
+          path.setAttribute('stroke-width', '2');
+        } else if (obj.type === 'polyline') {
+          path.setAttribute('fill', 'none');
+          path.setAttribute('stroke', '#52c5d8');
+          path.setAttribute('stroke-width', '2');
+          path.setAttribute('stroke-dasharray', '4 3');
+        } else {
+          path.setAttribute('fill', 'none');
+          path.setAttribute('stroke', 'url(#spline-gradient)');
+          path.setAttribute('stroke-width', '2.5');
+          path.setAttribute('filter', 'url(#glow)');
+        }
+      }
+
+      containerGroup.appendChild(path);
+    }
+  });
+}
+
+/**
+ * Renders NURBS Control Polygons and CV Handles in CONTROL mode.
+ */
+function renderControlPolygonLayer(containerGroup, seedData) {
+  containerGroup.innerHTML = '';
+  if (!seedData || !seedData.objects) return;
+
+  seedData.objects.forEach(obj => {
+    if (obj.controlPoints && obj.controlPoints.length > 0) {
+      // 1. Draw Control Polygon connecting lines (dashed grey)
+      if (obj.controlPoints.length > 1) {
+        const dPoly = buildPathString(obj.controlPoints, false);
+        const polygonPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        polygonPath.setAttribute('d', dPoly);
+        polygonPath.setAttribute('fill', 'none');
+        polygonPath.setAttribute('stroke', 'rgba(255, 255, 255, 0.4)');
+        polygonPath.setAttribute('stroke-width', '1');
+        polygonPath.setAttribute('stroke-dasharray', '3 3');
+        containerGroup.appendChild(polygonPath);
+      }
+
+      // 2. Draw Control Point Handle Nodes
+      obj.controlPoints.forEach((pt, cvIdx) => {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', pt.x.toFixed(2));
+        circle.setAttribute('cy', (-pt.y).toFixed(2));
+        circle.setAttribute('r', '4');
+        circle.setAttribute('fill', cvIdx === 0 ? '#2ecc71' : (cvIdx === obj.controlPoints.length - 1 ? '#e056fd' : '#ffffff'));
+        circle.setAttribute('stroke', '#000000');
+        circle.setAttribute('stroke-width', '1');
+
+        // Add tooltip info
+        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        title.textContent = `CV [${cvIdx}] (${pt.x.toFixed(1)}, ${pt.y.toFixed(1)}) Weight: ${pt.w || 1.0}`;
+        circle.appendChild(title);
+
+        containerGroup.appendChild(circle);
+      });
+    }
+  });
+}
+
+function renderRhinoSeedView(activeSeed) {
+  if (!activeSeed) return;
+
   if (startScreenCard) startScreenCard.style.display = 'none';
   if (canvasTagsOverlay) canvasTagsOverlay.style.display = 'flex';
   if (diagnosticsOverlay) diagnosticsOverlay.style.display = 'block';
   if (viewerTogglesOverlay) viewerTogglesOverlay.style.display = 'block';
 
-  // Render SVG Paths
-  rhinoGeometryLayer.innerHTML = '';
+  rhinoOriginalLayer.innerHTML = '';
+  rhinoEditableLayer.innerHTML = '';
   rhinoControlLayer.innerHTML = '';
 
-  seed.objects.forEach(obj => {
-    if (obj.type === 'point') {
-      const pt = obj.points[0];
-      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      circle.setAttribute('cx', pt.x.toFixed(2));
-      circle.setAttribute('cy', (-pt.y).toFixed(2));
-      circle.setAttribute('r', '3');
-      circle.setAttribute('fill', 'var(--accent-gold)');
-      circle.setAttribute('filter', 'url(#glow)');
-      rhinoGeometryLayer.appendChild(circle);
-    } else if (obj.points.length > 0) {
-      let d = '';
-      obj.points.forEach((pt, pIdx) => {
-        const svgX = pt.x.toFixed(2);
-        const svgY = (-pt.y).toFixed(2);
-        d += (pIdx === 0 ? `M ${svgX},${svgY}` : ` L ${svgX},${svgY}`);
-      });
-      if (obj.isClosed) d += ' Z';
+  const mode = appState.currentViewMode;
 
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('d', d);
+  // 1. Render ORIGINAL RHINO layer
+  if (mode === 'ORIGINAL' || mode === 'OVERLAY') {
+    renderObjectsIntoLayer(rhinoOriginalLayer, appState.originalRhinoGeometry, { isOriginal: true });
+  }
 
-      if (obj.isClosed) {
-        path.setAttribute('fill', 'rgba(226, 201, 124, 0.12)');
-        path.setAttribute('stroke', 'var(--accent-gold)');
-        path.setAttribute('stroke-width', '2');
-      } else if (obj.type === 'polyline') {
-        path.setAttribute('fill', 'none');
-        path.setAttribute('stroke', 'var(--accent-cyan)');
-        path.setAttribute('stroke-width', '2');
-        path.setAttribute('stroke-dasharray', '5 3');
-      } else {
-        path.setAttribute('fill', 'none');
-        path.setAttribute('stroke', 'url(#spline-gradient)');
-        path.setAttribute('stroke-width', '2.5');
-        path.setAttribute('filter', 'url(#glow)');
-      }
+  // 2. Render EDITABLE SEED layer
+  if (mode === 'EDITABLE' || mode === 'OVERLAY' || mode === 'CONTROL') {
+    renderObjectsIntoLayer(rhinoEditableLayer, activeSeed, { isOriginal: false });
+  }
 
-      rhinoGeometryLayer.appendChild(path);
+  // 3. Render CONTROL POLYGON & CVs layer
+  if (mode === 'CONTROL') {
+    renderControlPolygonLayer(rhinoControlLayer, activeSeed);
+  }
 
-      // Render control handles if CONTROL mode
-      if (appState.currentViewMode === 'CONTROL') {
-        obj.points.forEach(pt => {
-          const handle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-          handle.setAttribute('cx', pt.x.toFixed(2));
-          handle.setAttribute('cy', (-pt.y).toFixed(2));
-          handle.setAttribute('r', '3');
-          handle.setAttribute('fill', '#ffffff');
-          rhinoControlLayer.appendChild(handle);
-        });
-      }
-    }
-  });
-
-  fitImportedGeometryToViewport(seed.bounds);
-  updateDiagnosticsAndInspector(seed);
+  fitImportedGeometryToViewport(activeSeed.bounds);
+  updateDiagnosticsAndInspector(activeSeed);
   renderGenerationTreeUI();
 }
 
 function updateDiagnosticsAndInspector(seed) {
   if (!seed) return;
 
-  // Diagnostics Box
   if (diagFilename) diagFilename.textContent = seed.filename;
   if (diagObjects) diagObjects.textContent = seed.objectCount;
   if (diagCurves) diagCurves.textContent = seed.counts.curves;
@@ -473,9 +635,8 @@ function updateDiagnosticsAndInspector(seed) {
   if (diagPoints) diagPoints.textContent = seed.counts.points;
   if (diagUnits) diagUnits.textContent = seed.units;
   if (diagBounds) diagBounds.textContent = `${seed.bounds.width.toFixed(0)}x${seed.bounds.height.toFixed(0)}`;
-  if (diagStatus) diagStatus.textContent = 'RHINO SEED LOADED';
+  if (diagStatus) diagStatus.textContent = `MODE: ${appState.currentViewMode}`;
 
-  // Right Inspector
   if (seedInspectorTitle) seedInspectorTitle.textContent = seed.filename;
   if (seedInspectorDesc) seedInspectorDesc.textContent = `Original Rhino Seed establishing architectural DNA across ${seed.objectCount} geometric objects.`;
   if (metaObjectsCount) metaObjectsCount.textContent = seed.objectCount;
@@ -487,6 +648,92 @@ function updateDiagnosticsAndInspector(seed) {
   if (metaHeight) metaHeight.textContent = `${seed.bounds.height.toFixed(1)} ${seed.units}`;
   if (metaUnits) metaUnits.textContent = seed.units;
 }
+
+// ============================================================================
+// 6. VERIFY RHINO IMPORT AUDIT MODAL
+// ============================================================================
+
+function showImportVerificationModal() {
+  if (!appState.originalRhinoGeometry || !verifyImportModal || !verifyModalContent) return;
+
+  const orig = appState.originalRhinoGeometry;
+
+  let tableRows = orig.objects.map(obj => `
+    <tr>
+      <td>${obj.id}</td>
+      <td><span class="type-badge">${obj.geometryType}</span></td>
+      <td>${obj.layerName}</td>
+      <td>Degree ${obj.degree}</td>
+      <td>${obj.controlPoints.length} CVs</td>
+      <td>${obj.isClosed ? 'Closed' : 'Open'}</td>
+      <td>${obj.isRational ? 'Rational' : 'Non-Rational'}</td>
+    </tr>
+  `).join('');
+
+  let warningHtml = '';
+  if (orig.unsupportedObjects && orig.unsupportedObjects.length > 0) {
+    warningHtml = `
+      <div class="unsupported-warning-box">
+        <strong>⚠️ ${orig.unsupportedObjects.length} Unsupported Non-Section Objects Detected:</strong><br>
+        The following 3D or annotation objects were ignored for 2D section form-finding (not converted into fake geometry):
+        <ul style="margin-top:0.4rem; padding-left:1.2rem;">
+          ${orig.unsupportedObjects.map(u => `<li>${u.id} (${u.geometryType} on layer ${u.layerName})</li>`).join('')}
+        </ul>
+      </div>
+    `;
+  }
+
+  verifyModalContent.innerHTML = `
+    <div class="audit-stats-grid">
+      <div class="audit-stat-card">
+        <span class="label">FILE NAME</span>
+        <span class="val" style="font-size:0.8rem; word-break:break-all;">${orig.filename}</span>
+      </div>
+      <div class="audit-stat-card">
+        <span class="label">RENDERABLE OBJECTS</span>
+        <span class="val">${orig.objectCount}</span>
+      </div>
+      <div class="audit-stat-card">
+        <span class="label">UNSUPPORTED OBJECTS</span>
+        <span class="val" style="color:${orig.counts.unsupported > 0 ? '#ff6347' : 'var(--accent-green)'}">${orig.counts.unsupported}</span>
+      </div>
+      <div class="audit-stat-card">
+        <span class="label">RHINO UNITS</span>
+        <span class="val">${orig.units}</span>
+      </div>
+    </div>
+
+    ${warningHtml}
+
+    <h3 style="font-size:0.8rem; font-family:var(--font-mono); color:var(--accent-gold); margin-top:0.5rem;">RHINO OBJECT TABLE AUDIT</h3>
+    <table class="audit-table">
+      <thead>
+        <tr>
+          <th>Object ID</th>
+          <th>Rhino Geometry Type</th>
+          <th>Layer</th>
+          <th>Degree</th>
+          <th>Control Points</th>
+          <th>State</th>
+          <th>Rationality</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${tableRows}
+      </tbody>
+    </table>
+  `;
+
+  verifyImportModal.style.display = 'flex';
+}
+
+function hideImportVerificationModal() {
+  if (verifyImportModal) verifyImportModal.style.display = 'none';
+}
+
+// ============================================================================
+// 7. LINEAGE TREE & THUMBNAILS CAROUSEL
+// ============================================================================
 
 function renderGenerationTreeUI() {
   if (!generationTreeContainer) return;
@@ -508,7 +755,7 @@ function renderBottomThumbnailsCarousel() {
   if (!bottomThumbnailsStrip) return;
   bottomThumbnailsStrip.innerHTML = '';
 
-  if (!appState.rhinoSeed) return;
+  if (!appState.editableSeedGeometry) return;
 
   // 0. Parent Card
   const parentCard = document.createElement('div');
@@ -543,7 +790,7 @@ function selectThumbnail(iterNum) {
   });
 
   if (iterNum === 0) {
-    appState.activeGeometry = appState.rhinoSeed;
+    appState.activeGeometry = appState.editableSeedGeometry;
     currentGenBadge.textContent = 'GENERATION 0: ORIGINAL RHINO SEED';
     currentIterBadge.textContent = 'RHINO SEED';
   } else {
@@ -570,11 +817,10 @@ function exportSVG() {
 }
 
 // ============================================================================
-// 6. EVENT LISTENERS & INITIALIZATION
+// 8. EVENT LISTENERS & INITIALIZATION
 // ============================================================================
 
 function initEventListeners() {
-  // File inputs
   [btnRhinoFileInput, btnRhinoFileInputMain].forEach(input => {
     input?.addEventListener('change', async (e) => {
       const file = e.target.files[0];
@@ -584,14 +830,20 @@ function initEventListeners() {
     });
   });
 
-  // Load sample seed buttons
   [btnLoadSampleSeed, btnStartSample].forEach(btn => {
     btn?.addEventListener('click', () => {
       loadSampleRhinoSeed();
     });
   });
 
-  // Clone Seed Test button
+  btnVerifyRhinoImport?.addEventListener('click', () => {
+    showImportVerificationModal();
+  });
+
+  btnCloseVerifyModal?.addEventListener('click', () => {
+    hideImportVerificationModal();
+  });
+
   btnCloneSeedTest?.addEventListener('click', () => {
     runCloneSeedTest();
   });
@@ -600,7 +852,7 @@ function initEventListeners() {
     exportSVG();
   });
 
-  // Viewer Toggles
+  // Viewer Mode Toggles
   viewToggleBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       viewToggleBtns.forEach(b => b.classList.remove('active'));
@@ -620,9 +872,8 @@ function initEventListeners() {
 }
 
 function init() {
-  console.log("Initializing Descriptor-Driven Architectural Evolution System (Milestone 1)...");
+  console.log("Initializing Descriptor-Driven Architectural Evolution System (Checkpoint A)...");
   initEventListeners();
-  // Zero initial geometry: Start Screen card is visible until user imports a .3dm file.
 }
 
 document.addEventListener('DOMContentLoaded', init);

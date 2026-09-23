@@ -635,3 +635,145 @@ html, body {
   cursor: default;
 }
 
+/* --------------------------------------------------------------------------
+   Verify Import Audit Modal
+   -------------------------------------------------------------------------- */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(6px);
+}
+
+.modal-card {
+  background-color: #0b0c0f;
+  border: 1px solid var(--border-highlight);
+  border-radius: 8px;
+  width: 90%;
+  max-width: 820px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.9), 0 0 25px rgba(226, 201, 124, 0.15);
+  overflow: hidden;
+}
+
+.modal-header {
+  padding: 1rem 1.25rem;
+  background-color: #050608;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h2 {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--accent-gold);
+  letter-spacing: 0.08em;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modal-close-btn:hover {
+  color: var(--text-main);
+}
+
+.modal-body {
+  padding: 1.25rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.audit-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.audit-stat-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  padding: 0.6rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.audit-stat-card .label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}
+
+.audit-stat-card .val {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent-gold);
+}
+
+.audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+.audit-table th {
+  background-color: #060709;
+  color: var(--accent-gold);
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 700;
+}
+
+.audit-table td {
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--text-main);
+}
+
+.audit-table tr:hover td {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.type-badge {
+  background-color: rgba(82, 197, 216, 0.15);
+  color: var(--accent-cyan);
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.62rem;
+}
+
+.unsupported-warning-box {
+  background-color: rgba(255, 99, 71, 0.1);
+  border: 1px solid rgba(255, 99, 71, 0.4);
+  border-radius: 5px;
+  padding: 0.75rem 1rem;
+  color: #ff8571;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+

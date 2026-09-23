@@ -41,25 +41,18 @@
           LOAD SAMPLE SEED (.3DM)
         </button>
 
+        <button id="btn-verify-rhino-import" class="header-btn" disabled title="Audit exact Rhino object types, degree, and control points">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+          </svg>
+          VERIFY RHINO IMPORT
+        </button>
+
         <button id="btn-clone-seed-test" class="header-btn" disabled title="Technical proof: Clone imported Rhino geometry 6 times">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
           </svg>
           CLONE SEED TEST
-        </button>
-
-        <button id="btn-generate-iterations" class="header-btn" disabled>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-          </svg>
-          GENERATE 6 ITERATIONS
-        </button>
-
-        <button id="btn-use-as-next-seed" class="header-btn" disabled>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="9 18 15 12 9 6"/>
-          </svg>
-          USE SELECTED AS NEXT SEED
         </button>
 
         <button id="btn-export-svg" class="header-btn">EXPORT SVG</button>
@@ -131,7 +124,9 @@
         <!-- VIEWER MODE TOGGLES (TOP-RIGHT) -->
         <div class="canvas-overlay top-right" id="viewer-toggles-overlay" style="display:none;">
           <div class="viewer-toggles">
-            <button class="view-toggle-btn active" data-view="FINAL">RHINO GEOMETRY</button>
+            <button class="view-toggle-btn active" data-view="EDITABLE">EDITABLE SEED</button>
+            <button class="view-toggle-btn" data-view="ORIGINAL">RHINO ORIGINAL</button>
+            <button class="view-toggle-btn" data-view="OVERLAY">OVERLAY (BOTH)</button>
             <button class="view-toggle-btn" data-view="CONTROL">CONTROL POINTS</button>
           </div>
         </div>
@@ -160,7 +155,8 @@
           <rect width="100%" height="100%" fill="url(#grid-pattern)" />
 
           <!-- GEOMETRY LAYERS -->
-          <g id="rhino-geometry-layer"></g>
+          <g id="rhino-original-layer"></g>
+          <g id="rhino-editable-layer"></g>
           <g id="rhino-control-layer"></g>
         </svg>
 
@@ -230,6 +226,19 @@
       </aside>
     </main>
 
+  </div>
+
+  <!-- VERIFY RHINO IMPORT AUDIT MODAL -->
+  <div id="verify-import-modal" class="modal-backdrop" style="display:none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>VERIFY RHINO IMPORT AUDIT</h2>
+        <button id="btn-close-verify-modal" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body" id="verify-modal-content">
+        <!-- POPULATED DYNAMICALLY -->
+      </div>
+    </div>
   </div>
 
   <!-- LOAD MODULE SCRIPTS -->
