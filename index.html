@@ -12,6 +12,10 @@
   <!-- Rhino3dm.js for browser-based .3dm file reading -->
   <script src="https://cdn.jsdelivr.net/npm/rhino3dm@8.4.0/rhino3dm.min.js"></script>
 
+  <!-- Three.js & OrbitControls for 3D WebGL Viewport -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -41,7 +45,7 @@
           LOAD SAMPLE SEED (.3DM)
         </button>
 
-        <button id="btn-verify-rhino-import" class="header-btn" disabled title="Audit exact Rhino object types, degree, and control points">
+        <button id="btn-verify-rhino-import" class="header-btn" disabled title="Audit exact Rhino object types, SubD vertices/faces, and degree">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
           </svg>
@@ -69,7 +73,7 @@
         </div>
       </aside>
 
-      <!-- CENTRAL SVG SPATIAL VIEWER WITH BOTTOM THUMBNAILS -->
+      <!-- CENTRAL 3D WEBGL VIEWER WITH BOTTOM STATUS STRIP -->
       <section id="canvas-container">
         
         <!-- START SCREEN LANDING OVERLAY (ZERO INITIAL GEOMETRY) -->
@@ -94,7 +98,7 @@
               LOAD SAMPLE .3DM SEED
             </button>
           </div>
-          <div class="start-note">Supports .3dm files (NURBS, polylines, polycurves, breps, extrusions, meshes, blocks)</div>
+          <div class="start-note">Supports SubD geometry, NURBS curves, polylines, polycurves, breps, extrusions, meshes, blocks</div>
         </div>
 
         <!-- CANVAS OVERLAY TOOLBAR (TOP-LEFT) -->
@@ -107,7 +111,7 @@
         <div class="canvas-overlay bottom-left" id="diagnostics-overlay" style="display:none;">
           <div id="viewport-diagnostics" class="diagnostics-box">
             <div>Seed File: <span id="diag-filename">None</span></div>
-            <div>Objects: <span id="diag-objects">0</span> | Rendered: <span id="diag-rendered">0</span> | Unsupported: <span id="diag-unsupported">0</span></div>
+            <div>Objects: <span id="diag-objects">0</span> | SubD: <span id="diag-subd-count">0</span> | Rendered: <span id="diag-rendered">0</span></div>
             <div>3D Bounds: X:<span id="diag-x-range">0</span> Y:<span id="diag-y-range">0</span> Z:<span id="diag-z-range">0</span></div>
             <div>Rhino Units: <span id="diag-units">mm</span> | Projection: <span id="diag-projection">FRONT (XZ)</span></div>
             <div>Status: <span id="diag-status" class="diag-ok">SEED LOADED</span></div>
@@ -127,43 +131,27 @@
             </div>
             <!-- DISPLAY MODE TOGGLES -->
             <div class="viewer-toggles">
-              <button class="view-toggle-btn active" data-view="EDITABLE">EDITABLE SEED</button>
-              <button class="view-toggle-btn" data-view="ORIGINAL">RHINO ORIGINAL</button>
+              <button class="view-toggle-btn active" data-view="SURFACE">SUBD SURFACE</button>
+              <button class="view-toggle-btn" data-view="CAGE">CONTROL CAGE</button>
               <button class="view-toggle-btn" data-view="OVERLAY">OVERLAY (BOTH)</button>
-              <button class="view-toggle-btn" data-view="CONTROL">CONTROL POINTS</button>
             </div>
           </div>
         </div>
 
-        <!-- SVG CANVAS -->
-        <svg id="svg-canvas" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet">
+        <!-- 3D WEBGL THREE.JS CANVAS CONTAINER -->
+        <div id="three-canvas-container" style="width:100%; height:calc(100% - 72px); position:relative;">
+          <canvas id="three-canvas" style="width:100%; height:100%; display:block;"></canvas>
+        </div>
+
+        <!-- SVG CANVAS (FALLBACK/OVERLAY) -->
+        <svg id="svg-canvas" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" style="display:none;">
           <defs>
             <pattern id="grid-pattern" width="40" height="40" patternUnits="userSpaceOnUse">
               <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255, 255, 255, 0.04)" stroke-width="1"/>
               <path d="M 200 0 L 0 0 0 200" fill="none" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1"/>
             </pattern>
-
-            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-            </filter>
-
-            <filter id="highlight-glow" x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur stdDeviation="5" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-            </filter>
-
-            <linearGradient id="spline-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#e2c97c" />
-              <stop offset="50%" stop-color="#ffffff" />
-              <stop offset="100%" stop-color="#e2c97c" />
-            </linearGradient>
           </defs>
-
-          <!-- GRID -->
           <rect width="100%" height="100%" fill="url(#grid-pattern)" />
-
-          <!-- GEOMETRY LAYERS -->
           <g id="rhino-original-layer"></g>
           <g id="rhino-editable-layer"></g>
           <g id="rhino-control-layer"></g>
@@ -172,7 +160,7 @@
         <!-- BOTTOM STRIP (STATUS STRIP) -->
         <div id="bottom-thumbnails-strip">
           <div class="thumb-card placeholder">
-            <div class="thumb-title">IMPORTER DIAGNOSTIC MODE</div>
+            <div class="thumb-title">SUBD 3D WEBGL IMPORTER DIAGNOSTIC MODE</div>
             <div class="thumb-sub">Generation/Cloning disabled until import fidelity verified</div>
           </div>
         </div>
@@ -207,10 +195,20 @@
             </div>
           </div>
 
+          <!-- SUBD COUNTS CARD -->
+          <div class="info-card">
+            <div class="info-label">RHINO SUBD METRICS</div>
+            <div class="delta-row"><span>SubD Objects:</span><span id="count-subd-objs" class="delta-badge pos">0</span></div>
+            <div class="delta-row"><span>SubD Control Vertices:</span><span id="count-subd-verts" class="delta-badge neutral">0</span></div>
+            <div class="delta-row"><span>SubD Control Edges:</span><span id="count-subd-edges" class="delta-badge neutral">0</span></div>
+            <div class="delta-row"><span>SubD Control Faces:</span><span id="count-subd-faces" class="delta-badge neutral">0</span></div>
+          </div>
+
           <!-- GEOMETRY TYPE COUNTS BREAKDOWN CARD -->
           <div class="info-card">
             <div class="info-label">GEOMETRY TYPES BREAKDOWN</div>
             <div id="diag-counts-breakdown" style="display:flex; flex-direction:column; gap:0.25rem;">
+              <div class="delta-row"><span>SubD Geometry:</span><span id="count-subd" class="delta-badge pos">0</span></div>
               <div class="delta-row"><span>NURBS Curves:</span><span id="count-nurbs" class="delta-badge neutral">0</span></div>
               <div class="delta-row"><span>Polylines:</span><span id="count-polylines" class="delta-badge neutral">0</span></div>
               <div class="delta-row"><span>PolyCurves:</span><span id="count-polycurves" class="delta-badge neutral">0</span></div>
@@ -231,7 +229,7 @@
               <div class="info-label">OBJECT VISIBILITY DEBUGGER</div>
               <button id="btn-toggle-all-visibility" class="pill-btn" style="font-size:0.6rem;">TOGGLE ALL</button>
             </div>
-            <p class="subtitle" style="margin-bottom:0.4rem;">Click an object to highlight it exclusively in the viewer:</p>
+            <p class="subtitle" style="margin-bottom:0.4rem;">Click an object to isolate it exclusively in 3D WebGL viewer:</p>
             <div id="object-visibility-list" class="object-visibility-list">
               <div class="tree-placeholder-note">Import a Rhino file to load object debugger.</div>
             </div>

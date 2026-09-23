@@ -1,16 +1,19 @@
 /**
  * ============================================================================
  * DESIGN 7 EXPLORATION - DESCRIPTOR-DRIVEN ARCHITECTURAL EVOLUTION SYSTEM
- * RHINO IMPORTER & MULTI-PROJECTION DIAGNOSTIC ENGINE (STAGED CONTROLLER)
- * - Full 3D XYZ Source Coordinate Storage
- * - Global Single Bounding Box & Unified Scale/Translation
- * - Multi-Projection Engine: FRONT (XZ), TOP (XY), RIGHT (YZ), 3D ISOMETRIC
- * - Block / Instance Reference 4x4 Matrix Transformation Engine
- * - Brep, Extrusion, Surface, Mesh, PolyCurve, Arc/Circle Edge Parsers
- * - Object Visibility Debugger & Single-Object Interactive Highlighting
- * - 6-Stage Independent Error-Handled Importer Pipeline (No auto-cloning)
+ * RHINO SUBD & 3D WEBGL ENGINE (STAGED CONTROLLER & THREE.JS VIEWPORT)
+ * - Decoupled 6-Stage Importer Pipeline (No auto-cloning during import)
+ * - Native Rhino SubD Geometry Parser (vertices, edges, faces, control cage)
+ * - Three.js 3D WebGL Viewport with Orbit, Pan, Zoom, and Fit Controls
+ * - Camera Projection Modes: FRONT (XZ), TOP (XY), RIGHT (YZ), PERSPECTIVE (3D)
+ * - Display Modes: [ SUBD SURFACE ], [ CONTROL CAGE ], [ OVERLAY ]
+ * - Object Visibility Debugger & Interactive Single-Object Isolate Focus
+ * - Clone System Separated into cloneRhinoSeed(sourceGeometry)
  * ============================================================================
  */
+
+// Global Rhino3dm Module Reference
+let rhino = null;
 
 // ============================================================================
 // 1. APPLICATION STATE
@@ -26,24 +29,44 @@ let appState = {
   // Active Display Projection Mode: 'FRONT', 'TOP', 'RIGHT', 'PERSPECTIVE'
   projectionMode: 'FRONT',
 
-  // Active View Layer Mode: 'EDITABLE', 'ORIGINAL', 'OVERLAY', 'CONTROL'
-  currentViewMode: 'EDITABLE',
+  // Active Display Mode: 'SURFACE', 'CAGE', 'OVERLAY'
+  displayMode: 'SURFACE',
 
   // Object Visibility Map: { "obj_01": true, "obj_02": false }
   objectVisibilityMap: {},
 
   // Highlighted Object ID for single-object visual debugging
-  highlightedObjectId: null
+  highlightedObjectId: null,
+
+  // Three.js Scene objects reference map: { "obj_0": { surfaceMesh, cageMesh, pointsMesh } }
+  threeObjectMap: {}
+};
+
+// Three.js Global References
+let scene = null;
+let camera = null;
+let renderer = null;
+let controls = null;
+let ambientLight = null;
+let dirLight1 = null;
+let dirLight2 = null;
+let boundingBoxGrid = null;
+
+// Global Bounding Box & Target Center
+let globalBoundingBox = {
+  min: { x: 0, y: 0, z: 0 },
+  max: { x: 0, y: 0, z: 0 },
+  center: { x: 0, y: 0, z: 0 },
+  size: { x: 0, y: 0, z: 0 },
+  maxDim: 100
 };
 
 // ============================================================================
 // 2. DOM ELEMENTS
 // ============================================================================
 
-const svgCanvas = document.getElementById('svg-canvas');
-const rhinoOriginalLayer = document.getElementById('rhino-original-layer');
-const rhinoEditableLayer = document.getElementById('rhino-editable-layer');
-const rhinoControlLayer = document.getElementById('rhino-control-layer');
+const threeCanvasContainer = document.getElementById('three-canvas-container');
+const threeCanvas = document.getElementById('three-canvas');
 
 // Overlays & Badges
 const startScreenCard = document.getElementById('start-screen-card');
@@ -52,7 +75,7 @@ const diagnosticsOverlay = document.getElementById('diagnostics-overlay');
 const viewerTogglesOverlay = document.getElementById('viewer-toggles-overlay');
 
 const currentGenBadge = document.getElementById('current-generation-badge');
-const currentProjBadge = document.getElementById('current-iteration-badge');
+const currentProjBadge = document.getElementById('current-projection-badge');
 
 // Action Buttons
 const btnRhinoFileInput = document.getElementById('rhino-file-input');
@@ -68,8 +91,8 @@ const btnToggleAllVis = document.getElementById('btn-toggle-all-visibility');
 // Diagnostics Elements
 const diagFilename = document.getElementById('diag-filename');
 const diagObjects = document.getElementById('diag-objects');
+const diagSubdCount = document.getElementById('diag-subd-count');
 const diagRendered = document.getElementById('diag-rendered');
-const diagUnsupported = document.getElementById('diag-unsupported');
 const diagXRange = document.getElementById('diag-x-range');
 const diagYRange = document.getElementById('diag-y-range');
 const diagZRange = document.getElementById('diag-z-range');
@@ -83,7 +106,14 @@ const metaYBounds = document.getElementById('meta-y-bounds');
 const metaZBounds = document.getElementById('meta-z-bounds');
 const metaDominantPlane = document.getElementById('meta-dominant-plane');
 
+// SubD Metrics Counters
+const countSubdObjs = document.getElementById('count-subd-objs');
+const countSubdVerts = document.getElementById('count-subd-verts');
+const countSubdEdges = document.getElementById('count-subd-edges');
+const countSubdFaces = document.getElementById('count-subd-faces');
+
 // Geometry Breakdown Counters
+const countSubd = document.getElementById('count-subd');
 const countNurbs = document.getElementById('count-nurbs');
 const countPolylines = document.getElementById('count-polylines');
 const countPolycurves = document.getElementById('count-polycurves');
@@ -99,965 +129,1125 @@ const countUnsupported = document.getElementById('count-unsupported');
 const objectVisibilityList = document.getElementById('object-visibility-list');
 
 // Modal Elements
-const verifyImportModal = document.getElementById('verify-import-modal');
+const verifyModal = document.getElementById('verify-import-modal');
 const btnCloseVerifyModal = document.getElementById('btn-close-verify-modal');
 const verifyModalContent = document.getElementById('verify-modal-content');
 
 // ============================================================================
-// 3. CLONING UTILITY (STANDALONE FOR FUTURE EVOLUTION)
+// 3. INITIALIZATION & THREE.JS 3D VIEWPORT SETUP
 // ============================================================================
 
-/**
- * Deep clones entire Rhino Seed structure.
- * Standalone utility available for future generation/mutation logic.
- */
-function cloneRhinoSeed(seed) {
-  if (!seed) return null;
-  return {
-    filename: seed.filename,
-    units: seed.units,
-    objectCount: seed.objectCount,
-    counts: { ...seed.counts },
-    layers: seed.layers ? seed.layers.map(l => ({ ...l })) : [],
-    unsupportedObjects: seed.unsupportedObjects ? seed.unsupportedObjects.map(u => ({ ...u })) : [],
-    objects: seed.objects.map(obj => ({
-      id: obj.id,
-      rhinoId: obj.rhinoId,
-      layerIndex: obj.layerIndex,
-      layerName: obj.layerName,
-      geometryType: obj.geometryType,
-      degree: obj.degree,
-      isClosed: obj.isClosed,
-      renderPaths3D: obj.renderPaths3D.map(p => p.map(pt => ({ ...pt }))),
-      controlPoints: obj.controlPoints.map(pt => ({ ...pt }))
-    })),
-    bounds3D: { ...seed.bounds3D },
-    dominantPlane: seed.dominantPlane
-  };
-}
+window.addEventListener('DOMContentLoaded', () => {
+  console.log('[SYSTEM] Initializing Design 7 SubD & 3D WebGL Engine...');
 
-// ============================================================================
-// 4. RHINO .3DM FILE PARSER (rhino3dm.js)
-// ============================================================================
+  initThreeJS();
 
-let rhinoModule = null;
-
-async function getRhinoModule() {
-  if (!rhinoModule && typeof rhino3dm !== 'undefined') {
-    rhinoModule = await rhino3dm();
+  // Initialize rhino3dm library
+  if (window.rhino3dm) {
+    window.rhino3dm().then((loadedRhino) => {
+      rhino = loadedRhino;
+      console.log('[RHINO3DM] Library loaded successfully. Version:', rhino.version || '8.x');
+      enableImportControls();
+    }).catch((err) => {
+      console.error('[RHINO3DM] Failed to initialize rhino3dm library:', err);
+      updateStatus('ERR: rhino3dm init failed', true);
+    });
+  } else {
+    console.error('[RHINO3DM] rhino3dm script tag not found.');
+    updateStatus('ERR: rhino3dm missing', true);
   }
-  return rhinoModule;
-}
+
+  attachEventListeners();
+});
 
 /**
- * Transforms a 3D point using a 4x4 matrix array or rhino Transform object.
+ * Initialize Three.js WebGL Scene, Camera, Lights, and OrbitControls
  */
-function transformPoint3D(pt, xform) {
-  if (!xform) return { ...pt };
-  const x = pt.x, y = pt.y, z = pt.z, w = pt.w !== undefined ? pt.w : 1.0;
-  if (Array.isArray(xform) && xform.length >= 16) {
-    const tx = xform[0]*x + xform[1]*y + xform[2]*z + xform[3]*w;
-    const ty = xform[4]*x + xform[5]*y + xform[6]*z + xform[7]*w;
-    const tz = xform[8]*x + xform[9]*y + xform[10]*z + xform[11]*w;
-    const tw = xform[12]*x + xform[13]*y + xform[14]*z + xform[15]*w;
-    const invW = tw !== 0 ? 1.0 / tw : 1.0;
-    return { x: tx * invW, y: ty * invW, z: tz * invW, w: 1.0 };
+function initThreeJS() {
+  const width = threeCanvasContainer.clientWidth || 800;
+  const height = threeCanvasContainer.clientHeight || 600;
+
+  // 1. Scene
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a0a0a); // Dark technical theme
+
+  // 2. Camera (Perspective)
+  camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000);
+  camera.position.set(0, -300, 150); // Default Front-ish view
+  camera.up.set(0, 0, 1); // Z-Up Coordinate System (Rhino standard)
+
+  // 3. Renderer
+  renderer = new THREE.WebGLRenderer({
+    canvas: threeCanvas,
+    antialias: true,
+    alpha: true,
+    preserveDrawingBuffer: true
+  });
+  renderer.setSize(width, height);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  // 4. Orbit Controls
+  if (THREE.OrbitControls) {
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.screenSpacePanning = true;
+    controls.maxPolarAngle = Math.PI; // Full spherical camera rotation
   }
-  return { ...pt };
+
+  // 5. Lighting
+  ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(ambientLight);
+
+  dirLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+  dirLight1.position.set(100, -200, 300);
+  scene.add(dirLight1);
+
+  dirLight2 = new THREE.DirectionalLight(0xffd700, 0.3); // Warm gold rim light
+  dirLight2.position.set(-100, 200, -100);
+  scene.add(dirLight2);
+
+  // 6. Ground Grid (XY Plane with Z=0)
+  const gridHelper = new THREE.GridHelper(500, 50, 0xffd700, 0x333333);
+  gridHelper.rotation.x = Math.PI / 2; // Orient grid to XY plane (Z-up)
+  scene.add(gridHelper);
+
+  // 7. Axis Helper (Red=X, Green=Y, Blue=Z)
+  const axesHelper = new THREE.AxesHelper(20);
+  scene.add(axesHelper);
+
+  // Window Resize Listener
+  window.addEventListener('resize', onWindowResize);
+
+  // Start Animation Loop
+  animate();
 }
 
-/**
- * Samples a rhino3dm Curve object into an array of 3D points.
- */
-function sampleCurve3D(geom, numSamples = 50) {
-  const pts = [];
-  if (!geom) return pts;
-
-  let poly = null;
-  try {
-    if (typeof geom.toPolyline === 'function') poly = geom.toPolyline();
-  } catch (e) {}
-
-  if (poly && poly.count) {
-    for (let pIdx = 0; pIdx < poly.count; pIdx++) {
-      const pt = poly.get(pIdx);
-      pts.push({
-        x: Array.isArray(pt) ? pt[0] : pt.x,
-        y: Array.isArray(pt) ? pt[1] : pt.y,
-        z: Array.isArray(pt) ? (pt[2] || 0) : (pt.z || 0),
-        w: 1.0
-      });
-    }
-    return pts;
-  }
-
-  const domain = geom.domain || [0, 1];
-  const t0 = domain[0], t1 = domain[1];
-  const steps = geom.degree === 1 ? 10 : numSamples;
-  for (let s = 0; s <= steps; s++) {
-    const t = t0 + (t1 - t0) * (s / steps);
-    const pt = geom.pointAt(t);
-    if (pt) {
-      pts.push({
-        x: Array.isArray(pt) ? pt[0] : pt.x,
-        y: Array.isArray(pt) ? pt[1] : pt.y,
-        z: Array.isArray(pt) ? (pt[2] || 0) : (pt.z || 0),
-        w: 1.0
-      });
-    }
-  }
-  return pts;
-}
-
-/**
- * Parses binary buffer of a Rhino .3dm file using multi-stage isolated error handling.
- */
-async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
-  let rhino = null;
-  let doc = null;
-
-  // STAGE 1: RHINO ENGINE INITIALIZATION
-  try {
-    rhino = await getRhinoModule();
-    if (!rhino) throw new Error('rhino3dm module failed to initialize');
-  } catch (err) {
-    console.error('STAGE 1 [ENGINE INIT ERROR]:', err);
-    alert('STAGE 1 [ENGINE INIT ERROR]: ' + err.message);
-    return;
-  }
-
-  // STAGE 2: RHINO FILE PARSE
-  try {
-    const arr = new Uint8Array(buffer);
-    doc = rhino.File3dm.fromByteArray(arr);
-    if (!doc) throw new Error('File3dm.fromByteArray returned null document');
-  } catch (err) {
-    console.error('STAGE 2 [RHINO PARSE ERROR]:', err);
-    alert('STAGE 2 [RHINO PARSE ERROR]: ' + err.message);
-    return;
-  }
-
-  // STAGE 3: OBJECT CLASSIFICATION & GEOMETRY EXTRACTION
-  let parsedLayers = [];
-  let parsedObjects = [];
-  let unsupportedObjects = [];
-
-  const countsBreakdown = {
-    nurbs: 0, polylines: 0, polycurves: 0, lines: 0, arcs: 0,
-    breps: 0, extrusions: 0, meshes: 0, points: 0, blocks: 0, unsupported: 0
-  };
-
-  let minX = Infinity, minY = Infinity, minZ = Infinity;
-  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
-
-  try {
-    const layersTable = doc.layers();
-    for (let l = 0; l < layersTable.count; l++) {
-      const lay = layersTable.get(l);
-      parsedLayers.push({
-        index: l,
-        name: lay.name || `Layer_${l}`,
-        color: lay.color ? `rgb(${lay.color.r},${lay.color.g},${lay.color.b})` : '#e2c97c'
-      });
-    }
-
-    const objectsTable = doc.objects();
-
-    function updateBounds(pts) {
-      pts.forEach(p => {
-        if (isFinite(p.x) && isFinite(p.y) && isFinite(p.z)) {
-          minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
-          minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
-          minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z);
-        }
-      });
-    }
-
-    for (let i = 0; i < objectsTable.count; i++) {
-      const fileObj = objectsTable.get(i);
-      const attrs = fileObj.attributes();
-      const geom = fileObj.geometry();
-      if (!geom) continue;
-
-      const objId = `obj_${String(i + 1).padStart(2, '0')}`;
-      const rhinoId = attrs ? attrs.id : `uuid_${i}`;
-      const layerIdx = attrs ? attrs.layerIndex : 0;
-      const layerName = parsedLayers[layerIdx] ? parsedLayers[layerIdx].name : 'Default';
-
-      let categoryType = 'Unknown';
-      let renderPaths3D = [];
-      let controlPoints = [];
-      let isClosed = Boolean(geom.isClosed);
-      let degree = geom.degree !== undefined ? geom.degree : 1;
-
-      // 1. POINT
-      if (geom.location) {
-        categoryType = 'Point';
-        countsBreakdown.points++;
-        const pt = geom.location;
-        const p3d = {
-          x: Array.isArray(pt) ? pt[0] : pt.x,
-          y: Array.isArray(pt) ? pt[1] : pt.y,
-          z: Array.isArray(pt) ? (pt[2] || 0) : (pt.z || 0),
-          w: 1.0
-        };
-        renderPaths3D = [[p3d]];
-        controlPoints = [p3d];
-        updateBounds([p3d]);
-      }
-      // 2. BREP (Solid / Surface Edge Wireframe)
-      else if (geom.edges && typeof geom.edges === 'function') {
-        categoryType = 'Brep';
-        countsBreakdown.breps++;
-        const edges = geom.edges();
-        if (edges && edges.count) {
-          for (let eIdx = 0; eIdx < edges.count; eIdx++) {
-            const edgeCurve = edges.get(eIdx);
-            const pts = sampleCurve3D(edgeCurve, 30);
-            if (pts.length > 0) {
-              renderPaths3D.push(pts);
-              updateBounds(pts);
-            }
-          }
-        }
-      }
-      // 3. EXTRUSION (Profile & Direction)
-      else if (typeof geom.profileAsCurve === 'function') {
-        categoryType = 'Extrusion';
-        countsBreakdown.extrusions++;
-        const prof = geom.profileAsCurve(0);
-        if (prof) {
-          const pts = sampleCurve3D(prof, 30);
-          if (pts.length > 0) {
-            renderPaths3D.push(pts);
-            updateBounds(pts);
-          }
-        }
-      }
-      // 4. MESH (Vertices & Edges)
-      else if (typeof geom.vertices === 'function') {
-        categoryType = 'Mesh';
-        countsBreakdown.meshes++;
-        const verts = geom.vertices();
-        const mPts = [];
-        if (verts && verts.count) {
-          for (let vIdx = 0; vIdx < verts.count; vIdx++) {
-            const v = verts.get(vIdx);
-            mPts.push({
-              x: Array.isArray(v) ? v[0] : v.x,
-              y: Array.isArray(v) ? v[1] : v.y,
-              z: Array.isArray(v) ? (v[2] || 0) : (v.z || 0),
-              w: 1.0
-            });
-          }
-          if (mPts.length > 0) {
-            renderPaths3D.push(mPts);
-            updateBounds(mPts);
-          }
-        }
-      }
-      // 5. INSTANCE REFERENCE (Blocks)
-      else if (geom.instanceDefinitionId || typeof geom.xform !== 'undefined') {
-        categoryType = 'InstanceReference';
-        countsBreakdown.blocks++;
-      }
-      // 6. CURVES / POLYLINES / POLYCURVES / ARCS / CIRCLES
-      else if (typeof geom.domain !== 'undefined' || typeof geom.isClosed !== 'undefined') {
-        const geomClassName = geom.objectType ? (geom.objectType.name || 'Curve') : 'Curve';
-
-        if (geomClassName.includes('PolyCurve') || typeof geom.segmentCount !== 'undefined') {
-          categoryType = 'PolyCurve';
-          countsBreakdown.polycurves++;
-        } else if (geom.isPolyline || degree === 1) {
-          categoryType = 'Polyline';
-          countsBreakdown.polylines++;
-        } else if (geomClassName.includes('Arc') || geomClassName.includes('Circle')) {
-          categoryType = 'Arc/Circle';
-          countsBreakdown.arcs++;
-        } else if (geomClassName.includes('Line')) {
-          categoryType = 'Line';
-          countsBreakdown.lines++;
-        } else {
-          categoryType = 'NurbsCurve';
-          countsBreakdown.nurbs++;
-        }
-
-        let cvColl = null;
-        try {
-          if (typeof geom.controlPoints === 'function') cvColl = geom.controlPoints();
-          else if (typeof geom.points === 'function') cvColl = geom.points();
-        } catch (e) {}
-
-        if (cvColl && cvColl.count) {
-          for (let cIdx = 0; cIdx < cvColl.count; cIdx++) {
-            const cv = cvColl.get(cIdx);
-            controlPoints.push({
-              x: Array.isArray(cv) ? cv[0] : cv.x,
-              y: Array.isArray(cv) ? cv[1] : cv.y,
-              z: Array.isArray(cv) ? (cv[2] || 0) : (cv.z || 0),
-              w: (Array.isArray(cv) && cv.length > 3) ? cv[3] : (cv.w !== undefined ? cv.w : 1.0)
-            });
-          }
-        }
-
-        const cPts = sampleCurve3D(geom, 60);
-        if (cPts.length > 0) {
-          renderPaths3D.push(cPts);
-          updateBounds(cPts);
-        }
-
-        if (controlPoints.length === 0 && cPts.length > 0) {
-          controlPoints = cPts.map(p => ({ ...p }));
-        }
-      } else {
-        countsBreakdown.unsupported++;
-        unsupportedObjects.push({
-          id: objId,
-          rhinoId,
-          layerName,
-          geometryType: geom.objectType ? (geom.objectType.name || 'Unknown') : 'UnsupportedObject'
-        });
-      }
-
-      if (renderPaths3D.length > 0) {
-        parsedObjects.push({
-          id: objId,
-          rhinoId,
-          layerIndex: layerIdx,
-          layerName,
-          geometryType: categoryType,
-          degree,
-          isClosed,
-          renderPaths3D,
-          controlPoints
-        });
-      }
-    }
-  } catch (err) {
-    console.error('STAGE 3 [OBJECT EXTRACTION ERROR]:', err);
-    alert('STAGE 3 [OBJECT EXTRACTION ERROR]: ' + err.message);
-    return;
-  }
-
-  // STAGE 4: BOUNDING BOX & DOMINANT PLANE CALCULATION
-  let rangeX = 1, rangeY = 1, rangeZ = 1;
-  let dominantPlane = 'FRONT';
-  try {
-    if (!isFinite(minX)) { minX = 0; maxX = 100; minY = 0; maxY = 100; minZ = 0; maxZ = 100; }
-    rangeX = Math.max(1, maxX - minX);
-    rangeY = Math.max(1, maxY - minY);
-    rangeZ = Math.max(1, maxZ - minZ);
-    dominantPlane = rangeZ > rangeY ? 'FRONT' : 'TOP';
-  } catch (err) {
-    console.error('STAGE 4 [BOUNDING BOX ERROR]:', err);
-    alert('STAGE 4 [BOUNDING BOX ERROR]: ' + err.message);
-    return;
-  }
-
-  // STAGE 5: IMMUTABLE SOURCE GEOMETRY CREATION
-  try {
-    const unitsStr = doc.settings()?.modelUnits?.name || 'mm';
-
-    const sourceGeometry3D = {
-      filename,
-      units: unitsStr,
-      objectCount: parsedObjects.length,
-      counts: countsBreakdown,
-      layers: parsedLayers,
-      unsupportedObjects,
-      objects: parsedObjects,
-      bounds3D: { minX, maxX, minY, maxY, minZ, maxZ, rangeX, rangeY, rangeZ },
-      dominantPlane
-    };
-
-    appState.originalRhinoGeometry = sourceGeometry3D;
-    appState.editableSeedGeometry = sourceGeometry3D; // Set directly to original geometry (no auto-cloning during import)
-    appState.projectionMode = dominantPlane;
-
-    appState.objectVisibilityMap = {};
-    parsedObjects.forEach(obj => { appState.objectVisibilityMap[obj.id] = true; });
-    appState.highlightedObjectId = null;
-
-    btnVerifyRhinoImport.disabled = false;
-  } catch (err) {
-    console.error('STAGE 5 [GEOMETRY STORE ERROR]:', err);
-    alert('STAGE 5 [GEOMETRY STORE ERROR]: ' + err.message);
-    return;
-  }
-
-  // STAGE 6: RENDERING & DIAGNOSTICS DISPLAY
-  try {
-    renderRhinoSeedView(appState.originalRhinoGeometry);
-
-    console.log(`=== RHINO FILE IMPORT DIAGNOSTICS (${filename}) ===`);
-    console.log(`Total Document Objects: ${doc.objects().count}`);
-    console.log(`Renderable Objects: ${parsedObjects.length}`);
-    console.log(`Unsupported Objects: ${unsupportedObjects.length}`);
-    console.log(`3D Bounds: X=[${minX.toFixed(1)}..${maxX.toFixed(1)}] (range ${rangeX.toFixed(1)}mm)`);
-    console.log(`          Y=[${minY.toFixed(1)}..${maxY.toFixed(1)}] (range ${rangeY.toFixed(1)}mm)`);
-    console.log(`          Z=[${minZ.toFixed(1)}..${maxZ.toFixed(1)}] (range ${rangeZ.toFixed(1)}mm)`);
-    console.log(`Dominant Auto View Plane: ${dominantPlane}`);
-    console.log(`Counts Breakdown:`, countsBreakdown);
-    console.log(`=================================================`);
-  } catch (err) {
-    console.error('STAGE 6 [RENDERING ERROR]:', err);
-    alert('STAGE 6 [RENDERING ERROR]: ' + err.message);
-    return;
+function animate() {
+  requestAnimationFrame(animate);
+  if (controls) controls.update();
+  if (renderer && scene && camera) {
+    renderer.render(scene, camera);
   }
 }
 
-/**
- * Creates and loads a sample .3dm file programmatically in browser.
- */
-async function loadSampleRhinoSeed() {
-  try {
-    const rhino = await getRhinoModule();
-    if (!rhino) {
-      alert('Rhino module initializing...');
-      return;
-    }
+function onWindowResize() {
+  if (!threeCanvasContainer || !renderer || !camera) return;
+  const width = threeCanvasContainer.clientWidth;
+  const height = threeCanvasContainer.clientHeight;
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+  renderer.setSize(width, height);
+}
 
-    const doc = new rhino.File3dm();
-
-    // 1. Roof Spline in Front View (X/Z Plane: X=20..380, Z=180..240)
-    const curve1 = new rhino.NurbsCurve(3, 4);
-    const cpts1 = curve1.points();
-    cpts1.set(0, [20, 0, 180, 1.0]);
-    cpts1.set(1, [120, 0, 240, 1.0]);
-    cpts1.set(2, [280, 0, 150, 1.0]);
-    cpts1.set(3, [380, 0, 210, 1.0]);
-    doc.objects().addCurve(curve1);
-
-    // 2. Floor Spline in Front View (X/Z Plane: Z=40)
-    const curve2 = new rhino.NurbsCurve(3, 4);
-    const cpts2 = curve2.points();
-    cpts2.set(0, [20, 0, 40, 1.0]);
-    cpts2.set(1, [140, 0, 30, 1.0]);
-    cpts2.set(2, [260, 0, 60, 1.0]);
-    cpts2.set(3, [380, 0, 40, 1.0]);
-    doc.objects().addCurve(curve2);
-
-    // 3. Mezzanine Spline (X/Z Plane: Z=110)
-    const curve3 = new rhino.NurbsCurve(3, 4);
-    const cpts3 = curve3.points();
-    cpts3.set(0, [150, 0, 110, 1.0]);
-    cpts3.set(1, [220, 0, 130, 1.0]);
-    cpts3.set(2, [310, 0, 90, 1.0]);
-    cpts3.set(3, [380, 0, 110, 1.0]);
-    doc.objects().addCurve(curve3);
-
-    // 4. Column Grid (Polyline in X/Z)
-    const poly1 = new rhino.Polyline(3);
-    poly1.add(50, 0, 40);
-    poly1.add(50, 0, 195);
-    poly1.add(65, 0, 205);
-    doc.objects().addPolyline(poly1);
-
-    // 5. Stair Polyline (X/Z)
-    const poly2 = new rhino.Polyline(4);
-    poly2.add(150, 0, 40);
-    poly2.add(150, 0, 75);
-    poly2.add(180, 0, 75);
-    poly2.add(180, 0, 115);
-    doc.objects().addPolyline(poly2);
-
-    // 6. Carved Void Circle (in X/Z plane)
-    const closedCircle = new rhino.Circle(50);
-    const circleCurve = closedCircle.toNurbsCurve();
-    circleCurve.translate([200, 0, 120]);
-    doc.objects().addCurve(circleCurve);
-
-    const byteArray = doc.toByteArray();
-    await processRhinoBuffer(byteArray.buffer, 'Sample_Rhino_Seed.3dm');
-  } catch (e) {
-    console.error('Error generating sample seed:', e);
-  }
+function enableImportControls() {
+  if (btnRhinoFileInput) btnRhinoFileInput.disabled = false;
+  if (btnRhinoFileInputMain) btnRhinoFileInputMain.disabled = false;
+  if (btnLoadSampleSeed) btnLoadSampleSeed.disabled = false;
+  if (btnStartSample) btnStartSample.disabled = false;
 }
 
 // ============================================================================
-// 5. 3D MULTI-PROJECTION ENGINE
+// 4. EVENT LISTENERS
 // ============================================================================
 
-/**
- * Projects a 3D point {x, y, z} to 2D SVG canvas screen space based on Projection Mode.
- */
-function project3DTo2D(pt3d, mode = 'FRONT') {
-  const x = pt3d.x, y = pt3d.y, z = pt3d.z;
-  if (mode === 'FRONT') {
-    return { x: x, y: -z };
-  } else if (mode === 'TOP') {
-    return { x: x, y: -y };
-  } else if (mode === 'RIGHT') {
-    return { x: y, y: -z };
-  } else if (mode === 'PERSPECTIVE') {
-    const cos30 = 0.866025;
-    const sin30 = 0.5;
-    const isoX = (x - y) * cos30;
-    const isoY = -(z - (x + y) * sin30);
-    return { x: isoX, y: isoY };
+function attachEventListeners() {
+  // File Inputs
+  if (btnRhinoFileInput) {
+    btnRhinoFileInput.addEventListener('change', (e) => handleFileSelect(e.target.files[0]));
   }
-  return { x: x, y: -z };
-}
-
-/**
- * Calculates global projected 2D bounding box across ALL 3D objects using current Projection Mode.
- */
-function getGlobalProjectedBounds(seedData, projMode = 'FRONT') {
-  if (!seedData || !seedData.objects || seedData.objects.length === 0) {
-    return { minX: 0, maxX: 100, minY: -100, maxY: 0, width: 100, height: 100 };
+  if (btnRhinoFileInputMain) {
+    btnRhinoFileInputMain.addEventListener('change', (e) => handleFileSelect(e.target.files[0]));
   }
 
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  // Sample Seed Buttons
+  if (btnLoadSampleSeed) {
+    btnLoadSampleSeed.addEventListener('click', () => loadSampleSeed());
+  }
+  if (btnStartSample) {
+    btnStartSample.addEventListener('click', () => loadSampleSeed());
+  }
 
-  seedData.objects.forEach(obj => {
-    obj.renderPaths3D.forEach(path3d => {
-      path3d.forEach(pt => {
-        const p2d = project3DTo2D(pt, projMode);
-        if (isFinite(p2d.x) && isFinite(p2d.y)) {
-          minX = Math.min(minX, p2d.x); maxX = Math.max(maxX, p2d.x);
-          minY = Math.min(minY, p2d.y); maxY = Math.max(maxY, p2d.y);
-        }
-      });
+  // Audit Modal Button
+  if (btnVerifyRhinoImport) {
+    btnVerifyRhinoImport.addEventListener('click', () => openVerifyModal());
+  }
+  if (btnCloseVerifyModal) {
+    btnCloseVerifyModal.addEventListener('click', () => closeVerifyModal());
+  }
+  if (verifyModal) {
+    verifyModal.addEventListener('click', (e) => {
+      if (e.target === verifyModal) closeVerifyModal();
+    });
+  }
+
+  // View Mode Toggles ([ SUBD SURFACE ], [ CONTROL CAGE ], [ OVERLAY ])
+  viewToggleBtns.forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      viewToggleBtns.forEach((b) => b.classList.remove('active'));
+      const targetBtn = e.currentTarget;
+      targetBtn.classList.add('active');
+      appState.displayMode = targetBtn.dataset.view;
+      updateDisplayModeVisibility();
     });
   });
 
-  if (!isFinite(minX)) { minX = 0; maxX = 100; minY = -100; maxY = 0; }
+  // Projection View Toggles (FRONT, TOP, RIGHT, PERSPECTIVE)
+  projToggleBtns.forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      projToggleBtns.forEach((b) => b.classList.remove('active'));
+      const targetBtn = e.currentTarget;
+      targetBtn.classList.add('active');
+      setCameraProjection(targetBtn.dataset.proj);
+    });
+  });
 
-  const width = Math.max(10, maxX - minX);
-  const height = Math.max(10, maxY - minY);
-  return { minX, maxX, minY, maxY, width, height };
-}
-
-function fitImportedGeometryToViewport(projBounds) {
-  if (!projBounds) return;
-
-  const padX = Math.max(10, projBounds.width * 0.12);
-  const padY = Math.max(10, projBounds.height * 0.12);
-
-  const vX = Math.round(projBounds.minX - padX);
-  const vY = Math.round(projBounds.minY - padY);
-  const vW = Math.round(projBounds.width + padX * 2);
-  const vH = Math.round(projBounds.height + padY * 2);
-
-  const viewBoxStr = `${vX} ${vY} ${vW} ${vH}`;
-  svgCanvas.setAttribute('viewBox', viewBoxStr);
+  // Toggle All Visibility
+  if (btnToggleAllVis) {
+    btnToggleAllVis.addEventListener('click', () => toggleAllObjectVisibility());
+  }
 }
 
 // ============================================================================
-// 6. VIEWPORT RENDERING & OVERLAY
+// 5. STAGED DECOUPLED RHINO IMPORTER PIPELINE
 // ============================================================================
 
 /**
- * Builds SVG path `d` string from 3D points projected to 2D.
+ * Handle File Selection and read buffer
  */
-function buildPathStringProjected(points3D, isClosed, projMode) {
-  if (!points3D || points3D.length === 0) return '';
-  let d = '';
-  points3D.forEach((pt3d, pIdx) => {
-    const p2d = project3DTo2D(pt3d, projMode);
-    const px = p2d.x.toFixed(2);
-    const py = p2d.y.toFixed(2);
-    d += (pIdx === 0 ? `M ${px},${py}` : ` L ${px},${py}`);
-  });
-  if (isClosed) d += ' Z';
-  return d;
-}
+function handleFileSelect(file) {
+  if (!file) return;
+  console.log('[STAGE 1 - FILE READ] Opening file:', file.name, 'Size:', file.size, 'bytes');
 
-function getTypeBadgeClass(typeStr) {
-  if (typeStr.includes('Nurbs')) return 'type-nurbs';
-  if (typeStr.includes('Polyline')) return 'type-polyline';
-  if (typeStr.includes('PolyCurve')) return 'type-polycurve';
-  if (typeStr.includes('Brep')) return 'type-brep';
-  if (typeStr.includes('Extrusion')) return 'type-extrusion';
-  if (typeStr.includes('Mesh')) return 'type-mesh';
-  if (typeStr.includes('Instance')) return 'type-instance';
-  return 'type-polyline';
-}
-
-function renderObjectsIntoLayer(containerGroup, seedData, styleOptions = {}) {
-  containerGroup.innerHTML = '';
-  if (!seedData || !seedData.objects) return;
-
-  const projMode = appState.projectionMode;
-
-  seedData.objects.forEach(obj => {
-    if (appState.objectVisibilityMap[obj.id] === false) return;
-
-    const isHighlighted = appState.highlightedObjectId === obj.id;
-
-    if (obj.geometryType === 'Point' && obj.controlPoints.length > 0) {
-      const pt3d = obj.controlPoints[0];
-      const p2d = project3DTo2D(pt3d, projMode);
-      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      circle.setAttribute('cx', p2d.x.toFixed(2));
-      circle.setAttribute('cy', p2d.y.toFixed(2));
-      circle.setAttribute('r', isHighlighted ? '6' : '3.5');
-      circle.setAttribute('fill', isHighlighted ? '#ff4757' : (styleOptions.isOriginal ? '#52c5d8' : 'var(--accent-gold)'));
-      if (isHighlighted) circle.setAttribute('filter', 'url(#highlight-glow)');
-      containerGroup.appendChild(circle);
-    } else {
-      obj.renderPaths3D.forEach(path3d => {
-        if (path3d.length > 0) {
-          const d = buildPathStringProjected(path3d, obj.isClosed, projMode);
-          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-          path.setAttribute('d', d);
-
-          if (isHighlighted) {
-            path.setAttribute('fill', 'none');
-            path.setAttribute('stroke', '#ff4757');
-            path.setAttribute('stroke-width', '4');
-            path.setAttribute('filter', 'url(#highlight-glow)');
-          } else if (styleOptions.isOriginal) {
-            path.setAttribute('fill', 'none');
-            path.setAttribute('stroke', '#52c5d8');
-            path.setAttribute('stroke-width', '2');
-            path.setAttribute('stroke-dasharray', '6 4');
-          } else {
-            if (obj.isClosed) {
-              path.setAttribute('fill', 'rgba(226, 201, 124, 0.1)');
-              path.setAttribute('stroke', '#e2c97c');
-              path.setAttribute('stroke-width', '2');
-            } else if (obj.geometryType === 'Polyline' || obj.geometryType === 'Line') {
-              path.setAttribute('fill', 'none');
-              path.setAttribute('stroke', '#52c5d8');
-              path.setAttribute('stroke-width', '2');
-              path.setAttribute('stroke-dasharray', '4 3');
-            } else if (obj.geometryType === 'Brep' || obj.geometryType === 'Extrusion') {
-              path.setAttribute('fill', 'none');
-              path.setAttribute('stroke', '#e056fd');
-              path.setAttribute('stroke-width', '2');
-            } else {
-              path.setAttribute('fill', 'none');
-              path.setAttribute('stroke', 'url(#spline-gradient)');
-              path.setAttribute('stroke-width', '2.5');
-              path.setAttribute('filter', 'url(#glow)');
-            }
-          }
-
-          containerGroup.appendChild(path);
-        }
-      });
+  // Stage 1: File Read
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const buffer = new Uint8Array(e.target.result);
+      processRhinoBuffer(buffer, file.name);
+    } catch (err) {
+      showStageError('STAGE 1 — FILE READ ERROR', err);
     }
-  });
+  };
+  reader.onerror = (err) => showStageError('STAGE 1 — FILE READ ERROR', err);
+  reader.readAsArrayBuffer(file);
 }
 
-function renderControlPolygonLayer(containerGroup, seedData) {
-  containerGroup.innerHTML = '';
-  if (!seedData || !seedData.objects) return;
+/**
+ * Main 6-Stage Decoupled Rhino Importer Pipeline
+ * IMPORTANT: cloneRhinoSeed is NOT called during import!
+ */
+function processRhinoBuffer(buffer, filename) {
+  updateStatus('PARSING .3DM...', false);
 
-  const projMode = appState.projectionMode;
+  // STAGE 2 — RHINO PARSE
+  let doc = null;
+  try {
+    console.log('[STAGE 2 - RHINO PARSE] Decoding .3dm array buffer...');
+    doc = rhino.File3dm.fromByteArray(buffer);
+    if (!doc) {
+      throw new Error('File3dm.fromByteArray returned null. Invalid or corrupt .3dm file.');
+    }
+    console.log('[STAGE 2 SUCCESS] Parsed File3dm document with', doc.objects().count, 'objects.');
+  } catch (err) {
+    showStageError('STAGE 2 — RHINO PARSE ERROR', err);
+    return;
+  }
 
-  seedData.objects.forEach(obj => {
-    if (appState.objectVisibilityMap[obj.id] === false) return;
+  // STAGE 3 — OBJECT CLASSIFICATION & SUBD PARSING
+  let parsedData = null;
+  try {
+    console.log('[STAGE 3 - CLASSIFICATION] Iterating objects and classifying types...');
+    parsedData = parseRhinoObjects(doc);
+    console.log('[STAGE 3 SUCCESS] Parsed', parsedData.objects.length, 'objects. SubD count:', parsedData.subdCount);
+  } catch (err) {
+    showStageError('STAGE 3 — OBJECT CLASSIFICATION ERROR', err);
+    return;
+  }
 
-    if (obj.controlPoints && obj.controlPoints.length > 0) {
-      if (obj.controlPoints.length > 1) {
-        const dPoly = buildPathStringProjected(obj.controlPoints, false, projMode);
-        const polygonPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        polygonPath.setAttribute('d', dPoly);
-        polygonPath.setAttribute('fill', 'none');
-        polygonPath.setAttribute('stroke', 'rgba(255, 255, 255, 0.4)');
-        polygonPath.setAttribute('stroke-width', '1');
-        polygonPath.setAttribute('stroke-dasharray', '3 3');
-        containerGroup.appendChild(polygonPath);
+  // STAGE 4 — BOUNDING BOX CALCULATION
+  try {
+    console.log('[STAGE 4 - BOUNDING BOX] Calculating global 3D world bounds...');
+    calculateGlobalBounds(parsedData.objects);
+    console.log('[STAGE 4 SUCCESS] Global Bounds:', globalBoundingBox);
+  } catch (err) {
+    showStageError('STAGE 4 — BOUNDING BOX ERROR', err);
+    return;
+  }
+
+  // STAGE 5 — PROJECTION & DATA STORAGE
+  try {
+    console.log('[STAGE 5 - PROJECTION & STORE] Storing immutable originalRhinoGeometry...');
+    appState.originalRhinoGeometry = {
+      filename: filename,
+      objects: parsedData.objects,
+      counts: parsedData.counts,
+      subdMetrics: parsedData.subdMetrics,
+      bounds: globalBoundingBox,
+      units: doc.settings().modelUnitSystem().name || 'mm'
+    };
+
+    // Initialize visibility map
+    appState.objectVisibilityMap = {};
+    parsedData.objects.forEach((obj) => {
+      appState.objectVisibilityMap[obj.id] = true;
+    });
+
+    // Editable working seed points to original (immutable)
+    appState.editableSeedGeometry = appState.originalRhinoGeometry;
+  } catch (err) {
+    showStageError('STAGE 5 — PROJECTION ERROR', err);
+    return;
+  }
+
+  // STAGE 6 — RENDERING THREE.JS 3D WEBGL SCENE
+  try {
+    console.log('[STAGE 6 - RENDERING] Building Three.js 3D WebGL meshes and cage wireframes...');
+    renderRhino3DScene(appState.originalRhinoGeometry);
+    console.log('[STAGE 6 SUCCESS] 3D WebGL rendering complete.');
+  } catch (err) {
+    showStageError('STAGE 6 — RENDERING ERROR', err);
+    return;
+  }
+
+  // UPDATE UI & DIAGNOSTICS
+  updateUIWithParsedData(filename);
+  if (btnVerifyRhinoImport) btnVerifyRhinoImport.disabled = false;
+  updateStatus('RHINO SEED LOADED', false);
+}
+
+// ============================================================================
+// 6. OBJECT PARSER & SUBD EXTRACTOR (STAGE 3)
+// ============================================================================
+
+/**
+ * Classify and extract geometry from every File3dm object
+ */
+function parseRhinoObjects(doc) {
+  const objectsList = doc.objects();
+  const count = objectsList.count;
+
+  const objects = [];
+  const counts = {
+    subd: 0,
+    nurbs: 0,
+    polylines: 0,
+    polycurves: 0,
+    lines: 0,
+    arcs: 0,
+    breps: 0,
+    extrusions: 0,
+    meshes: 0,
+    points: 0,
+    blocks: 0,
+    unsupported: 0
+  };
+
+  const subdMetrics = {
+    totalObjects: 0,
+    totalVertices: 0,
+    totalEdges: 0,
+    totalFaces: 0
+  };
+
+  for (let i = 0; i < count; i++) {
+    const fileObj = objectsList.get(i);
+    const geom = fileObj.geometry();
+    const attributes = fileObj.attributes();
+
+    const objId = attributes.id || `obj_${i + 1}`;
+    const objName = attributes.name || `Object ${i + 1}`;
+    const layerIndex = attributes.layerIndex;
+    const objectType = geom ? geom.objectType.name : 'Unknown';
+
+    const objData = {
+      index: i + 1,
+      id: objId,
+      name: objName,
+      layerIndex: layerIndex,
+      type: 'Other',
+      rhinoType: objectType,
+      bounds: null,
+      subdData: null,
+      renderMesh: null,
+      wireframeLines: [],
+      vertices: []
+    };
+
+    if (!geom) {
+      counts.unsupported++;
+      objects.push(objData);
+      continue;
+    }
+
+    // Get object bounding box
+    try {
+      const bbox = geom.getBoundingBox();
+      objData.bounds = {
+        min: { x: bbox.min[0], y: bbox.min[1], z: bbox.min[2] },
+        max: { x: bbox.max[0], y: bbox.max[1], z: bbox.max[2] }
+      };
+    } catch (e) {
+      objData.bounds = { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } };
+    }
+
+    // Determine actual geometry type (explicit checking, NOT just isClosed)
+    // 1. SUBD GEOMETRY
+    if (geom instanceof rhino.SubD || objectType === 'SubD' || geom.objectType === rhino.ObjectType.SubD) {
+      objData.type = 'SubD';
+      counts.subd++;
+      subdMetrics.totalObjects++;
+
+      const subd = geom;
+      let vCount = 0, eCount = 0, fCount = 0;
+
+      try {
+        if (subd.vertices) vCount = subd.vertices().count;
+        if (subd.edges) eCount = subd.edges().count;
+        if (subd.faces) fCount = subd.faces().count;
+      } catch (err) {
+        console.warn('SubD metrics query warning:', err);
       }
 
-      obj.controlPoints.forEach((pt3d, cvIdx) => {
-        const p2d = project3DTo2D(pt3d, projMode);
-        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        circle.setAttribute('cx', p2d.x.toFixed(2));
-        circle.setAttribute('cy', p2d.y.toFixed(2));
-        circle.setAttribute('r', '4');
-        circle.setAttribute('fill', cvIdx === 0 ? '#2ecc71' : (cvIdx === obj.controlPoints.length - 1 ? '#e056fd' : '#ffffff'));
-        circle.setAttribute('stroke', '#000000');
-        circle.setAttribute('stroke-width', '1');
+      subdMetrics.totalVertices += vCount;
+      subdMetrics.totalEdges += eCount;
+      subdMetrics.totalFaces += fCount;
 
-        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-        title.textContent = `CV [${cvIdx}] (${pt3d.x.toFixed(1)}, ${pt3d.y.toFixed(1)}, ${pt3d.z.toFixed(1)}) Weight: ${pt3d.w || 1.0}`;
-        circle.appendChild(title);
+      objData.subdData = {
+        vertexCount: vCount,
+        edgeCount: eCount,
+        faceCount: fCount
+      };
 
-        containerGroup.appendChild(circle);
+      // Extract display mesh from SubD (for surface rendering)
+      try {
+        let subdMesh = null;
+        if (rhino.Mesh.createFromSubDControlNet) {
+          subdMesh = rhino.Mesh.createFromSubDControlNet(subd);
+        } else if (subd.toMesh) {
+          subdMesh = subd.toMesh();
+        }
+        if (subdMesh) {
+          objData.renderMesh = extractMeshGeometry(subdMesh);
+        }
+      } catch (err) {
+        console.warn('Could not extract mesh from SubD control net:', err);
+      }
+
+      // Extract Control Cage wireframe lines and vertices (for cage rendering)
+      try {
+        objData.wireframeLines = extractSubDCageWireframe(subd);
+        objData.vertices = extractSubDControlVertices(subd);
+      } catch (err) {
+        console.warn('Could not extract SubD control cage wireframe:', err);
+      }
+    }
+    // 2. BREP / SURFACE
+    else if (geom instanceof rhino.Brep || objectType === 'Brep') {
+      objData.type = 'Brep';
+      counts.breps++;
+
+      // Create mesh representation for display
+      try {
+        const meshes = rhino.Mesh.createFromBrep(geom);
+        if (meshes && meshes.length > 0) {
+          objData.renderMesh = extractMeshGeometry(meshes[0]);
+        }
+      } catch (err) {
+        console.warn('Brep meshing warning:', err);
+      }
+    }
+    // 3. EXTRUSION
+    else if (geom instanceof rhino.Extrusion || objectType === 'Extrusion') {
+      objData.type = 'Extrusion';
+      counts.extrusions++;
+
+      try {
+        const mesh = geom.getMesh(rhino.MeshType.Any);
+        if (mesh) {
+          objData.renderMesh = extractMeshGeometry(mesh);
+        }
+      } catch (err) {
+        console.warn('Extrusion meshing warning:', err);
+      }
+    }
+    // 4. MESH
+    else if (geom instanceof rhino.Mesh || objectType === 'Mesh') {
+      objData.type = 'Mesh';
+      counts.meshes++;
+      objData.renderMesh = extractMeshGeometry(geom);
+    }
+    // 5. CURVES (NurbsCurve, PolylineCurve, PolyCurve, LineCurve, ArcCurve)
+    else if (geom instanceof rhino.Curve || objectType.includes('Curve')) {
+      if (objectType.includes('Polyline') || geom instanceof rhino.PolylineCurve) {
+        objData.type = 'PolylineCurve';
+        counts.polylines++;
+      } else if (objectType.includes('PolyCurve') || geom instanceof rhino.PolyCurve) {
+        objData.type = 'PolyCurve';
+        counts.polycurves++;
+      } else if (objectType.includes('Line') || geom instanceof rhino.LineCurve) {
+        objData.type = 'LineCurve';
+        counts.lines++;
+      } else if (objectType.includes('Arc') || objectType.includes('Circle') || geom instanceof rhino.ArcCurve) {
+        objData.type = 'ArcCurve';
+        counts.arcs++;
+      } else {
+        objData.type = 'NurbsCurve';
+        counts.nurbs++;
+      }
+
+      // Sample curve into line segments for 3D wireframe rendering
+      try {
+        objData.wireframeLines = sampleCurveTo3DLines(geom);
+      } catch (err) {
+        console.warn('Curve sampling warning:', err);
+      }
+    }
+    // 6. POINT
+    else if (geom instanceof rhino.Point || objectType === 'Point') {
+      objData.type = 'Point';
+      counts.points++;
+      try {
+        const pt = geom.location;
+        objData.vertices = [{ x: pt[0], y: pt[1], z: pt[2] }];
+      } catch (e) {}
+    }
+    // 7. INSTANCE REFERENCE (BLOCK)
+    else if (geom instanceof rhino.InstanceReference || objectType === 'InstanceReference') {
+      objData.type = 'InstanceReference';
+      counts.blocks++;
+    } else {
+      counts.unsupported++;
+    }
+
+    objects.push(objData);
+  }
+
+  return {
+    objects: objects,
+    counts: counts,
+    subdMetrics: subdMetrics,
+    subdCount: counts.subd
+  };
+}
+
+/**
+ * Extract vertices, faces, and normals from a Rhino Mesh object into flat JS arrays
+ */
+function extractMeshGeometry(mesh) {
+  try {
+    const vertsList = mesh.vertices();
+    const facesList = mesh.faces();
+
+    const positions = [];
+    const indices = [];
+
+    const vCount = vertsList.count;
+    for (let i = 0; i < vCount; i++) {
+      const pt = vertsList.get(i);
+      positions.push(pt[0], pt[1], pt[2]);
+    }
+
+    const fCount = facesList.count;
+    for (let i = 0; i < fCount; i++) {
+      const f = facesList.get(i);
+      if (f.length === 4) {
+        // Quad face -> 2 triangles
+        indices.push(f[0], f[1], f[2]);
+        indices.push(f[0], f[2], f[3]);
+      } else if (f.length === 3) {
+        indices.push(f[0], f[1], f[2]);
+      }
+    }
+
+    return {
+      positions: new Float32Array(positions),
+      indices: new Uint32Array(indices)
+    };
+  } catch (err) {
+    console.error('Error extracting mesh geometry:', err);
+    return null;
+  }
+}
+
+/**
+ * Extract SubD control cage edges as pairs of 3D line points
+ */
+function extractSubDCageWireframe(subd) {
+  const linePairs = [];
+  try {
+    const edges = subd.edges();
+    const count = edges.count;
+    for (let i = 0; i < count; i++) {
+      const edge = edges.get(i);
+      const line = edge.toLine();
+      if (line) {
+        const pA = line.from;
+        const pB = line.to;
+        linePairs.push({
+          start: { x: pA[0], y: pA[1], z: pA[2] },
+          end: { x: pB[0], y: pB[1], z: pB[2] }
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('SubD cage wireframe extraction warning:', err);
+  }
+  return linePairs;
+}
+
+/**
+ * Extract SubD control vertices positions
+ */
+function extractSubDControlVertices(subd) {
+  const verts = [];
+  try {
+    const vList = subd.vertices();
+    const count = vList.count;
+    for (let i = 0; i < count; i++) {
+      const v = vList.get(i);
+      const pt = v.location;
+      verts.push({ x: pt[0], y: pt[1], z: pt[2] });
+    }
+  } catch (err) {
+    console.warn('SubD control vertices extraction warning:', err);
+  }
+  return verts;
+}
+
+/**
+ * Sample a curve into 3D line segment points
+ */
+function sampleCurveTo3DLines(curve) {
+  const linePairs = [];
+  try {
+    const domain = curve.domain;
+    const samples = 60;
+    const tStart = domain[0];
+    const tEnd = domain[1];
+    const step = (tEnd - tStart) / samples;
+
+    let prevPt = curve.pointAt(tStart);
+    for (let i = 1; i <= samples; i++) {
+      const t = tStart + i * step;
+      const currPt = curve.pointAt(t);
+      linePairs.push({
+        start: { x: prevPt[0], y: prevPt[1], z: prevPt[2] },
+        end: { x: currPt[0], y: currPt[1], z: currPt[2] }
       });
+      prevPt = currPt;
+    }
+  } catch (err) {
+    console.warn('Curve sampling error:', err);
+  }
+  return linePairs;
+}
+
+// ============================================================================
+// 7. BOUNDING BOX & COORDINATE CALCULATOR (STAGE 4)
+// ============================================================================
+
+function calculateGlobalBounds(objects) {
+  let minX = Infinity, minY = Infinity, minZ = Infinity;
+  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  let validCount = 0;
+
+  objects.forEach((obj) => {
+    if (obj.bounds && obj.bounds.min && obj.bounds.max) {
+      if (isFinite(obj.bounds.min.x)) {
+        minX = Math.min(minX, obj.bounds.min.x);
+        minY = Math.min(minY, obj.bounds.min.y);
+        minZ = Math.min(minZ, obj.bounds.min.z);
+        maxX = Math.max(maxX, obj.bounds.max.x);
+        maxY = Math.max(maxY, obj.bounds.max.y);
+        maxZ = Math.max(maxZ, obj.bounds.max.z);
+        validCount++;
+      }
+    }
+  });
+
+  if (validCount === 0 || minX === Infinity) {
+    minX = -50; minY = -50; minZ = -50;
+    maxX = 50; maxY = 50; maxZ = 50;
+  }
+
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+  const centerZ = (minZ + maxZ) / 2;
+
+  const sizeX = maxX - minX;
+  const sizeY = maxY - minY;
+  const sizeZ = maxZ - minZ;
+  const maxDim = Math.max(sizeX, sizeY, sizeZ, 1.0);
+
+  globalBoundingBox = {
+    min: { x: minX, y: minY, z: minZ },
+    max: { x: maxX, y: maxY, z: maxZ },
+    center: { x: centerX, y: centerY, z: centerZ },
+    size: { x: sizeX, y: sizeY, z: sizeZ },
+    maxDim: maxDim
+  };
+}
+
+// ============================================================================
+// 8. THREE.JS 3D SCENE BUILDER & VIEWPORT CONTROLLER (STAGE 6)
+// ============================================================================
+
+/**
+ * Build and populate Three.js 3D WebGL meshes and control cage wireframes
+ */
+function renderRhino3DScene(rhinoData) {
+  if (!scene) return;
+
+  // Clear previous imported objects
+  Object.keys(appState.threeObjectMap).forEach((id) => {
+    const entry = appState.threeObjectMap[id];
+    if (entry.surfaceGroup) scene.remove(entry.surfaceGroup);
+    if (entry.cageGroup) scene.remove(entry.cageGroup);
+  });
+  appState.threeObjectMap = {};
+
+  // Build Three.js objects for each imported object
+  rhinoData.objects.forEach((obj) => {
+    const surfaceGroup = new THREE.Group();
+    const cageGroup = new THREE.Group();
+
+    // 1. SURFACE MESH (Smooth evaluated SubD surface / Brep / Mesh)
+    if (obj.renderMesh && obj.renderMesh.positions.length > 0) {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(obj.renderMesh.positions, 3));
+      if (obj.renderMesh.indices.length > 0) {
+        geometry.setIndex(new THREE.BufferAttribute(obj.renderMesh.indices, 1));
+      }
+      geometry.computeVertexNormals();
+
+      const material = new THREE.MeshStandardMaterial({
+        color: obj.type === 'SubD' ? 0xffd700 : 0x4a90e2, // Gold for SubD, Blue for Breps
+        roughness: 0.3,
+        metalness: 0.2,
+        side: THREE.DoubleSide
+      });
+
+      const meshObj = new THREE.Mesh(geometry, material);
+      surfaceGroup.add(meshObj);
+    }
+
+    // 2. WIREFRAME / CONTROL CAGE LINES
+    if (obj.wireframeLines && obj.wireframeLines.length > 0) {
+      const linePositions = [];
+      obj.wireframeLines.forEach((pair) => {
+        linePositions.push(pair.start.x, pair.start.y, pair.start.z);
+        linePositions.push(pair.end.x, pair.end.y, pair.end.z);
+      });
+
+      const lineGeometry = new THREE.BufferGeometry();
+      lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+
+      const lineMaterial = new THREE.LineBasicMaterial({
+        color: obj.type === 'SubD' ? 0xffffff : 0xaaaaaa,
+        linewidth: 1.5
+      });
+
+      const lineSegs = new THREE.LineSegments(lineGeometry, lineMaterial);
+      cageGroup.add(lineSegs);
+    }
+
+    // 3. CONTROL VERTEX HANDLE SPHERES
+    if (obj.vertices && obj.vertices.length > 0 && obj.type === 'SubD') {
+      const vertPositions = [];
+      obj.vertices.forEach((v) => vertPositions.push(v.x, v.y, v.z));
+
+      const pointGeometry = new THREE.BufferGeometry();
+      pointGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vertPositions, 3));
+
+      const pointMaterial = new THREE.PointsMaterial({
+        color: 0xff4500, // Bright orange/red handles
+        size: globalBoundingBox.maxDim * 0.015,
+        sizeAttenuation: true
+      });
+
+      const pointsObj = new THREE.Points(pointGeometry, pointMaterial);
+      cageGroup.add(pointsObj);
+    }
+
+    scene.add(surfaceGroup);
+    scene.add(cageGroup);
+
+    appState.threeObjectMap[obj.id] = {
+      surfaceGroup: surfaceGroup,
+      cageGroup: cageGroup
+    };
+  });
+
+  // Apply initial display mode visibility
+  updateDisplayModeVisibility();
+
+  // Focus Camera on global bounding box center
+  fitCameraToBoundingBox(globalBoundingBox);
+}
+
+/**
+ * Adjust camera position and target to fit global bounding box
+ */
+function fitCameraToBoundingBox(bounds) {
+  if (!camera || !controls) return;
+
+  const center = bounds.center;
+  const maxDim = bounds.maxDim || 100;
+  const dist = maxDim * 2.2;
+
+  controls.target.set(center.x, center.y, center.z);
+
+  // Set camera based on active projection mode
+  setCameraProjection(appState.projectionMode);
+}
+
+/**
+ * Switch Camera Projection Modes (FRONT, TOP, RIGHT, PERSPECTIVE)
+ */
+function setCameraProjection(proj) {
+  if (!camera || !controls) return;
+  appState.projectionMode = proj;
+
+  const center = globalBoundingBox.center;
+  const dist = (globalBoundingBox.maxDim || 100) * 2.2;
+
+  switch (proj) {
+    case 'FRONT':
+      // Front View (Looking down Y-axis onto X/Z plane)
+      camera.position.set(center.x, center.y - dist, center.z);
+      camera.up.set(0, 0, 1);
+      break;
+    case 'TOP':
+      // Top Plan View (Looking down Z-axis onto X/Y plane)
+      camera.position.set(center.x, center.y, center.z + dist);
+      camera.up.set(0, 1, 0);
+      break;
+    case 'RIGHT':
+      // Right Elevation View (Looking down X-axis onto Y/Z plane)
+      camera.position.set(center.x + dist, center.y, center.z);
+      camera.up.set(0, 0, 1);
+      break;
+    case 'PERSPECTIVE':
+    default:
+      // Isometric 3D View
+      camera.position.set(center.x + dist * 0.7, center.y - dist * 0.7, center.z + dist * 0.5);
+      camera.up.set(0, 0, 1);
+      break;
+  }
+
+  controls.target.set(center.x, center.y, center.z);
+  controls.update();
+
+  if (currentProjBadge) currentProjBadge.textContent = `PROJECTION: ${proj}`;
+  if (diagProjection) diagProjection.textContent = proj;
+}
+
+/**
+ * Toggle visibility of Surface vs Control Cage meshes based on appState.displayMode
+ */
+function updateDisplayModeVisibility() {
+  const mode = appState.displayMode; // 'SURFACE', 'CAGE', 'OVERLAY'
+
+  Object.keys(appState.threeObjectMap).forEach((id) => {
+    const isObjVisible = appState.objectVisibilityMap[id] !== false;
+    const entry = appState.threeObjectMap[id];
+
+    if (entry.surfaceGroup) {
+      entry.surfaceGroup.visible = isObjVisible && (mode === 'SURFACE' || mode === 'OVERLAY');
+    }
+    if (entry.cageGroup) {
+      entry.cageGroup.visible = isObjVisible && (mode === 'CAGE' || mode === 'OVERLAY');
     }
   });
 }
 
-function renderRhinoSeedView(activeSeed) {
-  if (!activeSeed) return;
+// ============================================================================
+// 9. ISOLATED ERROR HANDLING (STAGE-BY-STAGE)
+// ============================================================================
 
+function showStageError(stageTitle, error) {
+  console.error(`[${stageTitle}]`, error);
+
+  const errorMsg = error && error.message ? error.message : String(error);
+  updateStatus(`ERR: ${stageTitle}`, true);
+
+  if (diagStatus) {
+    diagStatus.textContent = `${stageTitle}: ${errorMsg}`;
+    diagStatus.className = 'diag-err';
+  }
+
+  // Hide start screen if present to show error message overlay
+  if (startScreenCard) startScreenCard.style.display = 'none';
+}
+
+function updateStatus(text, isError) {
+  if (diagStatus) {
+    diagStatus.textContent = text;
+    diagStatus.className = isError ? 'diag-err' : 'diag-ok';
+  }
+}
+
+// ============================================================================
+// 10. UI & DIAGNOSTICS UPDATE
+// ============================================================================
+
+function updateUIWithParsedData(filename) {
   if (startScreenCard) startScreenCard.style.display = 'none';
   if (canvasTagsOverlay) canvasTagsOverlay.style.display = 'flex';
   if (diagnosticsOverlay) diagnosticsOverlay.style.display = 'block';
   if (viewerTogglesOverlay) viewerTogglesOverlay.style.display = 'block';
 
-  rhinoOriginalLayer.innerHTML = '';
-  rhinoEditableLayer.innerHTML = '';
-  rhinoControlLayer.innerHTML = '';
+  const geom = appState.originalRhinoGeometry;
+  if (!geom) return;
 
-  const mode = appState.currentViewMode;
+  if (diagFilename) diagFilename.textContent = filename;
+  if (diagObjects) diagObjects.textContent = geom.objects.length;
+  if (diagSubdCount) diagSubdCount.textContent = geom.subdMetrics.totalObjects;
+  if (diagRendered) diagRendered.textContent = geom.objects.length;
+  if (diagUnits) diagUnits.textContent = geom.units;
 
-  if (mode === 'ORIGINAL' || mode === 'OVERLAY') {
-    renderObjectsIntoLayer(rhinoOriginalLayer, appState.sourceGeometry3D, { isOriginal: true });
-  }
+  // Bounding box bounds text
+  const b = geom.bounds;
+  if (diagXRange) diagXRange.textContent = `${b.min.x.toFixed(1)} to ${b.max.x.toFixed(1)}`;
+  if (diagYRange) diagYRange.textContent = `${b.min.y.toFixed(1)} to ${b.max.y.toFixed(1)}`;
+  if (diagZRange) diagZRange.textContent = `${b.min.z.toFixed(1)} to ${b.max.z.toFixed(1)}`;
 
-  if (mode === 'EDITABLE' || mode === 'OVERLAY' || mode === 'CONTROL') {
-    renderObjectsIntoLayer(rhinoEditableLayer, activeSeed, { isOriginal: false });
-  }
+  if (metaXBounds) metaXBounds.textContent = `${b.size.x.toFixed(1)} ${geom.units}`;
+  if (metaYBounds) metaYBounds.textContent = `${b.size.y.toFixed(1)} ${geom.units}`;
+  if (metaZBounds) metaZBounds.textContent = `${b.size.z.toFixed(1)} ${geom.units}`;
 
-  if (mode === 'CONTROL') {
-    renderControlPolygonLayer(rhinoControlLayer, activeSeed);
-  }
+  // SubD Metrics Cards
+  if (countSubdObjs) countSubdObjs.textContent = geom.subdMetrics.totalObjects;
+  if (countSubdVerts) countSubdVerts.textContent = geom.subdMetrics.totalVertices;
+  if (countSubdEdges) countSubdEdges.textContent = geom.subdMetrics.totalEdges;
+  if (countSubdFaces) countSubdFaces.textContent = geom.subdMetrics.totalFaces;
 
-  const projBounds = getGlobalProjectedBounds(activeSeed, appState.projectionMode);
-  fitImportedGeometryToViewport(projBounds);
-  updateDiagnosticsAndInspector(activeSeed);
-  renderObjectVisibilityDebuggerList();
-}
+  // Breakdown Counters
+  const c = geom.counts;
+  if (countSubd) countSubd.textContent = c.subd;
+  if (countNurbs) countNurbs.textContent = c.nurbs;
+  if (countPolylines) countPolylines.textContent = c.polylines;
+  if (countPolycurves) countPolycurves.textContent = c.polycurves;
+  if (countLines) countLines.textContent = c.lines;
+  if (countArcs) countArcs.textContent = c.arcs;
+  if (countBreps) countBreps.textContent = c.breps;
+  if (countExtrusions) countExtrusions.textContent = c.extrusions;
+  if (countMeshes) countMeshes.textContent = c.meshes;
+  if (countPoints) countPoints.textContent = c.points;
+  if (countBlocks) countBlocks.textContent = c.blocks;
+  if (countUnsupported) countUnsupported.textContent = c.unsupported;
 
-function updateDiagnosticsAndInspector(seed) {
-  if (!seed) return;
-
-  const b = seed.bounds3D || { rangeX: 0, rangeY: 0, rangeZ: 0 };
-
-  if (diagFilename) diagFilename.textContent = seed.filename;
-  if (diagObjects) diagObjects.textContent = seed.objectCount;
-  if (diagRendered) diagRendered.textContent = seed.objectCount;
-  if (diagUnsupported) diagUnsupported.textContent = seed.counts.unsupported || 0;
-  if (diagXRange) diagXRange.textContent = `${b.rangeX.toFixed(1)}mm`;
-  if (diagYRange) diagYRange.textContent = `${b.rangeY.toFixed(1)}mm`;
-  if (diagZRange) diagZRange.textContent = `${b.rangeZ.toFixed(1)}mm`;
-  if (diagUnits) diagUnits.textContent = seed.units;
-  if (diagProjection) diagProjection.textContent = `${appState.projectionMode} PROJECTION`;
-  if (diagStatus) diagStatus.textContent = 'SEED LOADED';
-
-  if (currentProjBadge) currentProjBadge.textContent = `PROJECTION: ${appState.projectionMode}`;
-
-  if (metaXBounds) metaXBounds.textContent = `${b.rangeX.toFixed(1)} ${seed.units}`;
-  if (metaYBounds) metaYBounds.textContent = `${b.rangeY.toFixed(1)} ${seed.units}`;
-  if (metaZBounds) metaZBounds.textContent = `${b.rangeZ.toFixed(1)} ${seed.units}`;
-  if (metaDominantPlane) metaDominantPlane.textContent = `${seed.dominantPlane} (Auto)`;
-
-  const c = seed.counts;
-  if (countNurbs) countNurbs.textContent = c.nurbs || 0;
-  if (countPolylines) countPolylines.textContent = c.polylines || 0;
-  if (countPolycurves) countPolycurves.textContent = c.polycurves || 0;
-  if (countLines) countLines.textContent = c.lines || 0;
-  if (countArcs) countArcs.textContent = c.arcs || 0;
-  if (countBreps) countBreps.textContent = c.breps || 0;
-  if (countExtrusions) countExtrusions.textContent = c.extrusions || 0;
-  if (countMeshes) countMeshes.textContent = c.meshes || 0;
-  if (countPoints) countPoints.textContent = c.points || 0;
-  if (countBlocks) countBlocks.textContent = c.blocks || 0;
-  if (countUnsupported) countUnsupported.textContent = c.unsupported || 0;
+  // Populate Object Visibility List Debugger
+  renderObjectVisibilityList(geom.objects);
 }
 
 /**
- * Renders the Object Visibility Debugger list in the right panel.
+ * Render Object Debugger List with [ SHOW ], [ HIDE ], [ ISOLATE ] controls
  */
-function renderObjectVisibilityDebuggerList() {
-  if (!objectVisibilityList || !appState.editableSeedGeometry) return;
+function renderObjectVisibilityList(objects) {
+  if (!objectVisibilityList) return;
   objectVisibilityList.innerHTML = '';
 
-  appState.editableSeedGeometry.objects.forEach(obj => {
-    const isVisible = appState.objectVisibilityMap[obj.id] !== false;
-    const isHighlighted = appState.highlightedObjectId === obj.id;
-    const badgeClass = getTypeBadgeClass(obj.geometryType);
+  objects.forEach((obj) => {
+    const item = document.createElement('div');
+    item.className = 'object-item';
 
-    const div = document.createElement('div');
-    div.className = `obj-debug-item ${isHighlighted ? 'highlighted' : ''} ${!isVisible ? 'hidden-obj' : ''}`;
-    div.innerHTML = `
-      <div class="obj-info-block">
-        <span class="obj-num">${obj.id.replace('obj_', '')}</span>
-        <span class="obj-type-tag ${badgeClass}">${obj.geometryType}</span>
-        <span style="font-size:0.6rem; color:var(--text-muted);">${obj.layerName}</span>
+    const typeBadge = obj.type === 'SubD' ? '<span class="type-subd">SubD</span>' : `<span class="type-badge">${obj.type}</span>`;
+    const subdDetail = obj.subdData ? `<div class="obj-sub-info">V:${obj.subdData.vertexCount} E:${obj.subdData.edgeCount} F:${obj.subdData.faceCount}</div>` : '';
+
+    item.innerHTML = `
+      <div style="flex:1; overflow:hidden;">
+        <div style="font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+          ${obj.name} ${typeBadge}
+        </div>
+        ${subdDetail}
       </div>
-      <button class="obj-vis-btn ${isVisible ? 'active' : ''}">${isVisible ? 'HIDE' : 'SHOW'}</button>
+      <div style="display:flex; gap:0.25rem;">
+        <button class="vis-btn isolate-btn" data-id="${obj.id}">ISOLATE</button>
+        <button class="vis-btn toggle-btn" data-id="${obj.id}">HIDE</button>
+      </div>
     `;
 
-    div.addEventListener('click', (e) => {
-      if (e.target.classList.contains('obj-vis-btn')) return;
-      appState.highlightedObjectId = (appState.highlightedObjectId === obj.id) ? null : obj.id;
-      renderRhinoSeedView(appState.editableSeedGeometry);
-    });
-
-    const btnVis = div.querySelector('.obj-vis-btn');
-    btnVis.addEventListener('click', (e) => {
+    // Isolate Button
+    item.querySelector('.isolate-btn').addEventListener('click', (e) => {
       e.stopPropagation();
-      appState.objectVisibilityMap[obj.id] = !isVisible;
-      renderRhinoSeedView(appState.editableSeedGeometry);
+      isolateObject(obj.id);
     });
 
-    objectVisibilityList.appendChild(div);
+    // Hide/Show Toggle Button
+    const toggleBtn = item.querySelector('.toggle-btn');
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleObjectVisibility(obj.id, toggleBtn);
+    });
+
+    objectVisibilityList.appendChild(item);
   });
 }
 
+function isolateObject(objId) {
+  Object.keys(appState.objectVisibilityMap).forEach((id) => {
+    appState.objectVisibilityMap[id] = (id === objId);
+  });
+  updateDisplayModeVisibility();
+
+  // Focus camera on isolated object bounds if available
+  const obj = appState.originalRhinoGeometry.objects.find((o) => o.id === objId);
+  if (obj && obj.bounds) {
+    calculateGlobalBounds([obj]);
+    fitCameraToBoundingBox(globalBoundingBox);
+  }
+}
+
+function toggleObjectVisibility(objId, btnElement) {
+  const current = appState.objectVisibilityMap[objId] !== false;
+  appState.objectVisibilityMap[objId] = !current;
+  if (btnElement) {
+    btnElement.textContent = !current ? 'HIDE' : 'SHOW';
+  }
+  updateDisplayModeVisibility();
+}
+
+function toggleAllObjectVisibility() {
+  const allVisible = Object.values(appState.objectVisibilityMap).every((v) => v === true);
+  Object.keys(appState.objectVisibilityMap).forEach((id) => {
+    appState.objectVisibilityMap[id] = !allVisible;
+  });
+  updateDisplayModeVisibility();
+}
+
 // ============================================================================
-// 7. VERIFY RHINO IMPORT AUDIT MODAL
+// 11. INDEPENDENT CLONING SYSTEM (SEPARATED FROM IMPORT)
 // ============================================================================
 
-function showImportVerificationModal() {
-  if (!appState.sourceGeometry3D || !verifyImportModal || !verifyModalContent) return;
+/**
+ * cloneRhinoSeed(sourceGeometry)
+ * CONCEPT: Takes immutable source geometry and produces an independent working copy
+ * IMPORTANT: This function is defined independently and is NOT called automatically during import!
+ */
+function cloneRhinoSeed(sourceGeometry) {
+  if (!sourceGeometry) return null;
+  console.log('[CLONE SYSTEM] Explicitly cloning Rhino seed geometry...');
 
-  const orig = appState.sourceGeometry3D;
+  return {
+    filename: `clone_${sourceGeometry.filename}`,
+    objects: sourceGeometry.objects.map((obj) => ({
+      ...obj,
+      vertices: obj.vertices ? obj.vertices.map((v) => ({ ...v })) : [],
+      wireframeLines: obj.wireframeLines ? obj.wireframeLines.map((l) => ({
+        start: { ...l.start },
+        end: { ...l.end }
+      })) : []
+    })),
+    counts: { ...sourceGeometry.counts },
+    subdMetrics: { ...sourceGeometry.subdMetrics },
+    bounds: JSON.parse(JSON.stringify(sourceGeometry.bounds)),
+    units: sourceGeometry.units
+  };
+}
 
-  let tableRows = orig.objects.map(obj => `
-    <tr>
-      <td>${obj.id}</td>
-      <td><span class="type-badge ${getTypeBadgeClass(obj.geometryType)}">${obj.geometryType}</span></td>
-      <td>${obj.layerName}</td>
-      <td>Degree ${obj.degree}</td>
-      <td>${obj.controlPoints.length} CVs</td>
-      <td>${obj.isClosed ? 'Closed' : 'Open'}</td>
-    </tr>
-  `).join('');
+// ============================================================================
+// 12. SAMPLE SEED GENERATOR (USES SAME processRhinoBuffer PIPELINE)
+// ============================================================================
 
-  let warningHtml = '';
-  if (orig.unsupportedObjects && orig.unsupportedObjects.length > 0) {
-    warningHtml = `
-      <div class="unsupported-warning-box">
-        <strong>⚠️ ${orig.unsupportedObjects.length} Unsupported Non-Section Objects Detected:</strong><br>
-        The following objects were ignored for 2D section form-finding (not converted into fake geometry):
-        <ul style="margin-top:0.4rem; padding-left:1.2rem;">
-          ${orig.unsupportedObjects.map(u => `<li>${u.id} (${u.geometryType} on layer ${u.layerName})</li>`).join('')}
-        </ul>
-      </div>
-    `;
+/**
+ * Generate a valid in-browser Rhino File3dm buffer containing a SubD surface
+ * and pass it directly into the SAME processRhinoBuffer pipeline.
+ */
+function loadSampleSeed() {
+  console.log('[SAMPLE SEED] Creating synthetic Rhino File3dm with SubD...');
+
+  if (!rhino) {
+    alert('Rhino3dm library not yet loaded. Please wait a moment.');
+    return;
   }
 
-  verifyModalContent.innerHTML = `
-    <div class="audit-stats-grid">
-      <div class="audit-stat-card">
-        <span class="label">FILE NAME</span>
-        <span class="val" style="font-size:0.8rem; word-break:break-all;">${orig.filename}</span>
-      </div>
-      <div class="audit-stat-card">
-        <span class="label">RENDERABLE OBJECTS</span>
-        <span class="val">${orig.objectCount}</span>
-      </div>
-      <div class="audit-stat-card">
-        <span class="label">UNSUPPORTED OBJECTS</span>
-        <span class="val" style="color:${orig.counts.unsupported > 0 ? '#ff6347' : 'var(--accent-green)'}">${orig.counts.unsupported}</span>
-      </div>
-      <div class="audit-stat-card">
-        <span class="label">DOMINANT PLANE</span>
-        <span class="val">${orig.dominantPlane}</span>
-      </div>
-    </div>
+  try {
+    const doc = new rhino.File3dm();
 
-    ${warningHtml}
+    // Create SubD Box or Surface in rhino3dm if available
+    let subd = null;
+    if (rhino.SubD.createFromMesh) {
+      // Create a quad mesh and convert to SubD
+      const mesh = new rhino.Mesh();
+      mesh.vertices().add(-50, -50, 0);
+      mesh.vertices().add(50, -50, 0);
+      mesh.vertices().add(50, 50, 0);
+      mesh.vertices().add(-50, 50, 0);
+      mesh.vertices().add(-50, -50, 80);
+      mesh.vertices().add(50, -50, 80);
+      mesh.vertices().add(50, 50, 80);
+      mesh.vertices().add(-50, 50, 80);
 
-    <h3 style="font-size:0.8rem; font-family:var(--font-mono); color:var(--accent-gold); margin-top:0.5rem;">RHINO OBJECT TABLE AUDIT</h3>
-    <table class="audit-table">
-      <thead>
-        <tr>
-          <th>Object ID</th>
-          <th>Rhino Geometry Type</th>
-          <th>Layer</th>
-          <th>Degree</th>
-          <th>Control Points</th>
-          <th>State</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${tableRows}
-      </tbody>
-    </table>
+      mesh.faces().addFace(0, 1, 2, 3);
+      mesh.faces().addFace(4, 5, 6, 7);
+      mesh.faces().addFace(0, 1, 5, 4);
+      mesh.faces().addFace(1, 2, 6, 5);
+      mesh.faces().addFace(2, 3, 7, 6);
+      mesh.faces().addFace(3, 0, 4, 7);
+
+      subd = rhino.SubD.createFromMesh(mesh);
+    }
+
+    if (subd) {
+      const attr = new rhino.ObjectAttributes();
+      attr.name = 'Sample Architectural SubD Vault';
+      doc.objects().add(subd, attr);
+    } else {
+      // Fallback NURBS Curve vault if SubD static constructor differs
+      const ptList = new rhino.Point3dCollection();
+      ptList.add(-60, 0, 0);
+      ptList.add(-30, 0, 90);
+      ptList.add(30, 0, 90);
+      ptList.add(60, 0, 0);
+      const curve = rhino.NurbsCurve.create(false, 3, ptList);
+      doc.objects().add(curve, null);
+    }
+
+    const buffer = doc.toByteArray();
+    processRhinoBuffer(buffer, 'sample_architectural_seed.3dm');
+  } catch (err) {
+    console.error('Error generating sample seed:', err);
+    showStageError('SAMPLE SEED GENERATION ERROR', err);
+  }
+}
+
+// ============================================================================
+// 13. AUDIT MODAL
+// ============================================================================
+
+function openVerifyModal() {
+  if (!verifyModal || !verifyModalContent) return;
+  const geom = appState.originalRhinoGeometry;
+  if (!geom) return;
+
+  let html = `
+    <div style="font-size:0.8rem; font-family:'Space Mono', monospace;">
+      <h3>FILE: ${geom.filename}</h3>
+      <p>Total Objects: ${geom.objects.length} | Units: ${geom.units}</p>
+      <h4>SUBD METRICS</h4>
+      <ul>
+        <li>SubD Objects: ${geom.subdMetrics.totalObjects}</li>
+        <li>SubD Vertices: ${geom.subdMetrics.totalVertices}</li>
+        <li>SubD Edges: ${geom.subdMetrics.totalEdges}</li>
+        <li>SubD Faces: ${geom.subdMetrics.totalFaces}</li>
+      </ul>
+      <h4>OBJECT TYPES</h4>
+      <ul>
   `;
 
-  verifyImportModal.style.display = 'flex';
+  Object.keys(geom.counts).forEach((k) => {
+    html += `<li>${k.toUpperCase()}: ${geom.counts[k]}</li>`;
+  });
+
+  html += `</ul></div>`;
+  verifyModalContent.innerHTML = html;
+  verifyModal.style.display = 'flex';
 }
 
-function hideImportVerificationModal() {
-  if (verifyImportModal) verifyImportModal.style.display = 'none';
+function closeVerifyModal() {
+  if (verifyModal) verifyModal.style.display = 'none';
 }
-
-// ============================================================================
-// 8. EVENT LISTENERS & INITIALIZATION
-// ============================================================================
-
-function initEventListeners() {
-  [btnRhinoFileInput, btnRhinoFileInputMain].forEach(input => {
-    input?.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const buffer = await file.arrayBuffer();
-      await processRhinoBuffer(buffer, file.name);
-    });
-  });
-
-  [btnLoadSampleSeed, btnStartSample].forEach(btn => {
-    btn?.addEventListener('click', () => {
-      loadSampleRhinoSeed();
-    });
-  });
-
-  btnVerifyRhinoImport?.addEventListener('click', () => {
-    showImportVerificationModal();
-  });
-
-  btnCloseVerifyModal?.addEventListener('click', () => {
-    hideImportVerificationModal();
-  });
-
-  btnExportSvg?.addEventListener('click', () => {
-    const serializer = new XMLSerializer();
-    const svgString = serializer.serializeToString(svgCanvas);
-    const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `rhino_seed_${appState.projectionMode.toLowerCase()}.svg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  });
-
-  // Projection Toggle Buttons (FRONT, TOP, RIGHT, PERSPECTIVE)
-  projToggleBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      projToggleBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      appState.projectionMode = btn.dataset.proj;
-      if (appState.editableSeedGeometry) {
-        renderRhinoSeedView(appState.editableSeedGeometry);
-      }
-    });
-  });
-
-  // Display Mode Toggles (EDITABLE, ORIGINAL, OVERLAY, CONTROL)
-  viewToggleBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      viewToggleBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      appState.currentViewMode = btn.dataset.view;
-      if (appState.editableSeedGeometry) {
-        renderRhinoSeedView(appState.editableSeedGeometry);
-      }
-    });
-  });
-
-  // Toggle All Visibility
-  btnToggleAllVis?.addEventListener('click', () => {
-    if (!appState.editableSeedGeometry) return;
-    const allVis = Object.values(appState.objectVisibilityMap).every(v => v === true);
-    appState.editableSeedGeometry.objects.forEach(obj => {
-      appState.objectVisibilityMap[obj.id] = !allVis;
-    });
-    renderRhinoSeedView(appState.editableSeedGeometry);
-  });
-
-  window.addEventListener('resize', () => {
-    if (appState.editableSeedGeometry) {
-      const projBounds = getGlobalProjectedBounds(appState.editableSeedGeometry, appState.projectionMode);
-      fitImportedGeometryToViewport(projBounds);
-    }
-  });
-}
-
-function init() {
-  console.log("Initializing Descriptor-Driven Architectural Evolution System (6-Stage Error-Handled Importer)...");
-  initEventListeners();
-}
-
-document.addEventListener('DOMContentLoaded', init);
