@@ -48,13 +48,6 @@
           VERIFY RHINO IMPORT
         </button>
 
-        <button id="btn-clone-seed-test" class="header-btn" disabled title="Technical proof: Clone imported Rhino geometry 6 times">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-          </svg>
-          CLONE SEED TEST
-        </button>
-
         <button id="btn-export-svg" class="header-btn">EXPORT SVG</button>
       </div>
     </header>
@@ -101,33 +94,44 @@
               LOAD SAMPLE .3DM SEED
             </button>
           </div>
-          <div class="start-note">Supports .3dm files (curves, polylines, closed curves, points)</div>
+          <div class="start-note">Supports .3dm files (NURBS, polylines, polycurves, breps, extrusions, meshes, blocks)</div>
         </div>
 
         <!-- CANVAS OVERLAY TOOLBAR (TOP-LEFT) -->
         <div class="canvas-overlay top-left" id="canvas-tags-overlay" style="display:none;">
           <span class="canvas-tag" id="current-generation-badge">GENERATION 0: ORIGINAL RHINO SEED</span>
-          <span class="canvas-tag version-tag" id="current-iteration-badge">RHINO SEED</span>
+          <span class="canvas-tag version-tag" id="current-projection-badge">PROJECTION: FRONT (X/Z)</span>
         </div>
 
-        <!-- OBJECT COUNTS OVERLAY (BOTTOM-LEFT) -->
+        <!-- DIAGNOSTICS OVERLAY (BOTTOM-LEFT) -->
         <div class="canvas-overlay bottom-left" id="diagnostics-overlay" style="display:none;">
           <div id="viewport-diagnostics" class="diagnostics-box">
             <div>Seed File: <span id="diag-filename">None</span></div>
-            <div>Objects: <span id="diag-objects">0</span> | Curves: <span id="diag-curves">0</span> | Polylines: <span id="diag-polylines">0</span></div>
-            <div>Closed Curves: <span id="diag-closed">0</span> | Points: <span id="diag-points">0</span></div>
-            <div>Rhino Units: <span id="diag-units">mm</span> | Bounds: <span id="diag-bounds">-</span></div>
+            <div>Objects: <span id="diag-objects">0</span> | Rendered: <span id="diag-rendered">0</span> | Unsupported: <span id="diag-unsupported">0</span></div>
+            <div>3D Bounds: X:<span id="diag-x-range">0</span> Y:<span id="diag-y-range">0</span> Z:<span id="diag-z-range">0</span></div>
+            <div>Rhino Units: <span id="diag-units">mm</span> | Projection: <span id="diag-projection">FRONT (XZ)</span></div>
             <div>Status: <span id="diag-status" class="diag-ok">SEED LOADED</span></div>
           </div>
         </div>
 
-        <!-- VIEWER MODE TOGGLES (TOP-RIGHT) -->
+        <!-- PROJECTION & VIEWER MODE TOGGLES (TOP-RIGHT) -->
         <div class="canvas-overlay top-right" id="viewer-toggles-overlay" style="display:none;">
-          <div class="viewer-toggles">
-            <button class="view-toggle-btn active" data-view="EDITABLE">EDITABLE SEED</button>
-            <button class="view-toggle-btn" data-view="ORIGINAL">RHINO ORIGINAL</button>
-            <button class="view-toggle-btn" data-view="OVERLAY">OVERLAY (BOTH)</button>
-            <button class="view-toggle-btn" data-view="CONTROL">CONTROL POINTS</button>
+          <div style="display:flex; flex-direction:column; gap:0.4rem; align-items:flex-end;">
+            <!-- 3D PROJECTION TOGGLES -->
+            <div class="viewer-toggles">
+              <span class="proj-label">PROJECTION:</span>
+              <button class="proj-toggle-btn active" data-proj="FRONT">FRONT (XZ)</button>
+              <button class="proj-toggle-btn" data-proj="TOP">TOP (XY)</button>
+              <button class="proj-toggle-btn" data-proj="RIGHT">RIGHT (YZ)</button>
+              <button class="proj-toggle-btn" data-proj="PERSPECTIVE">3D ISOMETRIC</button>
+            </div>
+            <!-- DISPLAY MODE TOGGLES -->
+            <div class="viewer-toggles">
+              <button class="view-toggle-btn active" data-view="EDITABLE">EDITABLE SEED</button>
+              <button class="view-toggle-btn" data-view="ORIGINAL">RHINO ORIGINAL</button>
+              <button class="view-toggle-btn" data-view="OVERLAY">OVERLAY (BOTH)</button>
+              <button class="view-toggle-btn" data-view="CONTROL">CONTROL POINTS</button>
+            </div>
           </div>
         </div>
 
@@ -141,6 +145,11 @@
 
             <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
               <feGaussianBlur stdDeviation="3" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+            </filter>
+
+            <filter id="highlight-glow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="5" result="blur" />
               <feComposite in="SourceGraphic" in2="blur" operator="over"/>
             </filter>
 
@@ -160,66 +169,71 @@
           <g id="rhino-control-layer"></g>
         </svg>
 
-        <!-- BOTTOM STRIP (6 THUMBNAIL DESCENDANTS CAROUSEL) -->
+        <!-- BOTTOM STRIP (STATUS STRIP) -->
         <div id="bottom-thumbnails-strip">
           <div class="thumb-card placeholder">
-            <div class="thumb-title">NO SEED LOADED</div>
-            <div class="thumb-sub">Import .3dm to enable clones</div>
+            <div class="thumb-title">IMPORTER DIAGNOSTIC MODE</div>
+            <div class="thumb-sub">Generation/Cloning disabled until import fidelity verified</div>
           </div>
         </div>
       </section>
 
-      <!-- RIGHT SIDEBAR: SELECTED ITERATION / SEED DETAILS -->
+      <!-- RIGHT SIDEBAR: RHINO FILE DIAGNOSTICS & OBJECT VISIBILITY DEBUGGER -->
       <aside id="sidebar-right" class="sidebar">
         <div class="sidebar-header">
-          <h2>RHINO SEED INSPECTOR</h2>
-          <p class="subtitle">Quantitative metrics and geometry breakdown of imported Rhino seed.</p>
+          <h2>RHINO FILE DIAGNOSTICS</h2>
+          <p class="subtitle">Full 3D object breakdown & visibility debugger.</p>
         </div>
 
         <div class="sidebar-scrollable" id="right-sidebar-content">
+          <!-- DIAGNOSTICS SUMMARY CARD -->
           <div class="info-card">
-            <div class="info-label">IMPORT STATUS</div>
-            <div class="info-title" id="seed-inspector-title">AWAITING RHINO SEED</div>
-            <div class="info-desc" id="seed-inspector-desc">Import your .3dm geometry file to establish Generation 0 architectural DNA.</div>
-          </div>
-
-          <div class="info-card">
-            <div class="info-label">OBJECT BREAKDOWN</div>
+            <div class="info-label">3D WORLD BOUNDING BOX</div>
             <div class="delta-row">
-              <span>Total Objects:</span>
-              <span id="meta-objects-count" class="delta-badge neutral">0</span>
+              <span>X Bounds (Width):</span>
+              <span id="meta-x-bounds" class="delta-badge neutral">-</span>
             </div>
             <div class="delta-row">
-              <span>Open Curves:</span>
-              <span id="meta-curves-count" class="delta-badge neutral">0</span>
+              <span>Y Bounds (Depth):</span>
+              <span id="meta-y-bounds" class="delta-badge neutral">-</span>
             </div>
             <div class="delta-row">
-              <span>Polylines:</span>
-              <span id="meta-polylines-count" class="delta-badge neutral">0</span>
+              <span>Z Bounds (Height):</span>
+              <span id="meta-z-bounds" class="delta-badge neutral">-</span>
             </div>
             <div class="delta-row">
-              <span>Closed Curves:</span>
-              <span id="meta-closed-count" class="delta-badge neutral">0</span>
-            </div>
-            <div class="delta-row">
-              <span>Points:</span>
-              <span id="meta-points-count" class="delta-badge neutral">0</span>
+              <span>Dominant View Plane:</span>
+              <span id="meta-dominant-plane" class="delta-badge pos">FRONT (XZ)</span>
             </div>
           </div>
 
+          <!-- GEOMETRY TYPE COUNTS BREAKDOWN CARD -->
           <div class="info-card">
-            <div class="info-label">SPATIAL BOUNDS</div>
-            <div class="delta-row">
-              <span>Bounding Width:</span>
-              <span id="meta-width" class="delta-badge neutral">-</span>
+            <div class="info-label">GEOMETRY TYPES BREAKDOWN</div>
+            <div id="diag-counts-breakdown" style="display:flex; flex-direction:column; gap:0.25rem;">
+              <div class="delta-row"><span>NURBS Curves:</span><span id="count-nurbs" class="delta-badge neutral">0</span></div>
+              <div class="delta-row"><span>Polylines:</span><span id="count-polylines" class="delta-badge neutral">0</span></div>
+              <div class="delta-row"><span>PolyCurves:</span><span id="count-polycurves" class="delta-badge neutral">0</span></div>
+              <div class="delta-row"><span>Lines:</span><span id="count-lines" class="delta-badge neutral">0</span></div>
+              <div class="delta-row"><span>Arcs / Circles:</span><span id="count-arcs" class="delta-badge neutral">0</span></div>
+              <div class="delta-row"><span>Breps (Solid/Surface):</span><span id="count-breps" class="delta-badge neutral">0</span></div>
+              <div class="delta-row"><span>Extrusions:</span><span id="count-extrusions" class="delta-badge neutral">0</span></div>
+              <div class="delta-row"><span>Meshes:</span><span id="count-meshes" class="delta-badge neutral">0</span></div>
+              <div class="delta-row"><span>Points:</span><span id="count-points" class="delta-badge neutral">0</span></div>
+              <div class="delta-row"><span>Instance Refs (Blocks):</span><span id="count-blocks" class="delta-badge neutral">0</span></div>
+              <div class="delta-row"><span>Unsupported:</span><span id="count-unsupported" class="delta-badge neutral">0</span></div>
             </div>
-            <div class="delta-row">
-              <span>Bounding Height:</span>
-              <span id="meta-height" class="delta-badge neutral">-</span>
+          </div>
+
+          <!-- OBJECT VISIBILITY DEBUGGER LIST -->
+          <div class="info-card" style="flex:1;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div class="info-label">OBJECT VISIBILITY DEBUGGER</div>
+              <button id="btn-toggle-all-visibility" class="pill-btn" style="font-size:0.6rem;">TOGGLE ALL</button>
             </div>
-            <div class="delta-row">
-              <span>Rhino Units:</span>
-              <span id="meta-units" class="delta-badge neutral">-</span>
+            <p class="subtitle" style="margin-bottom:0.4rem;">Click an object to highlight it exclusively in the viewer:</p>
+            <div id="object-visibility-list" class="object-visibility-list">
+              <div class="tree-placeholder-note">Import a Rhino file to load object debugger.</div>
             </div>
           </div>
         </div>

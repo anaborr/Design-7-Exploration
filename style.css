@@ -636,6 +636,120 @@ html, body {
 }
 
 /* --------------------------------------------------------------------------
+   Projection Buttons & Object Debugger List
+   -------------------------------------------------------------------------- */
+.proj-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--accent-gold);
+  font-weight: 700;
+  margin-right: 0.3rem;
+  align-self: center;
+}
+
+.proj-toggle-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.proj-toggle-btn.active {
+  background-color: var(--accent-gold);
+  color: #000;
+  font-weight: 700;
+  border-color: var(--accent-gold);
+}
+
+.object-visibility-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
+.obj-debug-item {
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0.35rem 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.obj-debug-item:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(226, 201, 124, 0.4);
+}
+
+.obj-debug-item.highlighted {
+  border-color: var(--accent-gold);
+  background-color: rgba(226, 201, 124, 0.15);
+  box-shadow: 0 0 10px rgba(226, 201, 124, 0.2);
+}
+
+.obj-debug-item.hidden-obj {
+  opacity: 0.4;
+}
+
+.obj-info-block {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.obj-num {
+  color: var(--text-dim);
+  font-weight: 700;
+  width: 20px;
+}
+
+.obj-type-tag {
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-size: 0.58rem;
+  font-weight: 600;
+}
+
+.type-nurbs { background-color: rgba(226, 201, 124, 0.18); color: var(--accent-gold); }
+.type-polyline { background-color: rgba(82, 197, 216, 0.18); color: var(--accent-cyan); }
+.type-polycurve { background-color: rgba(46, 204, 113, 0.18); color: var(--accent-green); }
+.type-brep { background-color: rgba(224, 86, 253, 0.18); color: var(--accent-magenta); }
+.type-extrusion { background-color: rgba(230, 126, 34, 0.18); color: #e67e22; }
+.type-mesh { background-color: rgba(241, 196, 15, 0.18); color: #f1c40f; }
+.type-instance { background-color: rgba(155, 89, 182, 0.18); color: #9b59b6; }
+
+.obj-vis-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  padding: 0.15rem 0.35rem;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.obj-vis-btn.active {
+  background-color: rgba(46, 204, 113, 0.2);
+  color: var(--accent-green);
+  border-color: var(--accent-green);
+}
+
+
+/* --------------------------------------------------------------------------
    Verify Import Audit Modal
    -------------------------------------------------------------------------- */
 .modal-backdrop {
