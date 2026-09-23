@@ -1,27 +1,28 @@
 /**
  * ============================================================================
  * DESIGN 7 EXPLORATION - DESCRIPTOR-DRIVEN ARCHITECTURAL EVOLUTION SYSTEM
- * RHINO SUBD & 3D WEBGL ENGINE (THREE.JS IMPORTER & RENDERER)
- * - 41 Object Reconciliation & Geometry Breakdown Categorization
- * - 3D World Model Bounding Box Calculator (X/Y/Z Range, Size & Center)
- * - One Function Renderer: renderImportedRhinoModel(rhinoObjects)
- * - SubD Display Architecture: Original SubD -> Display Mesh -> Three.js
+ * RHINO SUBD & 3D WEBGL ENGINE (STAGED CONTROLLER & THREE.JS VIEWPORT)
+ * - Restored Proven Working Diagnostic Importer parseRhino3dm (Commit 3235a8b)
+ * - Persistent Object Storage: importedRhinoObjects (Generation 0 Seed)
+ * - Decoupled Pipeline: IMPORT -> STORE -> CLASSIFY -> BOUNDS -> RENDER
  * - High-Visibility Debug Material: THREE.MeshNormalMaterial + Edges Wireframe
- * - Automatic Camera Fit & Near/Far Plane Clipping Calculation
- * - Render Pipeline UI Card & Failed Object Logger
+ * - Camera Fit: Auto-fits OrbitControls and camera position to model Box3
+ * - Render Pipeline Diagnostic Card & Object Error Logging
  * ============================================================================
  */
 
 // Global Rhino3dm Module Reference
 let rhino = null;
 
+// Persistent Global Storage for Generation 0 Seed
+let importedRhinoObjects = [];
+
 // Application State
 let appState = {
   originalRhinoGeometry: null,
   projectionMode: 'FRONT',
   displayMode: 'SURFACE',
-  objectVisibilityMap: {},
-  threeObjectMap: {}
+  objectVisibilityMap: {}
 };
 
 // Three.js Global References
@@ -34,7 +35,7 @@ let dirLight1 = null;
 let dirLight2 = null;
 let importedRhinoGroup = null;
 
-// Global Bounding Box & Model Center
+// Global Bounding Box & Target Center
 let globalBoundingBox = {
   min: { x: 0, y: 0, z: 0 },
   max: { x: 0, y: 0, z: 0 },
@@ -128,7 +129,7 @@ const countUnsupported = document.getElementById('count-unsupported');
 const objectVisibilityList = document.getElementById('object-visibility-list');
 
 // ============================================================================
-// 1. INITIALIZATION & THREE.JS SETUP
+// 1. INITIALIZATION & THREE.JS VIEWPORT SETUP
 // ============================================================================
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -269,13 +270,15 @@ function attachEventListeners() {
 }
 
 // ============================================================================
-// 2. FILE SELECTION & MAIN PARSER: parseRhino3dm(arrayBuffer, filename)
+// 2. STAGE 1: FILE SELECT & ARRAY BUFFER LOADING
 // ============================================================================
 
 async function handleFileSelect(file) {
   if (!file) return;
 
-  console.log('[RHINO] 1 File selected:', file.name, 'Size:', file.size, 'bytes');
+  console.log('[RHINO] 1 File selected');
+  console.log('FILE NAME:', file.name);
+  console.log('FILE SIZE:', file.size, 'bytes');
 
   const dbgFileSelected = document.getElementById('dbg-file-selected');
   const dbgFileName = document.getElementById('dbg-file-name');
@@ -298,6 +301,17 @@ async function handleFileSelect(file) {
   }
 }
 
+// ============================================================================
+// 3. RESTORED WORKING IMPORTER: parseRhino3dm(arrayBuffer, filename)
+// ============================================================================
+
+/**
+ * EXACT WORKING IMPORTER CODE FROM COMMIT 3235a8b
+ * - Parses .3dm array buffer
+ * - Retrieves object table & object count
+ * - Stores original retrieved objects into importedRhinoObjects array
+ * - Updates import diagnostic card with RAW OBJECT COUNT
+ */
 async function parseRhino3dm(arrayBuffer, filename) {
   console.log('[RHINO] 2 ArrayBuffer loaded. Byte length:', arrayBuffer ? arrayBuffer.byteLength : 0);
 
@@ -312,12 +326,14 @@ async function parseRhino3dm(arrayBuffer, filename) {
 
   if (dbgFileBytes) dbgFileBytes.textContent = arrayBuffer ? arrayBuffer.byteLength : 0;
 
+  // TEST 2 CHECK
   if (!arrayBuffer || arrayBuffer.byteLength === 0) {
     console.error('[RHINO ERROR] Failed at Stage 2: ArrayBuffer byteLength is 0');
     if (dbgErrors) dbgErrors.textContent = 'Stage 2: ArrayBuffer is 0 bytes';
     return;
   }
 
+  // TEST 3 CHECK
   if (!rhino) {
     console.log('[RHINO] Awaiting rhino3dm module initialization...');
     try {
@@ -342,6 +358,7 @@ async function parseRhino3dm(arrayBuffer, filename) {
   console.log('[RHINO] 3 rhino3dm initialized');
   if (dbgRhinoInit) dbgRhinoInit.textContent = 'YES';
 
+  // TEST 4: PARSE FILE3DM
   let doc = null;
   try {
     const bytes = new Uint8Array(arrayBuffer);
@@ -367,6 +384,7 @@ async function parseRhino3dm(arrayBuffer, filename) {
   if (dbgDocCreated) dbgDocCreated.textContent = 'YES';
   if (rawDocStatus) rawDocStatus.textContent = 'VALID';
 
+  // TEST 5: OBJECT TABLE
   let objectsTable = null;
   try {
     objectsTable = doc.objects();
@@ -391,6 +409,7 @@ async function parseRhino3dm(arrayBuffer, filename) {
   if (dbgTableFound) dbgTableFound.textContent = 'YES';
   if (rawTableStatus) rawTableStatus.textContent = 'FOUND';
 
+  // Read raw count safely
   let rawCount = 0;
   try {
     if (typeof objectsTable.count === 'function') {
@@ -410,8 +429,138 @@ async function parseRhino3dm(arrayBuffer, filename) {
   if (diagObjects) diagObjects.textContent = rawCount;
   if (diagFilename) diagFilename.textContent = filename;
 
-  // PROCESS & CLASSIFY ALL RETRIEVED OBJECTS
-  const processedObjects = [];
+  // TEST 6: RETRIEVE RAW OBJECTS INTO PERSISTENT MEMORY ARRAY
+  importedRhinoObjects = [];
+  let geomCount = 0;
+  let nullCount = 0;
+
+  for (let i = 0; i < rawCount; i++) {
+    try {
+      const fileObj = objectsTable.get ? objectsTable.get(i) : null;
+
+      let geom = null;
+      if (fileObj) {
+        if (typeof fileObj.geometry === 'function') {
+          geom = fileObj.geometry();
+        } else if (fileObj.geometry) {
+          geom = fileObj.geometry;
+        }
+      }
+
+      let attributes = null;
+      if (fileObj) {
+        if (typeof fileObj.attributes === 'function') {
+          attributes = fileObj.attributes();
+        } else if (fileObj.attributes) {
+          attributes = fileObj.attributes;
+        }
+      }
+
+      let objId = `obj_${i + 1}`;
+      let objName = `Object ${i + 1}`;
+      let layerIndex = 0;
+
+      if (attributes) {
+        if (typeof attributes.id === 'function') {
+          objId = attributes.id();
+        } else if (attributes.id) {
+          objId = attributes.id;
+        }
+        if (typeof attributes.name === 'function') {
+          objName = attributes.name() || objName;
+        } else if (attributes.name) {
+          objName = attributes.name;
+        }
+        if (typeof attributes.layerIndex === 'function') {
+          layerIndex = attributes.layerIndex();
+        } else if (attributes.layerIndex !== undefined) {
+          layerIndex = attributes.layerIndex;
+        }
+      }
+
+      const ctorName = geom && geom.constructor ? geom.constructor.name : (geom ? 'GeometryBase' : 'None');
+
+      if (geom) {
+        geomCount++;
+      } else {
+        nullCount++;
+      }
+
+      console.log(`[RHINO] Raw Object ${i}:`, {
+        index: i,
+        id: objId,
+        geometryExists: !!geom,
+        geometryConstructor: ctorName,
+        rawObject: fileObj,
+        rawGeometry: geom
+      });
+
+      importedRhinoObjects.push({
+        index: i + 1,
+        id: objId,
+        name: objName,
+        layerIndex: layerIndex,
+        rawObject: fileObj,
+        geom: geom,
+        ctorName: ctorName,
+        type: 'Other'
+      });
+    } catch (objErr) {
+      console.error(`[RHINO ERROR] Error retrieving raw object at index ${i}:`, objErr);
+      nullCount++;
+    }
+  }
+
+  console.log('[RHINO] 6 Raw objects retrieved summary:', {
+    rawCount: rawCount,
+    geomCount: geomCount,
+    nullCount: nullCount,
+    objectsCount: importedRhinoObjects.length
+  });
+
+  if (dbgGeomCount) dbgGeomCount.textContent = geomCount;
+  if (dbgNullCount) dbgNullCount.textContent = nullCount;
+  if (rawGeomRetrieved) rawGeomRetrieved.textContent = geomCount;
+  if (rawNullGeom) rawNullGeom.textContent = nullCount;
+  if (rawClassified) rawClassified.textContent = geomCount;
+  if (rawUnclassified) rawUnclassified.textContent = nullCount;
+
+  if (dbgErrors) dbgErrors.textContent = 'NONE';
+  if (diagStatus) {
+    diagStatus.textContent = rawCount > 0 ? `OBJECT TABLE: ${rawCount} OBJECTS FOUND` : 'OBJECT TABLE EMPTY';
+    diagStatus.className = rawCount > 0 ? 'diag-ok' : 'diag-err';
+  }
+
+  // DECOUPLED PIPELINE EXECUTION (Isolated Error Handling)
+  // Step A: Classify actual 41 object types
+  try {
+    classifyRhinoObjects(importedRhinoObjects);
+  } catch (err) {
+    console.warn('[PIPELINE WARNING] Object classification step warning:', err);
+  }
+
+  // Step B: Calculate 3D World Model Bounding Box
+  try {
+    calculateModelBounds(importedRhinoObjects);
+  } catch (err) {
+    console.warn('[PIPELINE WARNING] Bounding box calculation warning:', err);
+  }
+
+  // Step C: Render 41 Objects into Three.js
+  try {
+    renderImportedRhinoModel(importedRhinoObjects);
+  } catch (err) {
+    console.error('[PIPELINE ERROR] Rendering step threw exception:', err);
+    const rndStatus = document.getElementById('rnd-status');
+    if (rndStatus) rndStatus.textContent = 'FAILED';
+  }
+}
+
+// ============================================================================
+// 4. CLASSIFY 41 RHINO OBJECT TYPES & POPULATE UI BREAKDOWN (TOTAL = 41)
+// ============================================================================
+
+function classifyRhinoObjects(objects) {
   const counts = {
     subd: 0, nurbs: 0, polylines: 0, polycurves: 0, lines: 0,
     arcs: 0, breps: 0, extrusions: 0, meshes: 0, points: 0,
@@ -420,161 +569,106 @@ async function parseRhino3dm(arrayBuffer, filename) {
 
   const subdMetrics = { totalObjects: 0, totalVertices: 0, totalEdges: 0, totalFaces: 0 };
 
-  let geomCount = 0;
-  let nullCount = 0;
-
-  for (let i = 0; i < rawCount; i++) {
-    try {
-      const fileObj = objectsTable.get ? objectsTable.get(i) : null;
-      let geom = fileObj ? (typeof fileObj.geometry === 'function' ? fileObj.geometry() : fileObj.geometry) : null;
-      let attributes = fileObj ? (typeof fileObj.attributes === 'function' ? fileObj.attributes() : fileObj.attributes) : null;
-      let objId = attributes ? (typeof attributes.id === 'function' ? attributes.id() : attributes.id) : `obj_${i + 1}`;
-      let objName = attributes ? (typeof attributes.name === 'function' ? attributes.name() : attributes.name) : `Object ${i + 1}`;
-
-      const ctorName = geom && geom.constructor ? geom.constructor.name : (geom ? 'GeometryBase' : 'None');
-      const objTypeVal = geom ? (typeof geom.objectType === 'function' ? geom.objectType() : geom.objectType) : null;
-      const objTypeName = typeof objTypeVal === 'object' ? (objTypeVal.name || 'Unknown') : String(objTypeVal || 'Unknown');
-
-      if (!geom) {
-        nullCount++;
-        counts.unsupported++;
-        processedObjects.push({
-          index: i + 1, id: objId, name: objName, type: 'Unsupported', rhinoType: 'Null', geom: null, bounds: null
-        });
-        continue;
-      }
-
-      geomCount++;
-
-      // Compute Object Bounding Box
-      let objBounds = null;
-      try {
-        const bbox = typeof geom.getBoundingBox === 'function' ? geom.getBoundingBox() : null;
-        if (bbox && bbox.min && bbox.max) {
-          objBounds = {
-            min: { x: bbox.min[0], y: bbox.min[1], z: bbox.min[2] },
-            max: { x: bbox.max[0], y: bbox.max[1], z: bbox.max[2] }
-          };
-        }
-      } catch (e) {
-        console.warn('Bounding box query warning for object', i, e);
-      }
-
-      const objData = {
-        index: i + 1,
-        id: objId,
-        name: objName,
-        type: 'Other',
-        rhinoType: objTypeName !== 'Unknown' ? objTypeName : ctorName,
-        ctorName: ctorName,
-        geom: geom,
-        bounds: objBounds,
-        subdData: null
-      };
-
-      // Classification checks
-      const isSubD = (rhino.SubD && geom instanceof rhino.SubD) ||
-                     ctorName === 'SubD' || objTypeName === 'SubD' ||
-                     (rhino.ObjectType && objTypeVal === rhino.ObjectType.SubD) || objTypeVal === 262144;
-
-      const isBrep = (rhino.Brep && geom instanceof rhino.Brep) ||
-                     ctorName === 'Brep' || objTypeName === 'Brep' ||
-                     (rhino.ObjectType && objTypeVal === rhino.ObjectType.Brep) || objTypeVal === 16;
-
-      const isExtrusion = (rhino.Extrusion && geom instanceof rhino.Extrusion) ||
-                          ctorName === 'Extrusion' || objTypeName === 'Extrusion' ||
-                          (rhino.ObjectType && objTypeVal === rhino.ObjectType.Extrusion) || objTypeVal === 1073741824;
-
-      const isMesh = (rhino.Mesh && geom instanceof rhino.Mesh) ||
-                     ctorName === 'Mesh' || objTypeName === 'Mesh' ||
-                     (rhino.ObjectType && objTypeVal === rhino.ObjectType.Mesh) || objTypeVal === 32;
-
-      const isCurve = (rhino.Curve && geom instanceof rhino.Curve) ||
-                      ctorName.includes('Curve') || objTypeName.includes('Curve') ||
-                      (rhino.ObjectType && objTypeVal === rhino.ObjectType.Curve) || objTypeVal === 4;
-
-      const isPoint = (rhino.Point && geom instanceof rhino.Point) ||
-                      ctorName === 'Point' || objTypeName === 'Point' ||
-                      (rhino.ObjectType && objTypeVal === rhino.ObjectType.Point) || objTypeVal === 1;
-
-      const isBlock = (rhino.InstanceReference && geom instanceof rhino.InstanceReference) ||
-                      ctorName === 'InstanceReference' || objTypeName === 'InstanceReference' ||
-                      (rhino.ObjectType && objTypeVal === rhino.ObjectType.InstanceReference) || objTypeVal === 4096;
-
-      if (isSubD) {
-        objData.type = 'SubD';
-        counts.subd++;
-        subdMetrics.totalObjects++;
-
-        let vCount = 0, eCount = 0, fCount = 0;
-        try {
-          const vList = typeof geom.vertices === 'function' ? geom.vertices() : geom.vertices;
-          const eList = typeof geom.edges === 'function' ? geom.edges() : geom.edges;
-          const fList = typeof geom.faces === 'function' ? geom.faces() : geom.faces;
-
-          if (vList) vCount = typeof vList.count === 'function' ? vList.count() : (vList.count || 0);
-          if (eList) eCount = typeof eList.count === 'function' ? eList.count() : (eList.count || 0);
-          if (fList) fCount = typeof fList.count === 'function' ? fList.count() : (fList.count || 0);
-        } catch (e) {}
-
-        subdMetrics.totalVertices += vCount;
-        subdMetrics.totalEdges += eCount;
-        subdMetrics.totalFaces += fCount;
-
-        objData.subdData = { vertexCount: vCount, edgeCount: eCount, faceCount: fCount };
-      } else if (isBrep) {
-        objData.type = 'Brep';
-        counts.breps++;
-      } else if (isExtrusion) {
-        objData.type = 'Extrusion';
-        counts.extrusions++;
-      } else if (isMesh) {
-        objData.type = 'Mesh';
-        counts.meshes++;
-      } else if (isCurve) {
-        if (ctorName.includes('Polyline') || objTypeName.includes('Polyline')) {
-          objData.type = 'PolylineCurve';
-          counts.polylines++;
-        } else if (ctorName.includes('PolyCurve') || objTypeName.includes('PolyCurve')) {
-          objData.type = 'PolyCurve';
-          counts.polycurves++;
-        } else if (ctorName.includes('Line') || objTypeName.includes('Line')) {
-          objData.type = 'LineCurve';
-          counts.lines++;
-        } else if (ctorName.includes('Arc') || ctorName.includes('Circle') || objTypeName.includes('Arc')) {
-          objData.type = 'ArcCurve';
-          counts.arcs++;
-        } else {
-          objData.type = 'NurbsCurve';
-          counts.nurbs++;
-        }
-      } else if (isPoint) {
-        objData.type = 'Point';
-        counts.points++;
-      } else if (isBlock) {
-        objData.type = 'InstanceReference';
-        counts.blocks++;
-      } else {
-        counts.unsupported++;
-      }
-
-      processedObjects.push(objData);
-
-    } catch (objErr) {
-      console.error(`[RHINO ERROR] Error reading object at index ${i}:`, objErr);
-      nullCount++;
+  objects.forEach((obj) => {
+    const geom = obj.geom;
+    if (!geom) {
+      counts.unsupported++;
+      obj.type = 'Unsupported';
+      return;
     }
-  }
 
-  if (dbgGeomCount) dbgGeomCount.textContent = geomCount;
-  if (dbgNullCount) dbgNullCount.textContent = nullCount;
-  if (rawGeomRetrieved) rawGeomRetrieved.textContent = geomCount;
-  if (rawNullGeom) rawNullGeom.textContent = nullCount;
-  if (rawClassified) rawClassified.textContent = geomCount;
-  if (rawUnclassified) rawUnclassified.textContent = nullCount;
-  if (dbgErrors) dbgErrors.textContent = 'NONE';
+    const ctorName = obj.ctorName || (geom.constructor ? geom.constructor.name : 'Unknown');
+    const objTypeVal = typeof geom.objectType === 'function' ? geom.objectType() : geom.objectType;
+    const objTypeName = typeof objTypeVal === 'object' ? (objTypeVal.name || 'Unknown') : String(objTypeVal || 'Unknown');
 
-  // 1. POPULATE GEOMETRY BREAKDOWN COUNTERS (TOTAL = 41)
+    const isSubD = (rhino.SubD && geom instanceof rhino.SubD) ||
+                   ctorName === 'SubD' || objTypeName === 'SubD' ||
+                   (rhino.ObjectType && objTypeVal === rhino.ObjectType.SubD) || objTypeVal === 262144;
+
+    const isBrep = (rhino.Brep && geom instanceof rhino.Brep) ||
+                   ctorName === 'Brep' || objTypeName === 'Brep' ||
+                   (rhino.ObjectType && objTypeVal === rhino.ObjectType.Brep) || objTypeVal === 16;
+
+    const isExtrusion = (rhino.Extrusion && geom instanceof rhino.Extrusion) ||
+                        ctorName === 'Extrusion' || objTypeName === 'Extrusion' ||
+                        (rhino.ObjectType && objTypeVal === rhino.ObjectType.Extrusion) || objTypeVal === 1073741824;
+
+    const isMesh = (rhino.Mesh && geom instanceof rhino.Mesh) ||
+                   ctorName === 'Mesh' || objTypeName === 'Mesh' ||
+                   (rhino.ObjectType && objTypeVal === rhino.ObjectType.Mesh) || objTypeVal === 32;
+
+    const isCurve = (rhino.Curve && geom instanceof rhino.Curve) ||
+                    ctorName.includes('Curve') || objTypeName.includes('Curve') ||
+                    (rhino.ObjectType && objTypeVal === rhino.ObjectType.Curve) || objTypeVal === 4;
+
+    const isPoint = (rhino.Point && geom instanceof rhino.Point) ||
+                    ctorName === 'Point' || objTypeName === 'Point' ||
+                    (rhino.ObjectType && objTypeVal === rhino.ObjectType.Point) || objTypeVal === 1;
+
+    const isBlock = (rhino.InstanceReference && geom instanceof rhino.InstanceReference) ||
+                    ctorName === 'InstanceReference' || objTypeName === 'InstanceReference' ||
+                    (rhino.ObjectType && objTypeVal === rhino.ObjectType.InstanceReference) || objTypeVal === 4096;
+
+    if (isSubD) {
+      obj.type = 'SubD';
+      counts.subd++;
+      subdMetrics.totalObjects++;
+
+      let vCount = 0, eCount = 0, fCount = 0;
+      try {
+        const vList = typeof geom.vertices === 'function' ? geom.vertices() : geom.vertices;
+        const eList = typeof geom.edges === 'function' ? geom.edges() : geom.edges;
+        const fList = typeof geom.faces === 'function' ? geom.faces() : geom.faces;
+
+        if (vList) vCount = typeof vList.count === 'function' ? vList.count() : (vList.count || 0);
+        if (eList) eCount = typeof eList.count === 'function' ? eList.count() : (eList.count || 0);
+        if (fList) fCount = typeof fList.count === 'function' ? fList.count() : (fList.count || 0);
+      } catch (e) {}
+
+      subdMetrics.totalVertices += vCount;
+      subdMetrics.totalEdges += eCount;
+      subdMetrics.totalFaces += fCount;
+
+      obj.subdData = { vertexCount: vCount, edgeCount: eCount, faceCount: fCount };
+    } else if (isBrep) {
+      obj.type = 'Brep';
+      counts.breps++;
+    } else if (isExtrusion) {
+      obj.type = 'Extrusion';
+      counts.extrusions++;
+    } else if (isMesh) {
+      obj.type = 'Mesh';
+      counts.meshes++;
+    } else if (isCurve) {
+      if (ctorName.includes('Polyline') || objTypeName.includes('Polyline')) {
+        obj.type = 'PolylineCurve';
+        counts.polylines++;
+      } else if (ctorName.includes('PolyCurve') || objTypeName.includes('PolyCurve')) {
+        obj.type = 'PolyCurve';
+        counts.polycurves++;
+      } else if (ctorName.includes('Line') || objTypeName.includes('Line')) {
+        obj.type = 'LineCurve';
+        counts.lines++;
+      } else if (ctorName.includes('Arc') || ctorName.includes('Circle') || objTypeName.includes('Arc')) {
+        obj.type = 'ArcCurve';
+        counts.arcs++;
+      } else {
+        obj.type = 'NurbsCurve';
+        counts.nurbs++;
+      }
+    } else if (isPoint) {
+      obj.type = 'Point';
+      counts.points++;
+    } else if (isBlock) {
+      obj.type = 'InstanceReference';
+      counts.blocks++;
+    } else {
+      counts.unsupported++;
+      obj.type = 'Unsupported';
+    }
+  });
+
+  // Populate Breakdown Counters UI
   if (countSubd) countSubd.textContent = counts.subd;
   if (countNurbs) countNurbs.textContent = counts.nurbs;
   if (countPolylines) countPolylines.textContent = counts.polylines;
@@ -593,61 +687,46 @@ async function parseRhino3dm(arrayBuffer, filename) {
   if (countSubdEdges) countSubdEdges.textContent = subdMetrics.totalEdges;
   if (countSubdFaces) countSubdFaces.textContent = subdMetrics.totalFaces;
 
-  console.log('[RHINO RECONCILIATION SUMMARY]', {
-    totalRaw: rawCount,
-    geomRetrieved: geomCount,
-    nullGeom: nullCount,
-    breakdown: counts,
-    subdMetrics: subdMetrics
-  });
+  if (diagSubdCount) diagSubdCount.textContent = subdMetrics.totalObjects;
 
-  // 2. COMPUTE REAL MODEL BOUNDING BOX
-  calculateGlobalBounds(processedObjects);
-
-  const unitsObj = typeof doc.settings === 'function' ? doc.settings().modelUnitSystem() : null;
-  const unitsName = unitsObj ? (unitsObj.name || 'mm') : 'mm';
-
-  appState.originalRhinoGeometry = {
-    filename: filename,
-    objects: processedObjects,
-    counts: counts,
-    subdMetrics: subdMetrics,
-    bounds: globalBoundingBox,
-    units: unitsName
-  };
-
-  appState.objectVisibilityMap = {};
-  processedObjects.forEach((obj) => {
-    appState.objectVisibilityMap[obj.id] = true;
-  });
-
-  // Populate Object Debugger List in Sidebar
-  renderObjectVisibilityList(processedObjects);
-
-  // 3. CALL ONE FUNCTION RENDERER: renderImportedRhinoModel
-  renderImportedRhinoModel(processedObjects);
+  console.log('[RHINO OBJECT TYPE BREAKDOWN]', counts);
+  renderObjectVisibilityList(objects);
 }
 
 // ============================================================================
-// 3. BOUNDING BOX CALCULATOR
+// 5. CALCULATE RHINO WORLD BOUNDS
 // ============================================================================
 
-function calculateGlobalBounds(objects) {
+function calculateModelBounds(objects) {
   let minX = Infinity, minY = Infinity, minZ = Infinity;
   let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
   let validCount = 0;
 
   objects.forEach((obj) => {
-    if (obj.bounds && obj.bounds.min && obj.bounds.max) {
-      if (isFinite(obj.bounds.min.x)) {
-        minX = Math.min(minX, obj.bounds.min.x);
-        minY = Math.min(minY, obj.bounds.min.y);
-        minZ = Math.min(minZ, obj.bounds.min.z);
-        maxX = Math.max(maxX, obj.bounds.max.x);
-        maxY = Math.max(maxY, obj.bounds.max.y);
-        maxZ = Math.max(maxZ, obj.bounds.max.z);
-        validCount++;
+    if (!obj.geom) return;
+    try {
+      let bbox = null;
+      if (typeof obj.geom.getBoundingBox === 'function') {
+        bbox = obj.geom.getBoundingBox();
       }
+      if (bbox && bbox.min && bbox.max) {
+        const bx0 = bbox.min[0], by0 = bbox.min[1], bz0 = bbox.min[2];
+        const bx1 = bbox.max[0], by1 = bbox.max[1], bz1 = bbox.max[2];
+
+        if (isFinite(bx0) && isFinite(bx1)) {
+          minX = Math.min(minX, bx0);
+          minY = Math.min(minY, by0);
+          minZ = Math.min(minZ, bz0);
+          maxX = Math.max(maxX, bx1);
+          maxY = Math.max(maxY, by1);
+          maxZ = Math.max(maxZ, bz1);
+          validCount++;
+
+          obj.bounds = { min: { x: bx0, y: by0, z: bz0 }, max: { x: bx1, y: by1, z: bz1 } };
+        }
+      }
+    } catch (e) {
+      console.warn('Bounding box query error for object', obj.id, e);
     }
   });
 
@@ -673,7 +752,7 @@ function calculateGlobalBounds(objects) {
     maxDim: maxDim
   };
 
-  // Update Bounding Box UI elements (No longer show "-")
+  // Display bounds on screen (No longer showing "-")
   if (metaXRange) metaXRange.textContent = `${minX.toFixed(1)} to ${maxX.toFixed(1)}`;
   if (metaXBounds) metaXBounds.textContent = `${sizeX.toFixed(1)} mm`;
 
@@ -691,7 +770,7 @@ function calculateGlobalBounds(objects) {
 }
 
 // ============================================================================
-// 4. ONE FUNCTION RENDERER: renderImportedRhinoModel(rhinoObjects)
+// 6. RENDER IMPORTER MODEL (renderImportedRhinoModel)
 // ============================================================================
 
 /**
@@ -712,7 +791,6 @@ function renderImportedRhinoModel(rhinoObjects) {
 
   if (rndObjectsRcvd) rndObjectsRcvd.textContent = rhinoObjects.length;
 
-  // Clear previous model from scene
   if (importedRhinoGroup) {
     scene.remove(importedRhinoGroup);
   }
@@ -724,18 +802,18 @@ function renderImportedRhinoModel(rhinoObjects) {
   let addedCount = 0;
   let failedCount = 0;
 
-  // High-visibility debug materials
+  // High-visibility materials
   const surfaceMaterial = new THREE.MeshNormalMaterial({
     side: THREE.DoubleSide
   });
 
   const edgeMaterial = new THREE.LineBasicMaterial({
-    color: 0xffd700, // Bright gold wireframe edges
+    color: 0xffd700, // Bright gold
     linewidth: 1.5
   });
 
   const curveMaterial = new THREE.LineBasicMaterial({
-    color: 0x00ffff, // Cyan for curves
+    color: 0x00ffff, // Cyan
     linewidth: 2.0
   });
 
@@ -744,11 +822,10 @@ function renderImportedRhinoModel(rhinoObjects) {
     size: (globalBoundingBox.maxDim || 100) * 0.02
   });
 
-  // Loop through all 41 retrieved objects
   rhinoObjects.forEach((obj, idx) => {
     if (!obj.geom) {
       failedCount++;
-      console.warn(`[RENDER PIPELINE] Object ${idx + 1} (${obj.name}): Null geometry. Skipping.`);
+      console.warn(`[RENDER PIPELINE LOG] Object ${idx + 1} (${obj.name}): Null geometry. Skipping.`);
       return;
     }
 
@@ -773,8 +850,6 @@ function renderImportedRhinoModel(rhinoObjects) {
           if (threeGeom) {
             const meshObj = new THREE.Mesh(threeGeom, surfaceMaterial);
             objGroup.add(meshObj);
-
-            // Add Edges wireframe
             const edgesGeom = new THREE.EdgesGeometry(threeGeom);
             const lineSegs = new THREE.LineSegments(edgesGeom, edgeMaterial);
             objGroup.add(lineSegs);
@@ -782,7 +857,7 @@ function renderImportedRhinoModel(rhinoObjects) {
           }
         }
 
-        // SubD Cage wireframe fallback
+        // Cage Wireframe Fallback
         const cageLines = extractSubDCageWireframe(obj.geom);
         if (cageLines.length > 0) {
           const linePositions = [];
@@ -887,13 +962,12 @@ function renderImportedRhinoModel(rhinoObjects) {
   scene.add(importedRhinoGroup);
   console.log('[RENDER PIPELINE SUCCESS] Added importedRhinoGroup to Three.js scene with', importedRhinoGroup.children.length, 'children.');
 
-  // Update UI Card Metrics
   if (rndObjectsConv) rndObjectsConv.textContent = convertedCount;
   if (rndObjectsAdded) rndObjectsAdded.textContent = addedCount;
   if (rndObjectsFailed) rndObjectsFailed.textContent = failedCount;
   if (rndModelChildren) rndModelChildren.textContent = importedRhinoGroup.children.length;
 
-  // 8. CAMERA FIT TO THREE.JS BOUNDING BOX
+  // FIT CAMERA TO THREE.JS BOUNDING BOX
   const box = new THREE.Box3().setFromObject(importedRhinoGroup);
   const isBoxValid = !box.isEmpty();
 
@@ -923,16 +997,18 @@ function renderImportedRhinoModel(rhinoObjects) {
 
     if (rndCamFit) rndCamFit.textContent = 'YES';
     if (rndStatus) rndStatus.textContent = 'SUCCESS';
+
+    // REMOVE START SCREEN CARD ONLY UPON RENDER SUCCESS (ADDED TO THREE.JS > 0)
+    if (addedCount > 0 && startScreenCard) {
+      startScreenCard.style.display = 'none';
+      if (canvasTagsOverlay) canvasTagsOverlay.style.display = 'flex';
+      if (diagnosticsOverlay) diagnosticsOverlay.style.display = 'block';
+      if (viewerTogglesOverlay) viewerTogglesOverlay.style.display = 'block';
+    }
   } else {
     if (rndCamFit) rndCamFit.textContent = 'NO';
     if (rndStatus) rndStatus.textContent = 'EMPTY BBOX';
   }
-
-  // 12. HIDE START CARD UPON SUCCESSFUL IMPORT & SHOW CANVAS
-  if (startScreenCard) startScreenCard.style.display = 'none';
-  if (canvasTagsOverlay) canvasTagsOverlay.style.display = 'flex';
-  if (diagnosticsOverlay) diagnosticsOverlay.style.display = 'block';
-  if (viewerTogglesOverlay) viewerTogglesOverlay.style.display = 'block';
 
   if (diagRendered) diagRendered.textContent = addedCount;
   if (diagStatus) {
@@ -1066,8 +1142,6 @@ function setCameraProjection(proj) {
 
 function updateDisplayModeVisibility() {
   if (!importedRhinoGroup) return;
-  const mode = appState.displayMode;
-
   importedRhinoGroup.children.forEach(child => {
     const isObjVisible = appState.objectVisibilityMap[child.name] !== false;
     child.visible = isObjVisible;
