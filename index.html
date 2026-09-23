@@ -209,6 +209,29 @@
             <div class="delta-row"><span>RENDER STATUS:</span><span id="rnd-status" class="delta-badge neutral">PENDING</span></div>
           </div>
 
+          <!-- SOURCE & DISPLAY GEOMETRY PAIRING DIAGNOSTICS CARD -->
+          <div class="info-card" id="source-display-pairing-card" style="border: 2px solid #32cd32; background: #111;">
+            <div class="info-label" style="color: #32cd32; font-size: 0.85rem; font-weight: 700;">SOURCE & DISPLAY DIAGNOSTICS</div>
+            <div style="font-weight:600; color:#aaa; margin-top:0.25rem; font-size:0.75rem;">SOURCE GEOMETRY</div>
+            <div class="delta-row"><span>SubD Objects:</span><span id="src-subd-count" class="delta-badge pos">0</span></div>
+            <div class="delta-row"><span>SubD Source Stored:</span><span id="src-subd-stored" class="delta-badge pos">0</span></div>
+            
+            <div style="font-weight:600; color:#aaa; margin-top:0.4rem; font-size:0.75rem;">DISPLAY GEOMETRY</div>
+            <div class="delta-row"><span>Display Meshes:</span><span id="dsp-mesh-count" class="delta-badge pos">0</span></div>
+            <div class="delta-row"><span>Meshes Converted:</span><span id="dsp-mesh-conv" class="delta-badge pos">0</span></div>
+            <div class="delta-row"><span>Three.js Objects:</span><span id="dsp-three-count" class="delta-badge pos">0</span></div>
+
+            <div style="font-weight:600; color:#aaa; margin-top:0.4rem; font-size:0.75rem;">PAIRING</div>
+            <div class="delta-row"><span>SubD/Mesh Pairs:</span><span id="pair-count" class="delta-badge pos">0</span></div>
+            <div class="delta-row"><span>Unpaired SubD:</span><span id="pair-unpaired-subd" class="delta-badge neutral">0</span></div>
+            <div class="delta-row"><span>Unpaired Meshes:</span><span id="pair-unpaired-mesh" class="delta-badge neutral">0</span></div>
+
+            <div style="font-weight:600; color:#aaa; margin-top:0.4rem; font-size:0.75rem;">VIEWER</div>
+            <div class="delta-row"><span>Bounding Box:</span><span id="vwr-bbox" class="delta-badge pos">VALID</span></div>
+            <div class="delta-row"><span>Camera Fit:</span><span id="vwr-cam-fit" class="delta-badge pos">YES</span></div>
+            <div class="delta-row"><span>Render Status:</span><span id="vwr-status" class="delta-badge pos">SUCCESS</span></div>
+          </div>
+
           <!-- RAW RHINO IMPORT CARD -->
           <div class="info-card">
             <div class="info-label">RAW RHINO IMPORT DIAGNOSTICS</div>
@@ -295,10 +318,10 @@
   </div>
 
   <!-- LOAD MODULE SCRIPTS WITH CACHE BUSTING -->
-  <script src="descriptors.js?v=2.0.6"></script>
-  <script src="evolutionEngine.js?v=2.0.6"></script>
-  <script src="artNouveauEngine.js?v=2.0.6"></script>
-  <script src="evaluator.js?v=2.0.6"></script>
-  <script src="app.js?v=2.0.6"></script>
+  <script src="descriptors.js?v=2.0.7"></script>
+  <script src="evolutionEngine.js?v=2.0.7"></script>
+  <script src="artNouveauEngine.js?v=2.0.7"></script>
+  <script src="evaluator.js?v=2.0.7"></script>
+  <script src="app.js?v=2.0.7"></script>
 </body>
 </html>
