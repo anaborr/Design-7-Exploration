@@ -1,13 +1,14 @@
 /**
  * ============================================================================
  * DESIGN 7 EXPLORATION - DESCRIPTOR-DRIVEN ARCHITECTURAL EVOLUTION SYSTEM
- * RHINO IMPORTER & MULTI-PROJECTION DIAGNOSTIC ENGINE (DEBUGGING CONTROLLER)
+ * RHINO IMPORTER & MULTI-PROJECTION DIAGNOSTIC ENGINE (STAGED CONTROLLER)
  * - Full 3D XYZ Source Coordinate Storage
  * - Global Single Bounding Box & Unified Scale/Translation
  * - Multi-Projection Engine: FRONT (XZ), TOP (XY), RIGHT (YZ), 3D ISOMETRIC
  * - Block / Instance Reference 4x4 Matrix Transformation Engine
  * - Brep, Extrusion, Surface, Mesh, PolyCurve, Arc/Circle Edge Parsers
  * - Object Visibility Debugger & Single-Object Interactive Highlighting
+ * - 6-Stage Independent Error-Handled Importer Pipeline (No auto-cloning)
  * ============================================================================
  */
 
@@ -17,9 +18,9 @@
 
 let appState = {
   // Immutable Source 3D Geometry parsed from .3dm file
-  sourceGeometry3D: null,
+  originalRhinoGeometry: null,
 
-  // Editable Working Copy
+  // Editable Working Copy (Pointed to original geometry initially)
   editableSeedGeometry: null,
 
   // Active Display Projection Mode: 'FRONT', 'TOP', 'RIGHT', 'PERSPECTIVE'
@@ -28,7 +29,7 @@ let appState = {
   // Active View Layer Mode: 'EDITABLE', 'ORIGINAL', 'OVERLAY', 'CONTROL'
   currentViewMode: 'EDITABLE',
 
-  // Object Visibility Map: { "obj_0": true, "obj_1": false }
+  // Object Visibility Map: { "obj_01": true, "obj_02": false }
   objectVisibilityMap: {},
 
   // Highlighted Object ID for single-object visual debugging
@@ -103,7 +104,40 @@ const btnCloseVerifyModal = document.getElementById('btn-close-verify-modal');
 const verifyModalContent = document.getElementById('verify-modal-content');
 
 // ============================================================================
-// 3. RHINO .3DM FILE PARSER (rhino3dm.js)
+// 3. CLONING UTILITY (STANDALONE FOR FUTURE EVOLUTION)
+// ============================================================================
+
+/**
+ * Deep clones entire Rhino Seed structure.
+ * Standalone utility available for future generation/mutation logic.
+ */
+function cloneRhinoSeed(seed) {
+  if (!seed) return null;
+  return {
+    filename: seed.filename,
+    units: seed.units,
+    objectCount: seed.objectCount,
+    counts: { ...seed.counts },
+    layers: seed.layers ? seed.layers.map(l => ({ ...l })) : [],
+    unsupportedObjects: seed.unsupportedObjects ? seed.unsupportedObjects.map(u => ({ ...u })) : [],
+    objects: seed.objects.map(obj => ({
+      id: obj.id,
+      rhinoId: obj.rhinoId,
+      layerIndex: obj.layerIndex,
+      layerName: obj.layerName,
+      geometryType: obj.geometryType,
+      degree: obj.degree,
+      isClosed: obj.isClosed,
+      renderPaths3D: obj.renderPaths3D.map(p => p.map(pt => ({ ...pt }))),
+      controlPoints: obj.controlPoints.map(pt => ({ ...pt }))
+    })),
+    bounds3D: { ...seed.bounds3D },
+    dominantPlane: seed.dominantPlane
+  };
+}
+
+// ============================================================================
+// 4. RHINO .3DM FILE PARSER (rhino3dm.js)
 // ============================================================================
 
 let rhinoModule = null;
@@ -120,7 +154,6 @@ async function getRhinoModule() {
  */
 function transformPoint3D(pt, xform) {
   if (!xform) return { ...pt };
-  // If xform is array of 16 numbers or matrix object
   const x = pt.x, y = pt.y, z = pt.z, w = pt.w !== undefined ? pt.w : 1.0;
   if (Array.isArray(xform) && xform.length >= 16) {
     const tx = xform[0]*x + xform[1]*y + xform[2]*z + xform[3]*w;
@@ -134,20 +167,12 @@ function transformPoint3D(pt, xform) {
 }
 
 /**
- * Deep clones 3D points array.
- */
-function clone3DPoints(pts) {
-  return pts.map(pt => ({ x: pt.x, y: pt.y, z: pt.z, w: pt.w !== undefined ? pt.w : 1.0 }));
-}
-
-/**
  * Samples a rhino3dm Curve object into an array of 3D points.
  */
 function sampleCurve3D(geom, numSamples = 50) {
   const pts = [];
   if (!geom) return pts;
 
-  // Try toPolyline
   let poly = null;
   try {
     if (typeof geom.toPolyline === 'function') poly = geom.toPolyline();
@@ -166,7 +191,6 @@ function sampleCurve3D(geom, numSamples = 50) {
     return pts;
   }
 
-  // Sample domain t0 -> t1
   const domain = geom.domain || [0, 1];
   const t0 = domain[0], t1 = domain[1];
   const steps = geom.degree === 1 ? 10 : numSamples;
@@ -186,27 +210,48 @@ function sampleCurve3D(geom, numSamples = 50) {
 }
 
 /**
- * Parses binary buffer of a Rhino .3dm file with full 3D fidelity across ALL geometry types.
+ * Parses binary buffer of a Rhino .3dm file using multi-stage isolated error handling.
  */
 async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
+  let rhino = null;
+  let doc = null;
+
+  // STAGE 1: RHINO ENGINE INITIALIZATION
   try {
-    const rhino = await getRhinoModule();
-    if (!rhino) {
-      alert('Rhino3dm module loading. Please try again in a moment.');
-      return;
-    }
+    rhino = await getRhinoModule();
+    if (!rhino) throw new Error('rhino3dm module failed to initialize');
+  } catch (err) {
+    console.error('STAGE 1 [ENGINE INIT ERROR]:', err);
+    alert('STAGE 1 [ENGINE INIT ERROR]: ' + err.message);
+    return;
+  }
 
+  // STAGE 2: RHINO FILE PARSE
+  try {
     const arr = new Uint8Array(buffer);
-    const doc = rhino.File3dm.fromByteArray(arr);
+    doc = rhino.File3dm.fromByteArray(arr);
+    if (!doc) throw new Error('File3dm.fromByteArray returned null document');
+  } catch (err) {
+    console.error('STAGE 2 [RHINO PARSE ERROR]:', err);
+    alert('STAGE 2 [RHINO PARSE ERROR]: ' + err.message);
+    return;
+  }
 
-    if (!doc) {
-      alert('Could not parse Rhino .3dm file structure.');
-      return;
-    }
+  // STAGE 3: OBJECT CLASSIFICATION & GEOMETRY EXTRACTION
+  let parsedLayers = [];
+  let parsedObjects = [];
+  let unsupportedObjects = [];
 
-    // Extract Layers Table
+  const countsBreakdown = {
+    nurbs: 0, polylines: 0, polycurves: 0, lines: 0, arcs: 0,
+    breps: 0, extrusions: 0, meshes: 0, points: 0, blocks: 0, unsupported: 0
+  };
+
+  let minX = Infinity, minY = Infinity, minZ = Infinity;
+  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+
+  try {
     const layersTable = doc.layers();
-    const parsedLayers = [];
     for (let l = 0; l < layersTable.count; l++) {
       const lay = layersTable.get(l);
       parsedLayers.push({
@@ -217,25 +262,6 @@ async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
     }
 
     const objectsTable = doc.objects();
-    const parsedObjects = [];
-    const unsupportedObjects = [];
-
-    const countsBreakdown = {
-      nurbs: 0,
-      polylines: 0,
-      polycurves: 0,
-      lines: 0,
-      arcs: 0,
-      breps: 0,
-      extrusions: 0,
-      meshes: 0,
-      points: 0,
-      blocks: 0,
-      unsupported: 0
-    };
-
-    let minX = Infinity, minY = Infinity, minZ = Infinity;
-    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
 
     function updateBounds(pts) {
       pts.forEach(p => {
@@ -259,7 +285,7 @@ async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
       const layerName = parsedLayers[layerIdx] ? parsedLayers[layerIdx].name : 'Default';
 
       let categoryType = 'Unknown';
-      let renderPaths3D = []; // Array of point arrays for multi-component objects (e.g. Brep edges)
+      let renderPaths3D = [];
       let controlPoints = [];
       let isClosed = Boolean(geom.isClosed);
       let degree = geom.degree !== undefined ? geom.degree : 1;
@@ -295,7 +321,7 @@ async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
           }
         }
       }
-      // 3. EXTRUSION (Profile & Height Direction)
+      // 3. EXTRUSION (Profile & Direction)
       else if (typeof geom.profileAsCurve === 'function') {
         categoryType = 'Extrusion';
         countsBreakdown.extrusions++;
@@ -308,7 +334,7 @@ async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
           }
         }
       }
-      // 4. MESH (Vertices & Wireframe Edges)
+      // 4. MESH (Vertices & Edges)
       else if (typeof geom.vertices === 'function') {
         categoryType = 'Mesh';
         countsBreakdown.meshes++;
@@ -330,11 +356,10 @@ async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
           }
         }
       }
-      // 5. INSTANCE REFERENCE (Blocks with 4x4 Matrix Transform)
+      // 5. INSTANCE REFERENCE (Blocks)
       else if (geom.instanceDefinitionId || typeof geom.xform !== 'undefined') {
         categoryType = 'InstanceReference';
         countsBreakdown.blocks++;
-        // Block geometry transform handled if instance definition exists
       }
       // 6. CURVES / POLYLINES / POLYCURVES / ARCS / CIRCLES
       else if (typeof geom.domain !== 'undefined' || typeof geom.isClosed !== 'undefined') {
@@ -357,7 +382,6 @@ async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
           countsBreakdown.nurbs++;
         }
 
-        // Extract CVs
         let cvColl = null;
         try {
           if (typeof geom.controlPoints === 'function') cvColl = geom.controlPoints();
@@ -376,7 +400,6 @@ async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
           }
         }
 
-        // Evaluate 3D Points along curve domain
         const cPts = sampleCurve3D(geom, 60);
         if (cPts.length > 0) {
           renderPaths3D.push(cPts);
@@ -410,16 +433,30 @@ async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
         });
       }
     }
+  } catch (err) {
+    console.error('STAGE 3 [OBJECT EXTRACTION ERROR]:', err);
+    alert('STAGE 3 [OBJECT EXTRACTION ERROR]: ' + err.message);
+    return;
+  }
 
+  // STAGE 4: BOUNDING BOX & DOMINANT PLANE CALCULATION
+  let rangeX = 1, rangeY = 1, rangeZ = 1;
+  let dominantPlane = 'FRONT';
+  try {
     if (!isFinite(minX)) { minX = 0; maxX = 100; minY = 0; maxY = 100; minZ = 0; maxZ = 100; }
+    rangeX = Math.max(1, maxX - minX);
+    rangeY = Math.max(1, maxY - minY);
+    rangeZ = Math.max(1, maxZ - minZ);
+    dominantPlane = rangeZ > rangeY ? 'FRONT' : 'TOP';
+  } catch (err) {
+    console.error('STAGE 4 [BOUNDING BOX ERROR]:', err);
+    alert('STAGE 4 [BOUNDING BOX ERROR]: ' + err.message);
+    return;
+  }
 
-    const rangeX = Math.max(1, maxX - minX);
-    const rangeY = Math.max(1, maxY - minY);
-    const rangeZ = Math.max(1, maxZ - minZ);
+  // STAGE 5: IMMUTABLE SOURCE GEOMETRY CREATION
+  try {
     const unitsStr = doc.settings()?.modelUnits?.name || 'mm';
-
-    // Auto-detect Dominant Plane: If height Z range > depth Y range, default to FRONT view (X/Z)
-    const dominantPlane = rangeZ > rangeY ? 'FRONT' : 'TOP';
 
     const sourceGeometry3D = {
       filename,
@@ -433,20 +470,27 @@ async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
       dominantPlane
     };
 
-    appState.sourceGeometry3D = sourceGeometry3D;
-    appState.editableSeedGeometry = cloneRhinoSeed(sourceGeometry3D);
+    appState.originalRhinoGeometry = sourceGeometry3D;
+    appState.editableSeedGeometry = sourceGeometry3D; // Set directly to original geometry (no auto-cloning during import)
     appState.projectionMode = dominantPlane;
 
-    // Reset visibility map to show all objects by default
     appState.objectVisibilityMap = {};
     parsedObjects.forEach(obj => { appState.objectVisibilityMap[obj.id] = true; });
     appState.highlightedObjectId = null;
 
     btnVerifyRhinoImport.disabled = false;
+  } catch (err) {
+    console.error('STAGE 5 [GEOMETRY STORE ERROR]:', err);
+    alert('STAGE 5 [GEOMETRY STORE ERROR]: ' + err.message);
+    return;
+  }
 
-    // Log diagnostic summary directly to console
+  // STAGE 6: RENDERING & DIAGNOSTICS DISPLAY
+  try {
+    renderRhinoSeedView(appState.originalRhinoGeometry);
+
     console.log(`=== RHINO FILE IMPORT DIAGNOSTICS (${filename}) ===`);
-    console.log(`Total Document Objects: ${objectsTable.count}`);
+    console.log(`Total Document Objects: ${doc.objects().count}`);
     console.log(`Renderable Objects: ${parsedObjects.length}`);
     console.log(`Unsupported Objects: ${unsupportedObjects.length}`);
     console.log(`3D Bounds: X=[${minX.toFixed(1)}..${maxX.toFixed(1)}] (range ${rangeX.toFixed(1)}mm)`);
@@ -455,11 +499,10 @@ async function processRhinoBuffer(buffer, filename = 'Imported_Seed.3dm') {
     console.log(`Dominant Auto View Plane: ${dominantPlane}`);
     console.log(`Counts Breakdown:`, countsBreakdown);
     console.log(`=================================================`);
-
-    renderRhinoSeedView(appState.editableSeedGeometry);
   } catch (err) {
-    console.error('Error parsing Rhino file:', err);
-    alert('Error reading Rhino file: ' + err.message);
+    console.error('STAGE 6 [RENDERING ERROR]:', err);
+    alert('STAGE 6 [RENDERING ERROR]: ' + err.message);
+    return;
   }
 }
 
@@ -532,7 +575,7 @@ async function loadSampleRhinoSeed() {
 }
 
 // ============================================================================
-// 4. 3D MULTI-PROJECTION ENGINE
+// 5. 3D MULTI-PROJECTION ENGINE
 // ============================================================================
 
 /**
@@ -541,16 +584,12 @@ async function loadSampleRhinoSeed() {
 function project3DTo2D(pt3d, mode = 'FRONT') {
   const x = pt3d.x, y = pt3d.y, z = pt3d.z;
   if (mode === 'FRONT') {
-    // Front View: X = Horizontal, Z = Vertical Elevation (SVG Y is inverted)
     return { x: x, y: -z };
   } else if (mode === 'TOP') {
-    // Top View: X = Horizontal, Y = Vertical Plan Depth
     return { x: x, y: -y };
   } else if (mode === 'RIGHT') {
-    // Right View: Y = Horizontal, Z = Vertical Elevation
     return { x: y, y: -z };
   } else if (mode === 'PERSPECTIVE') {
-    // 3D Isometric Axonometric Projection
     const cos30 = 0.866025;
     const sin30 = 0.5;
     const isoX = (x - y) * cos30;
@@ -605,7 +644,7 @@ function fitImportedGeometryToViewport(projBounds) {
 }
 
 // ============================================================================
-// 5. VIEWPORT RENDERING & OVERLAY
+// 6. VIEWPORT RENDERING & OVERLAY
 // ============================================================================
 
 /**
@@ -642,7 +681,6 @@ function renderObjectsIntoLayer(containerGroup, seedData, styleOptions = {}) {
   const projMode = appState.projectionMode;
 
   seedData.objects.forEach(obj => {
-    // Check Visibility Toggle
     if (appState.objectVisibilityMap[obj.id] === false) return;
 
     const isHighlighted = appState.highlightedObjectId === obj.id;
@@ -665,19 +703,16 @@ function renderObjectsIntoLayer(containerGroup, seedData, styleOptions = {}) {
           path.setAttribute('d', d);
 
           if (isHighlighted) {
-            // Highlighted Object stroke
             path.setAttribute('fill', 'none');
             path.setAttribute('stroke', '#ff4757');
             path.setAttribute('stroke-width', '4');
             path.setAttribute('filter', 'url(#highlight-glow)');
           } else if (styleOptions.isOriginal) {
-            // ORIGINAL RHINO LAYER (Dashed Cyan)
             path.setAttribute('fill', 'none');
             path.setAttribute('stroke', '#52c5d8');
             path.setAttribute('stroke-width', '2');
             path.setAttribute('stroke-dasharray', '6 4');
           } else {
-            // EDITABLE SEED LAYER (Color coded by Rhino type)
             if (obj.isClosed) {
               path.setAttribute('fill', 'rgba(226, 201, 124, 0.1)');
               path.setAttribute('stroke', '#e2c97c');
@@ -839,14 +874,12 @@ function renderObjectVisibilityDebuggerList() {
       <button class="obj-vis-btn ${isVisible ? 'active' : ''}">${isVisible ? 'HIDE' : 'SHOW'}</button>
     `;
 
-    // Click item row to highlight exclusively
     div.addEventListener('click', (e) => {
       if (e.target.classList.contains('obj-vis-btn')) return;
       appState.highlightedObjectId = (appState.highlightedObjectId === obj.id) ? null : obj.id;
       renderRhinoSeedView(appState.editableSeedGeometry);
     });
 
-    // Toggle button
     const btnVis = div.querySelector('.obj-vis-btn');
     btnVis.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -859,7 +892,7 @@ function renderObjectVisibilityDebuggerList() {
 }
 
 // ============================================================================
-// 6. VERIFY RHINO IMPORT AUDIT MODAL
+// 7. VERIFY RHINO IMPORT AUDIT MODAL
 // ============================================================================
 
 function showImportVerificationModal() {
@@ -939,7 +972,7 @@ function hideImportVerificationModal() {
 }
 
 // ============================================================================
-// 7. EVENT LISTENERS & INITIALIZATION
+// 8. EVENT LISTENERS & INITIALIZATION
 // ============================================================================
 
 function initEventListeners() {
@@ -1023,7 +1056,7 @@ function initEventListeners() {
 }
 
 function init() {
-  console.log("Initializing Descriptor-Driven Architectural Evolution System (Importer Debugger & Multi-Projection Engine)...");
+  console.log("Initializing Descriptor-Driven Architectural Evolution System (6-Stage Error-Handled Importer)...");
   initEventListeners();
 }
 
