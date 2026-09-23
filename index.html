@@ -196,6 +196,19 @@
             <div class="delta-row"><span>9 ERRORS:</span><span id="dbg-errors" class="delta-badge pos">NONE</span></div>
           </div>
 
+          <!-- RENDER PIPELINE CARD -->
+          <div class="info-card" id="render-pipeline-card" style="border: 2px solid #4a90e2; background: #111;">
+            <div class="info-label" style="color: #4a90e2; font-size: 0.85rem; font-weight: 700;">RENDER PIPELINE (THREE.JS)</div>
+            <div class="delta-row"><span>RHINO OBJECTS RECEIVED:</span><span id="rnd-objects-rcvd" class="delta-badge neutral">0</span></div>
+            <div class="delta-row"><span>OBJECTS CONVERTED:</span><span id="rnd-objects-conv" class="delta-badge neutral">0</span></div>
+            <div class="delta-row"><span>ADDED TO THREE.JS:</span><span id="rnd-objects-added" class="delta-badge neutral">0</span></div>
+            <div class="delta-row"><span>FAILED CONVERSIONS:</span><span id="rnd-objects-failed" class="delta-badge neutral">0</span></div>
+            <div class="delta-row"><span>THREE.JS MODEL CHILDREN:</span><span id="rnd-model-children" class="delta-badge neutral">0</span></div>
+            <div class="delta-row"><span>THREE.JS BOUNDING BOX:</span><span id="rnd-bbox-status" class="delta-badge neutral">EMPTY</span></div>
+            <div class="delta-row"><span>CAMERA FIT:</span><span id="rnd-cam-fit" class="delta-badge neutral">NO</span></div>
+            <div class="delta-row"><span>RENDER STATUS:</span><span id="rnd-status" class="delta-badge neutral">PENDING</span></div>
+          </div>
+
           <!-- RAW RHINO IMPORT CARD -->
           <div class="info-card">
             <div class="info-label">RAW RHINO IMPORT DIAGNOSTICS</div>
@@ -213,22 +226,14 @@
           <!-- DIAGNOSTICS SUMMARY CARD -->
           <div class="info-card">
             <div class="info-label">3D WORLD BOUNDING BOX</div>
-            <div class="delta-row">
-              <span>X Bounds (Width):</span>
-              <span id="meta-x-bounds" class="delta-badge neutral">-</span>
-            </div>
-            <div class="delta-row">
-              <span>Y Bounds (Depth):</span>
-              <span id="meta-y-bounds" class="delta-badge neutral">-</span>
-            </div>
-            <div class="delta-row">
-              <span>Z Bounds (Height):</span>
-              <span id="meta-z-bounds" class="delta-badge neutral">-</span>
-            </div>
-            <div class="delta-row">
-              <span>Dominant View Plane:</span>
-              <span id="meta-dominant-plane" class="delta-badge pos">FRONT (XZ)</span>
-            </div>
+            <div class="delta-row"><span>X Range:</span><span id="meta-x-range" class="delta-badge neutral">-</span></div>
+            <div class="delta-row"><span>X Width:</span><span id="meta-x-bounds" class="delta-badge neutral">-</span></div>
+            <div class="delta-row"><span>Y Range:</span><span id="meta-y-range" class="delta-badge neutral">-</span></div>
+            <div class="delta-row"><span>Y Depth:</span><span id="meta-y-bounds" class="delta-badge neutral">-</span></div>
+            <div class="delta-row"><span>Z Range:</span><span id="meta-z-range" class="delta-badge neutral">-</span></div>
+            <div class="delta-row"><span>Z Height:</span><span id="meta-z-bounds" class="delta-badge neutral">-</span></div>
+            <div class="delta-row"><span>Model Center:</span><span id="meta-model-center" class="delta-badge neutral">-</span></div>
+            <div class="delta-row"><span>Dominant View Plane:</span><span id="meta-dominant-plane" class="delta-badge pos">FRONT (XZ)</span></div>
           </div>
 
           <!-- SUBD COUNTS CARD -->
@@ -290,10 +295,10 @@
   </div>
 
   <!-- LOAD MODULE SCRIPTS WITH CACHE BUSTING -->
-  <script src="descriptors.js?v=2.0.3"></script>
-  <script src="evolutionEngine.js?v=2.0.3"></script>
-  <script src="artNouveauEngine.js?v=2.0.3"></script>
-  <script src="evaluator.js?v=2.0.3"></script>
-  <script src="app.js?v=2.0.3"></script>
+  <script src="descriptors.js?v=2.0.4"></script>
+  <script src="evolutionEngine.js?v=2.0.4"></script>
+  <script src="artNouveauEngine.js?v=2.0.4"></script>
+  <script src="evaluator.js?v=2.0.4"></script>
+  <script src="app.js?v=2.0.4"></script>
 </body>
 </html>
