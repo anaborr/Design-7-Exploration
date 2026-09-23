@@ -16,186 +16,67 @@
 </head>
 <body>
   <div id="app-container">
-    <!-- TOP NAVIGATION BAR -->
+    
+    <!-- TOP ACTION BAR -->
     <header id="top-bar">
       <div class="brand-block">
         <span class="brand-tag">DESIGN 7 EXPLORATION</span>
-        <span class="brand-sub">ARCHITECTURAL SEED REASONING & RHINO .3DM MUTATION SYSTEM</span>
+        <span class="brand-sub">DESCRIPTOR-DRIVEN ARCHITECTURAL EVOLUTION SYSTEM</span>
       </div>
 
-      <!-- 5-STAGE WORKFLOW INDICATOR -->
-      <nav id="workflow-nav">
-        <button class="stage-step active" data-stage="01_TYPOLOGY">01 START SEED</button>
-        <button class="stage-step" data-stage="02_INTENT">02 DESIGN INTENT</button>
-        <button class="stage-step" data-stage="03_REASON">03 REASONING</button>
-        <button class="stage-step" data-stage="04_GENERATE">04 GENERATION & DNA</button>
-        <button class="stage-step" data-stage="05_EVALUATE">05 EVALUATE & REFINE</button>
-      </nav>
-
+      <!-- MAIN ACTION BUTTONS -->
       <div class="header-actions">
-        <button id="btn-export-svg" class="header-btn primary">
+        <label for="rhino-file-input" class="header-btn">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
           </svg>
-          EXPORT SVG
+          IMPORT RHINO SEED
+          <input type="file" id="rhino-file-input" accept=".3dm" style="display:none;">
+        </label>
+
+        <button id="btn-generate-iterations" class="header-btn primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+          GENERATE ITERATIONS (6)
         </button>
-        <button id="btn-toggle-profile" class="header-btn">PROFILE</button>
+
+        <button id="btn-use-as-next-seed" class="header-btn accent">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+          USE SELECTED AS NEXT SEED
+        </button>
+
+        <button id="btn-export-svg" class="header-btn">EXPORT SVG</button>
       </div>
     </header>
 
     <!-- MAIN WORKSPACE -->
     <main id="workspace">
       
-      <!-- LEFT SIDEBAR: STAGE 01 (START SEED / TYPOLOGY), STAGE 02 (INTENT), STAGE 03 (REASONING), STAGE 04 (DNA & MUTATION) -->
+      <!-- LEFT SIDEBAR: GENERATION TREE LINEAGE -->
       <aside id="sidebar-left" class="sidebar">
-        
-        <!-- STAGE 01: STARTING GEOMETRY & TYPOLOGY SELECTION -->
-        <section class="stage-panel active" id="panel-stage-01">
-          <div class="sidebar-header">
-            <h2>STARTING GEOMETRY SEED</h2>
-            <p class="subtitle">Choose a parametric typology seed or import an existing Rhino .3dm file.</p>
-          </div>
+        <div class="sidebar-header">
+          <h2>GENERATION TREE</h2>
+          <p class="subtitle">Multi-generation lineage tree descending from the initial Rhino seed.</p>
+        </div>
 
-          <!-- STARTING GEOMETRY WORKFLOW TOGGLE -->
-          <div class="starting-mode-tabs">
-            <button class="start-tab active" id="tab-start-typology">GENERATE FROM TYPOLOGY</button>
-            <button class="start-tab" id="tab-start-rhino">IMPORT RHINO GEOMETRY</button>
-          </div>
-
-          <!-- SECTION A: TYPOLOGY SEED CONTROLS -->
-          <div id="section-typology-controls">
-            <div class="category-selector">
-              <button class="cat-btn active" data-cat="LOBBY">LOBBY (5)</button>
-              <button class="cat-btn" data-cat="WORKSPACE">WORKSPACE (5)</button>
-              <button class="cat-btn" data-cat="GATHERING">GATHERING (5)</button>
-            </div>
-
-            <div class="sidebar-scrollable" id="typology-grid">
-              <!-- TYPOLOGY CARDS RENDERED DYNAMICALLY -->
-            </div>
-          </div>
-
-          <!-- SECTION B: RHINO .3DM IMPORT CONTROLS -->
-          <div id="section-rhino-controls" class="hidden">
-            <div class="rhino-import-box">
-              <label for="rhino-file-input" class="rhino-file-label">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                </svg>
-                <span>CHOOSE RHINO .3DM FILE</span>
-                <input type="file" id="rhino-file-input" accept=".3dm">
-              </label>
-              <div id="rhino-status-text" class="rhino-status">No Rhino file imported.</div>
-            </div>
-
-            <div class="import-options-box">
-              <div class="section-title">IMPORT MODE</div>
-              <label class="radio-option">
-                <input type="radio" name="rhino-import-mode" value="2D" checked>
-                <span>SECTION / 2D GEOMETRY (Project to plane)</span>
-              </label>
-              <label class="radio-option">
-                <input type="radio" name="rhino-import-mode" value="3D">
-                <span>3D GEOMETRY (Wireframe spatial preview)</span>
-              </label>
-            </div>
-
-            <div class="view-mode-tabs-small">
-              <button class="small-tab active" id="btn-view-original">ORIGINAL</button>
-              <button class="small-tab" id="btn-view-interpreted">INTERPRETED</button>
-            </div>
-
-            <div class="section-title" style="margin-top:0.75rem;">CLASSIFY ELEMENTS</div>
-            <div id="classification-list" class="sidebar-scrollable" style="max-height:180px;">
-              <p class="subtitle">Import a Rhino file to classify curves.</p>
-            </div>
-          </div>
-        </section>
-
-        <!-- STAGE 02: SET DESIGN INTENT -->
-        <section class="stage-panel" id="panel-stage-02">
-          <div class="sidebar-header">
-            <h2>02 SET DESIGN INTENT</h2>
-            <p class="subtitle">Select priorities for the 12 descriptors. Choose 3–5 Primary Priorities.</p>
-          </div>
-
-          <div class="intent-summary-badge">
-            <span id="primary-count-tag">0 / 5 Primary Priorities Selected</span>
-          </div>
-
-          <div class="sidebar-scrollable" id="intent-descriptors-list"></div>
-
-          <div class="panel-actions">
-            <button id="btn-goto-reason" class="btn btn-primary">PROCEED TO REASONING &rarr;</button>
-          </div>
-        </section>
-
-        <!-- STAGE 03: DESIGN REASONING -->
-        <section class="stage-panel" id="panel-stage-03">
-          <div class="sidebar-header">
-            <h2>03 ARCHITECTURAL REASONING</h2>
-            <p class="subtitle">Design strategy & conflict resolution output based on typology/seed and intent.</p>
-          </div>
-
-          <div class="sidebar-scrollable">
-            <div id="reasoning-output-card" class="reasoning-card"></div>
-          </div>
-
-          <div class="panel-actions">
-            <button id="btn-generate-now" class="btn btn-primary">MUTATE SPATIAL GEOMETRY &rarr;</button>
-          </div>
-        </section>
-
-        <!-- STAGE 04: GEOMETRY DNA & MUTATION CONTROLS -->
-        <section class="stage-panel" id="panel-stage-04">
-          <div class="sidebar-header">
-            <h2>04 GEOMETRY DNA & MUTATION</h2>
-            <p class="subtitle">Set protected features and global mutation strength for form-finding.</p>
-          </div>
-
-          <div class="sidebar-scrollable">
-            <!-- MUTATION STRENGTH SLIDER -->
-            <div class="control-group accent-border">
-              <div class="label-row">
-                <label for="slider-mutation-strength">MUTATION STRENGTH</label>
-                <span class="value-badge" id="val-mutation-strength">3 - Moderate</span>
-              </div>
-              <input type="range" id="slider-mutation-strength" min="1" max="5" value="3" step="1">
-              <div class="slider-ticks">
-                <span>1 Conserv.</span>
-                <span>3 Moderate</span>
-                <span>5 Experim.</span>
-              </div>
-            </div>
-
-            <!-- GEOMETRY DNA CHECKBOXES -->
-            <div class="dna-box">
-              <div class="section-title">GEOMETRY DNA (PROTECTED FEATURES)</div>
-              <label class="dna-check"><input type="checkbox" id="dna-primary-plates" checked> Preserve primary plates</label>
-              <label class="dna-check"><input type="checkbox" id="dna-dominant-void" checked> Preserve dominant void</label>
-              <label class="dna-check"><input type="checkbox" id="dna-proportions" checked> Preserve overall proportions</label>
-              <label class="dna-check"><input type="checkbox" id="dna-endpoints" checked> Preserve endpoints</label>
-              <label class="dna-check"><input type="checkbox" id="dna-floor-levels" checked> Preserve floor levels</label>
-              <label class="dna-check"><input type="checkbox" id="dna-circulation" checked> Preserve circulation</label>
-              <label class="dna-check"><input type="checkbox" id="dna-secondary-boundaries"> Preserve secondary boundaries</label>
-              <label class="dna-check"><input type="checkbox" id="dna-curvature"> Preserve curvature</label>
-              <label class="dna-check"><input type="checkbox" id="dna-openings"> Preserve openings</label>
-            </div>
-          </div>
-        </section>
-
+        <div class="sidebar-scrollable" id="generation-tree-container">
+          <!-- GENERATION TREE LOADED DYNAMICALLY -->
+        </div>
       </aside>
 
-      <!-- CENTRAL SVG SPATIAL / GEOMETRIC VIEWER -->
+      <!-- CENTRAL SVG SPATIAL VIEWER WITH BOTTOM THUMBNAILS -->
       <section id="canvas-container">
         
         <!-- CANVAS OVERLAY TOOLBAR (TOP-LEFT) -->
         <div class="canvas-overlay top-left">
-          <span class="canvas-tag" id="current-typology-badge">TYPOLOGY: COMPRESSED SEQUENTIAL LOBBY</span>
-          <span class="canvas-tag version-tag" id="version-badge">VERSION 01</span>
+          <span class="canvas-tag" id="current-generation-badge">GENERATION 0: ORIGINAL SEED</span>
+          <span class="canvas-tag version-tag" id="current-iteration-badge">PARENT SEED</span>
         </div>
 
-        <!-- VIEWPORT DIAGNOSTICS BADGE (DEVELOPMENT DIAGNOSTICS) -->
+        <!-- DIAGNOSTICS OVERLAY (BOTTOM-LEFT) -->
         <div class="canvas-overlay bottom-left">
           <div id="viewport-diagnostics" class="diagnostics-box">
             <div>Typology: <span id="diag-typology">COMPRESSED_SEQUENTIAL</span></div>
@@ -206,19 +87,17 @@
           </div>
         </div>
 
-        <!-- CANVAS OVERLAY TOOLBAR (TOP-RIGHT) -->
+        <!-- VIEWER MODE TOGGLES (TOP-RIGHT) -->
         <div class="canvas-overlay top-right">
-          <!-- VIEWER MODE TOGGLES -->
           <div class="viewer-toggles">
             <button class="view-toggle-btn active" data-view="FINAL">FINAL GEOMETRY</button>
             <button class="view-toggle-btn" data-view="SPATIAL_LOGIC">SPATIAL LOGIC</button>
             <button class="view-toggle-btn" data-view="ANALYSIS">ANALYSIS</button>
             <button class="view-toggle-btn" data-view="CONTROL">CONTROL GEOMETRY</button>
-            <button class="view-toggle-btn" data-view="OVERLAY" id="btn-toggle-overlay">OVERLAY (DASHED)</button>
           </div>
         </div>
 
-        <!-- SVG CANVAS WITH EXPLICIT VIEWBOX ATTRIBUTE -->
+        <!-- SVG CANVAS -->
         <svg id="svg-canvas" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet">
           <defs>
             <pattern id="grid-pattern" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -256,133 +135,136 @@
             <text id="datum-label" x="20" y="484" fill="rgba(255, 255, 255, 0.35)" font-family="Space Mono" font-size="10">DATUM 0.00m (BASELINE)</text>
           </g>
 
-          <!-- SPATIAL LOGIC TOPOLOGY GRAPH LAYER -->
           <g id="spatial-logic-layer"></g>
-
-          <!-- ORIGINAL SEED OVERLAY LAYER (DASHED LINE) -->
-          <g id="original-seed-layer"></g>
-
-          <!-- SECTION FILL -->
           <path id="section-fill" fill="url(#section-fill-gradient)" d="" />
-
-          <!-- CARVED VOIDS LAYER -->
           <g id="carved-voids-layer"></g>
-
-          <!-- SECONDARY RIBS & BRANCHING SPLINES -->
           <g id="branching-ribs-layer"></g>
-
-          <!-- SECONDARY THICKNESS OFFSET -->
           <path id="secondary-spline" fill="none" stroke="rgba(226, 201, 124, 0.35)" stroke-width="2" stroke-dasharray="6 4" d="" />
-
-          <!-- PRIMARY ARCHITECTURAL SPLINE -->
           <path id="primary-spline" fill="none" stroke="url(#spline-gradient)" stroke-width="3.5" filter="url(#glow)" d="" />
-
-          <!-- PORTALS LAYER -->
           <g id="portals-layer"></g>
-
-          <!-- CONTROL HANDLES LAYER -->
           <g id="control-handles-layer"></g>
-
-          <!-- ANALYSIS OVERLAY LAYER -->
           <g id="analysis-overlay-layer"></g>
-
-          <!-- ERROR DISPLAY CONTAINER -->
           <g id="error-display-layer"></g>
         </svg>
 
-        <!-- BOTTOM TOOLBAR (ACTION CONTROLS) -->
-        <div class="bottom-action-bar">
-          <button id="btn-reason-refine" class="action-btn accent">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-            </svg>
-            REASON + REFINE
-          </button>
-          <button id="btn-gen-variations" class="action-btn">GENERATE VARIATIONS (6)</button>
-          <button id="btn-fit-viewport" class="action-btn">FIT VIEWPORT</button>
-          <button id="btn-show-lineage" class="action-btn">SHOW LINEAGE</button>
-          
-          <div class="version-select-group">
-            <label>VERSION:</label>
-            <select id="select-version-history">
-              <option value="0">VERSION 01 (Initial Seed)</option>
-            </select>
+        <!-- BOTTOM STRIP (6 THUMBNAIL DESCENDANTS CAROUSEL) -->
+        <div id="bottom-thumbnails-strip">
+          <div class="thumb-card active" data-iter="00">
+            <div class="thumb-title">ORIGINAL SEED</div>
+            <div class="thumb-sub">Generation 0 Parent</div>
+          </div>
+          <div class="thumb-card" data-iter="01">
+            <div class="thumb-title">ITERATION 01</div>
+            <div class="thumb-sub">Porosity + Connectivity</div>
+          </div>
+          <div class="thumb-card" data-iter="02">
+            <div class="thumb-title">ITERATION 02</div>
+            <div class="thumb-sub">Rhythm + Hierarchy</div>
+          </div>
+          <div class="thumb-card" data-iter="03">
+            <div class="thumb-title">ITERATION 03</div>
+            <div class="thumb-sub">Carved + Layered</div>
+          </div>
+          <div class="thumb-card" data-iter="04">
+            <div class="thumb-title">ITERATION 04</div>
+            <div class="thumb-sub">Intimacy + Dynamic</div>
+          </div>
+          <div class="thumb-card" data-iter="05">
+            <div class="thumb-title">ITERATION 05</div>
+            <div class="thumb-sub">Focalization + Communal</div>
+          </div>
+          <div class="thumb-card" data-iter="06">
+            <div class="thumb-title">ITERATION 06</div>
+            <div class="thumb-sub">Balanced Synthesis</div>
           </div>
         </div>
       </section>
 
-      <!-- RIGHT SIDEBAR: EVALUATION & TARGET COMPARISON -->
+      <!-- RIGHT SIDEBAR: SELECTED ITERATION DETAILS & REASONING -->
       <aside id="sidebar-right" class="sidebar">
         <div class="sidebar-header">
-          <h2>05 EVALUATION & TARGET MATCHING</h2>
-          <p class="subtitle">Quantitative measurement & comparison against design intent targets.</p>
+          <h2>SELECTED ITERATION</h2>
+          <p class="subtitle">Quantitative changes & descriptor reasoning for active selection.</p>
         </div>
 
-        <div class="sidebar-scrollable" id="evaluation-cards-container"></div>
+        <div class="sidebar-scrollable">
+          <!-- FOCUS STRATEGY CARD -->
+          <div class="info-card">
+            <div class="info-label">STRATEGY FOCUS</div>
+            <div class="info-title" id="selected-focus-title">ITERATION 04: Intimacy + Dynamic</div>
+            <div class="info-desc" id="selected-focus-desc">Introduces continuous S-curves along circulation while creating compressed spatial pockets.</div>
+          </div>
 
-        <!-- COLLAPSED ADVANCED CONTROLS DRAWER -->
-        <details class="advanced-controls-drawer">
-          <summary>ADVANCED MATHEMATICAL CONTROLS</summary>
-          <div class="drawer-content">
-            <div class="control-group">
-              <label>Whiplash Amplitude</label>
-              <input type="range" id="adv-whiplash" min="10" max="100" value="45">
+          <!-- QUANTITATIVE CHANGES vs PARENT -->
+          <div class="info-card">
+            <div class="info-label">QUANTITATIVE CHANGES vs PARENT</div>
+            <div class="delta-row">
+              <span>Dynamic Circulation:</span>
+              <span id="delta-dynamic" class="delta-badge pos">+31%</span>
             </div>
-            <div class="control-group">
-              <label>Rib Tension</label>
-              <input type="range" id="adv-tension" min="10" max="100" value="50">
+            <div class="delta-row">
+              <span>Intimacy Compression:</span>
+              <span id="delta-intimacy" class="delta-badge pos">+18%</span>
+            </div>
+            <div class="delta-row">
+              <span>Boundary Portals:</span>
+              <span id="delta-porosity" class="delta-badge neutral">Same (1)</span>
             </div>
           </div>
-        </details>
+
+          <!-- GEOMETRIC OPERATIONS -->
+          <div class="info-card">
+            <div class="info-label">GEOMETRIC OPERATIONS</div>
+            <ul class="operations-list" id="selected-operations-list">
+              <li>Bend circulation into S-curves</li>
+              <li>Lower ceiling locally</li>
+              <li>Create compression and release</li>
+            </ul>
+          </div>
+
+          <!-- COLLAPSIBLE REASONING DRAWER -->
+          <details class="reasoning-drawer">
+            <summary>[ VIEW REASONING ]</summary>
+            <div class="drawer-reasoning-body" id="reasoning-drawer-text">
+              <strong>WHY THIS ITERATION EXISTS:</strong><br>
+              Explores dynamic circulation and intimate spatial compression derived from parent geometry.<br><br>
+              <strong>PROTECTED DNA:</strong><br>
+              Primary floor endpoints, baseline datum height.<br><br>
+              <strong>QUANTITATIVE EFFECT:</strong><br>
+              Increased circulation curvature ratio (+31%) and lower height/width spatial ratio.
+            </div>
+          </details>
+
+          <!-- QUALITATIVE USER FEEDBACK -->
+          <div class="info-card" style="margin-top:auto;">
+            <div class="info-label">QUALITATIVE USER FEEDBACK</div>
+            <p class="subtitle" style="margin-bottom:0.4rem;">Provide architectural judgment to guide next generation:</p>
+            <div class="qual-feedback-row">
+              <label>Curvature / Dynamic:</label>
+              <div class="btn-pill-group" data-qual="dynamic">
+                <button class="pill-btn">LOW</button>
+                <button class="pill-btn active">MED</button>
+                <button class="pill-btn">HIGH</button>
+              </div>
+            </div>
+            <div class="qual-feedback-row">
+              <label>Enclosure / Intimacy:</label>
+              <div class="btn-pill-group" data-qual="intimacy">
+                <button class="pill-btn">LOW</button>
+                <button class="pill-btn active">MED</button>
+                <button class="pill-btn">HIGH</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </aside>
     </main>
 
-    <!-- VARIATIONS DRAWER / MODAL -->
-    <div id="variations-modal" class="modal hidden">
-      <div class="modal-content wide">
-        <div class="modal-header">
-          <h3>GENERATE RELATED VARIATIONS (6 FAMILY ALTERNATIVES)</h3>
-          <button id="btn-close-variations" class="close-btn">&times;</button>
-        </div>
-        <p class="modal-sub">Inherits seed & intent targets while generating controlled geometric family variations (Curvature, Branching, Carving, Layering, Rhythm, Balanced).</p>
-        
-        <div class="variations-grid" id="variations-grid-container"></div>
-      </div>
-    </div>
-
-    <!-- LINEAGE BREAKDOWN MODAL -->
-    <div id="lineage-modal" class="modal hidden">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>DESIGN PROCESS LINEAGE</h3>
-          <button id="btn-close-lineage" class="close-btn">&times;</button>
-        </div>
-        <div id="lineage-content" class="lineage-box"></div>
-      </div>
-    </div>
-
-    <!-- DESCRIPTOR PROFILE MODAL -->
-    <div id="profile-modal" class="modal hidden">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>DESCRIPTOR EVALUATION PROFILE</h3>
-          <button id="btn-close-modal" class="close-btn">&times;</button>
-        </div>
-        <p class="modal-sub">Comparative analysis: Qualitative (User Rating 1–10) vs Quantitative (Algorithmic 1–10).</p>
-        
-        <div id="profile-chart-container"></div>
-
-        <div class="modal-legend">
-          <span class="legend-item"><span class="legend-color qual"></span> QUALITATIVE SCORE (USER)</span>
-          <span class="legend-item"><span class="legend-color quant"></span> QUANTITATIVE SCORE (CALCULATED)</span>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- LOAD MODULE SCRIPTS -->
   <script src="descriptors.js"></script>
-  <script src="reasoningEngine.js"></script>
+  <script src="evolutionEngine.js"></script>
   <script src="typologies.js"></script>
   <script src="artNouveauEngine.js"></script>
   <script src="evaluator.js"></script>

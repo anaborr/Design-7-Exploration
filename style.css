@@ -1,5 +1,5 @@
 /* ==========================================================================
-   DESIGN 7 EXPLORATION - REFACTORED ARCHITECTURAL REASONING & RHINO SEED MUTATION
+   DESIGN 7 EXPLORATION - DESCRIPTOR-DRIVEN ARCHITECTURAL EVOLUTION SYSTEM
    Theme: Technical Black Architectural Interface
    ========================================================================== */
 
@@ -16,7 +16,6 @@
   --accent-cyan: #52c5d8;
   --accent-magenta: #e056fd;
   --accent-green: #2ecc71;
-  --accent-red: #e74c3c;
 
   --text-main: #f0f2f5;
   --text-muted: #8a919e;
@@ -25,7 +24,7 @@
   --font-main: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'Space Mono', monospace;
 
-  --sidebar-left-width: 360px;
+  --sidebar-left-width: 300px;
   --sidebar-right-width: 360px;
   --header-height: 54px;
 }
@@ -54,7 +53,7 @@ html, body {
 }
 
 /* --------------------------------------------------------------------------
-   Header Bar & 5-Stage Workflow Nav
+   Header Bar & Actions
    -------------------------------------------------------------------------- */
 #top-bar {
   height: var(--header-height);
@@ -83,38 +82,6 @@ html, body {
   font-family: var(--font-mono);
   font-size: 0.65rem;
   color: var(--text-muted);
-}
-
-#workflow-nav {
-  display: flex;
-  gap: 0.35rem;
-  background-color: rgba(255, 255, 255, 0.03);
-  padding: 0.25rem;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-}
-
-.stage-step {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  font-weight: 700;
-  padding: 0.4rem 0.75rem;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.stage-step:hover {
-  color: #fff;
-  background-color: rgba(255, 255, 255, 0.06);
-}
-
-.stage-step.active {
-  background-color: var(--accent-gold);
-  color: #000;
 }
 
 .header-actions {
@@ -152,6 +119,16 @@ html, body {
 .header-btn.primary:hover {
   background-color: #f5dc94;
   box-shadow: 0 0 12px var(--accent-gold-glow);
+}
+
+.header-btn.accent {
+  background-color: var(--accent-cyan);
+  color: #000;
+  border-color: var(--accent-cyan);
+}
+
+.header-btn.accent:hover {
+  background-color: #76d4e3;
 }
 
 /* --------------------------------------------------------------------------
@@ -210,239 +187,54 @@ html, body {
   gap: 0.75rem;
 }
 
-.stage-panel {
-  display: none;
-  flex-direction: column;
-  height: 100%;
-}
-
-.stage-panel.active {
-  display: flex;
-}
-
-/* --------------------------------------------------------------------------
-   Starting Geometry Tabs (Typology vs Rhino)
-   -------------------------------------------------------------------------- */
-.starting-mode-tabs {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.3rem;
-  padding: 0.65rem 1rem 0;
-}
-
-.start-tab {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-color);
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  padding: 0.45rem 0.2rem;
-  border-radius: 4px;
-  cursor: pointer;
-  text-align: center;
-  transition: all 0.2s ease;
-}
-
-.start-tab:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.start-tab.active {
-  background: rgba(226, 201, 124, 0.12);
-  border-color: var(--accent-gold);
-  color: var(--accent-gold);
-  font-weight: 700;
-}
-
-/* Rhino Import Controls */
-.rhino-import-box {
-  background-color: var(--bg-card);
-  border: 1px dashed var(--border-highlight);
-  border-radius: 6px;
-  padding: 1rem;
-  margin: 0.85rem 1rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  text-align: center;
-}
-
-.rhino-file-label {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
-  cursor: pointer;
-  color: var(--accent-gold);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  font-weight: 700;
-}
-
-.rhino-file-label input[type="file"] {
-  display: none;
-}
-
-.rhino-status {
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  color: var(--text-dim);
-}
-
-.import-options-box {
+/* Generation Tree (Left Sidebar) */
+.tree-node {
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  padding: 0.75rem 1rem;
-  margin: 0 1rem;
+  padding: 0.65rem 0.85rem;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-}
-
-.radio-option {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: 0.7rem;
-  color: var(--text-muted);
+  gap: 0.2rem;
   cursor: pointer;
-}
-
-.radio-option input[type="radio"] {
-  accent-color: var(--accent-gold);
-}
-
-.view-mode-tabs-small {
-  display: flex;
-  gap: 0.3rem;
-  margin: 0.75rem 1rem 0;
-}
-
-.small-tab {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-color);
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  padding: 0.3rem;
-  border-radius: 3px;
-  cursor: pointer;
-}
-
-.small-tab.active {
-  background: var(--accent-cyan);
-  color: #000;
-  font-weight: 700;
-}
-
-/* Category Selector in Stage 01 */
-.category-selector {
-  display: flex;
-  gap: 0.3rem;
-  padding: 0.65rem 1rem 0;
-}
-
-.cat-btn {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-color);
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  padding: 0.4rem 0.2rem;
-  border-radius: 4px;
-  cursor: pointer;
-  text-align: center;
   transition: all 0.2s ease;
 }
 
-.cat-btn:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.06);
+.tree-node:hover {
+  border-color: rgba(226, 201, 124, 0.4);
 }
 
-.cat-btn.active {
-  background: rgba(226, 201, 124, 0.12);
-  border-color: var(--accent-gold);
-  color: var(--accent-gold);
-  font-weight: 700;
-}
-
-.typology-card {
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 0.75rem 0.85rem;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  transition: all 0.2s ease;
-}
-
-.typology-card:hover {
-  border-color: rgba(226, 201, 124, 0.35);
-  background-color: var(--bg-card-hover);
-}
-
-.typology-card.active {
+.tree-node.active {
   border-color: var(--accent-gold);
   background-color: rgba(226, 201, 124, 0.08);
 }
 
-.typology-title {
-  font-size: 0.8rem;
-  font-weight: 700;
+.tree-node.gen-parent {
+  border-left: 3px solid var(--accent-gold);
+}
+
+.tree-gen-tag {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
   color: var(--accent-gold);
+  font-weight: 700;
 }
 
-.typology-desc {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  line-height: 1.35;
-}
-
-/* Stage 04 Geometry DNA Box */
-.dna-box {
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 0.85rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
-.dna-check {
-  font-size: 0.72rem;
+.tree-title {
+  font-size: 0.75rem;
+  font-weight: 600;
   color: var(--text-main);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-}
-
-.dna-check input[type="checkbox"] {
-  accent-color: var(--accent-gold);
-}
-
-.control-group.accent-border {
-  border-color: var(--accent-gold);
-  background-color: rgba(226, 201, 124, 0.05);
 }
 
 /* --------------------------------------------------------------------------
-   SVG Canvas & Diagnostics Box
+   SVG Canvas & Bottom Thumbnails Carousel
    -------------------------------------------------------------------------- */
 #canvas-container {
   flex: 1;
   position: relative;
   background-color: var(--bg-dark);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   overflow: hidden;
@@ -462,33 +254,8 @@ html, body {
 }
 
 .canvas-overlay.bottom-left {
-  bottom: 4rem;
+  bottom: 6rem;
   left: 1rem;
-}
-
-/* Diagnostics Box */
-.diagnostics-box {
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  color: var(--text-muted);
-  background-color: rgba(5, 6, 8, 0.9);
-  padding: 0.45rem 0.75rem;
-  border-radius: 5px;
-  border: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  pointer-events: none;
-}
-
-.diag-ok {
-  color: var(--accent-green);
-  font-weight: 700;
-}
-
-.diag-err {
-  color: var(--accent-red);
-  font-weight: 700;
 }
 
 .canvas-tag {
@@ -530,11 +297,6 @@ html, body {
   padding: 0.35rem 0.6rem;
   border-radius: 3px;
   cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.view-toggle-btn:hover {
-  color: #fff;
 }
 
 .view-toggle-btn.active {
@@ -546,155 +308,212 @@ html, body {
 /* SVG Elements */
 #svg-canvas {
   width: 100%;
-  height: 100%;
+  height: calc(100% - 72px);
   display: block;
 }
 
-.original-seed-line {
-  stroke: rgba(255, 255, 255, 0.4);
-  stroke-dasharray: 4 4;
-  stroke-width: 1.5;
-  fill: none;
-}
-
-/* Bottom Action Bar */
-.bottom-action-bar {
-  position: absolute;
-  bottom: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 0.65rem;
-  background-color: rgba(7, 8, 10, 0.9);
-  padding: 0.5rem 0.85rem;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  z-index: 10;
-  align-items: center;
-}
-
-.action-btn {
-  background-color: rgba(255, 255, 255, 0.04);
-  color: var(--text-main);
-  border: 1px solid var(--border-color);
+/* Diagnostics Box */
+.diagnostics-box {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  background-color: rgba(5, 6, 8, 0.9);
   padding: 0.45rem 0.75rem;
-  border-radius: 4px;
-  font-family: var(--font-main);
-  font-size: 0.72rem;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  transition: all 0.2s ease;
-}
-
-.action-btn:hover {
-  background-color: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.25);
-}
-
-.action-btn.accent {
-  background-color: var(--accent-gold);
-  color: #000;
-  border-color: var(--accent-gold);
-}
-
-.action-btn.accent:hover {
-  background-color: #f5dc94;
-  box-shadow: 0 0 10px var(--accent-gold-glow);
-}
-
-.version-select-group {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-left: 0.5rem;
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  color: var(--text-dim);
-}
-
-.version-select-group select {
-  background-color: #0d0f14;
-  color: var(--accent-gold);
+  border-radius: 5px;
   border: 1px solid var(--border-color);
-  padding: 0.3rem 0.5rem;
-  border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  cursor: pointer;
-}
-
-/* Modals & Lineage */
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(4px);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.modal.hidden {
-  display: none;
+  flex-direction: column;
+  gap: 0.2rem;
   pointer-events: none;
 }
 
-.modal-content {
-  background-color: #0d0f14;
-  border: 1px solid var(--border-highlight);
-  border-radius: 10px;
-  width: 90%;
-  max-width: 840px;
-  padding: 1.5rem;
+.diag-ok { color: var(--accent-green); font-weight: 700; }
+
+/* Bottom Thumbnails Strip (Carousel) */
+#bottom-thumbnails-strip {
+  height: 72px;
+  width: 100%;
+  background-color: #050608;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0 1rem;
+  overflow-x: auto;
+  z-index: 10;
+}
+
+.thumb-card {
+  flex: 0 0 145px;
+  height: 52px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  justify-content: center;
+  gap: 0.15rem;
+  transition: all 0.2s ease;
 }
 
-.modal-content.wide {
-  max-width: 960px;
+.thumb-card:hover {
+  border-color: rgba(226, 201, 124, 0.5);
+  background-color: var(--bg-card-hover);
 }
 
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.thumb-card.active {
+  border-color: var(--accent-gold);
+  background-color: rgba(226, 201, 124, 0.12);
 }
 
-.modal-header h3 {
-  font-size: 0.95rem;
+.thumb-title {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
   font-weight: 700;
   color: var(--accent-gold);
 }
 
-.close-btn {
-  background: none;
-  border: none;
+.thumb-sub {
+  font-size: 0.62rem;
   color: var(--text-muted);
-  font-size: 1.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --------------------------------------------------------------------------
+   Right Sidebar Selected Iteration Cards
+   -------------------------------------------------------------------------- */
+.info-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.75rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.info-label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--accent-gold);
+  letter-spacing: 0.06em;
+}
+
+.info-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.info-desc {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.delta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.delta-badge {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+}
+
+.delta-badge.pos {
+  background-color: rgba(46, 204, 113, 0.15);
+  color: var(--accent-green);
+}
+
+.delta-badge.neutral {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+}
+
+.operations-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.operations-list li {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  padding-left: 0.8rem;
+  position: relative;
+}
+
+.operations-list li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--accent-gold);
+}
+
+/* Collapsible Reasoning Drawer */
+.reasoning-drawer {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.6rem 0.85rem;
+}
+
+.reasoning-drawer summary {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--accent-cyan);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.drawer-reasoning-body {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: 0.5rem;
+}
+
+/* Qualitative Feedback Controls */
+.qual-feedback-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+.btn-pill-group {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.pill-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
   cursor: pointer;
 }
 
-.lineage-box {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  color: var(--text-main);
-  background-color: #07080a;
-  padding: 1rem;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.hidden {
-  display: none !important;
+.pill-btn.active {
+  background-color: var(--accent-gold);
+  color: #000;
+  font-weight: 700;
+  border-color: var(--accent-gold);
 }
