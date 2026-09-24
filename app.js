@@ -24,6 +24,11 @@ let subdMeshPairs = [];        // Paired Relationships: [{ subd, mesh, name }]
 // Application State
 let appState = {
   originalRhinoGeometry: null,
+  sourceRhinoObjects: [],
+  displayObjects: [],
+  threeModel: null,
+  parentGeometry: null,
+  childGeometry: null,
   projectionMode: 'FRONT',
   displayMode: 'SURFACE',
   objectVisibilityMap: {}
@@ -87,6 +92,8 @@ const rawTableStatus = document.getElementById('raw-table-status');
 const rawObjectCount = document.getElementById('raw-object-count');
 const rawGeomRetrieved = document.getElementById('raw-geom-retrieved');
 const rawNullGeom = document.getElementById('raw-null-geom');
+const rawClassified = document.getElementById('raw-classified');
+const rawUnclassified = document.getElementById('raw-unclassified');
 
 const rndObjectsRcvd = document.getElementById('rnd-objects-rcvd');
 const rndObjectsConv = document.getElementById('rnd-objects-conv');
@@ -513,6 +520,8 @@ async function parseRhino3dm(arrayBuffer, filename) {
   // PROCESS SOURCE_SUBD AND DISPLAY_MESH ARCHITECTURE
   try {
     processSourceAndDisplayGeometry(doc, importedRhinoObjects);
+    appState.sourceRhinoObjects = importedRhinoObjects;
+    appState.displayObjects = displayMeshObjects;
   } catch (err) {
     console.warn('[PIPELINE WARNING] Source and Display processing warning:', err);
   }
@@ -948,6 +957,7 @@ function renderImportedRhinoModel(displayObjects) {
   });
 
   scene.add(importedRhinoGroup);
+  appState.threeModel = importedRhinoGroup;
   console.log('[RENDER PIPELINE SUCCESS] Added importedRhinoGroup to Three.js scene with', importedRhinoGroup.children.length, 'children.');
 
   if (rndObjectsConv) rndObjectsConv.textContent = convertedCount;

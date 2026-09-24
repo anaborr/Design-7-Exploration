@@ -59,17 +59,101 @@
     <!-- MAIN WORKSPACE -->
     <main id="workspace">
       
-      <!-- LEFT SIDEBAR: GENERATION TREE LINEAGE -->
+      <!-- LEFT SIDEBAR: GENERATION TREE & ART NOUVEAU SYSTEM -->
       <aside id="sidebar-left" class="sidebar">
         <div class="sidebar-header">
-          <h2>GENERATION HISTORY</h2>
-          <p class="subtitle">Multi-generation lineage tree descending from imported Rhino seed.</p>
+          <h2>ART NOUVEAU GEOMETRIC SYSTEM</h2>
+          <p class="subtitle">Parametric mutation engine derived from Art Nouveau geometric grammar.</p>
         </div>
 
         <div class="sidebar-scrollable" id="generation-tree-container">
-          <div class="tree-placeholder-note">
-            Import a Rhino .3dm file to establish Generation 0 seed.
+          
+          <!-- PRIMARY RULES PANEL -->
+          <div class="info-card">
+            <div class="info-label">PRIMARY RULES</div>
+            <div style="display:flex; flex-wrap:wrap; gap:0.35rem; margin-bottom:0.6rem;">
+              <span class="delta-badge neutral">CONTINUE</span>
+              <span class="delta-badge neutral">BRANCH</span>
+              <span class="delta-badge neutral">MERGE</span>
+              <span class="delta-badge pos">TRANSFORM (STAGE A)</span>
+              <span class="delta-badge neutral">INTERLOCK</span>
+              <span class="delta-badge neutral">GROW</span>
+            </div>
+
+            <!-- STAGE A: TRANSFORM PARAMETERS -->
+            <div style="display:flex; flex-direction:column; gap:0.55rem; font-size:0.75rem;">
+              <div>
+                <label>Transformation Type:</label>
+                <select id="param-transform-type" style="width:100%; padding:0.25rem; background:#1e1e1e; color:#fff; border:1px solid #333; border-radius:4px;">
+                  <option value="FloorWall">Floor &rarr; Wall</option>
+                  <option value="WallCeiling">Wall &rarr; Ceiling</option>
+                  <option value="FloorRamp">Floor &rarr; Ramp</option>
+                  <option value="FloorSeating">Floor &rarr; Seating</option>
+                </select>
+              </div>
+
+              <div>
+                <label>Influence Region:</label>
+                <select id="param-influence-region" style="width:100%; padding:0.25rem; background:#1e1e1e; color:#fff; border:1px solid #333; border-radius:4px;">
+                  <option value="UPPER" selected>UPPER REGION</option>
+                  <option value="MIDDLE">MIDDLE REGION</option>
+                  <option value="LOWER">LOWER REGION</option>
+                  <option value="WHOLE">WHOLE FORM</option>
+                  <option value="START">START REGION</option>
+                  <option value="CENTER">CENTER REGION</option>
+                  <option value="END">END REGION</option>
+                </select>
+              </div>
+
+              <div>
+                <label>Bend Angle: <span id="val-bend-angle" style="color:var(--accent-gold);">35&deg;</span></label>
+                <input type="range" id="param-bend-angle" min="0" max="90" value="35" style="width:100%;">
+              </div>
+
+              <div>
+                <label>Curvature:</label>
+                <select id="param-curvature" style="width:100%; padding:0.25rem; background:#1e1e1e; color:#fff; border:1px solid #333; border-radius:4px;">
+                  <option value="LOW">LOW</option>
+                  <option value="MEDIUM" selected>MEDIUM</option>
+                  <option value="HIGH">HIGH</option>
+                </select>
+              </div>
+
+              <div>
+                <label>Mutation Strength: <span id="val-mutation-strength" style="color:var(--accent-gold);">30%</span></label>
+                <input type="range" id="param-mutation-strength" min="0" max="100" value="30" style="width:100%;">
+              </div>
+
+              <div class="delta-row">
+                <span>DNA Preservation:</span>
+                <span id="val-dna-preservation" class="delta-badge pos">HIGH (75-90%)</span>
+              </div>
+
+              <button id="btn-test-mutation" class="header-btn accent" style="width:100%; margin-top:0.4rem; justify-content:center;">
+                TEST MUTATION (STAGE A)
+              </button>
+            </div>
           </div>
+
+          <!-- MUTATION RECIPE CARD -->
+          <div class="info-card" id="mutation-recipe-card" style="display:none; border:1px solid #4a90e2; background:#0d1117;">
+            <div class="info-label" style="color:#4a90e2;">DESCENDANT RECIPE (G1-01)</div>
+            <div class="delta-row"><span>Parent ID:</span><span class="delta-badge neutral">G0 (Rhino Seed)</span></div>
+            <div class="delta-row"><span>Active Rule:</span><span class="delta-badge pos">TRANSFORM</span></div>
+            <div class="delta-row"><span>Region:</span><span id="rcp-region" class="delta-badge neutral">UPPER</span></div>
+            <div class="delta-row"><span>Bend Angle:</span><span id="rcp-bend" class="delta-badge neutral">35&deg;</span></div>
+            <div class="delta-row"><span>Mutation:</span><span id="rcp-mutation" class="delta-badge neutral">30%</span></div>
+            <div class="delta-row"><span>Preservation:</span><span class="delta-badge pos">HIGH</span></div>
+          </div>
+
+          <!-- LINEAGE TREE CARD -->
+          <div class="info-card">
+            <div class="info-label">LINEAGE TREE</div>
+            <div class="tree-placeholder-note">
+              Import a Rhino .3dm file to establish Generation 0 seed.
+            </div>
+          </div>
+
         </div>
       </aside>
 
@@ -139,6 +223,13 @@
               <button class="view-toggle-btn active" data-view="SURFACE">SUBD SURFACE</button>
               <button class="view-toggle-btn" data-view="CAGE">CONTROL CAGE</button>
               <button class="view-toggle-btn" data-view="OVERLAY">OVERLAY (BOTH)</button>
+            </div>
+            <!-- PARENT VS CHILD COMPARISON TOGGLES -->
+            <div class="viewer-toggles" id="comparison-toggles" style="display:none;">
+              <span class="proj-label">COMPARE:</span>
+              <button class="cmp-toggle-btn active" data-cmp="CHILD">CHILD ONLY</button>
+              <button class="cmp-toggle-btn" data-cmp="PARENT">PARENT ONLY</button>
+              <button class="cmp-toggle-btn" data-cmp="OVERLAY">OVERLAY (BOTH)</button>
             </div>
           </div>
         </div>
