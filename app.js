@@ -227,11 +227,29 @@ function onWindowResize() {
   renderer.setSize(width, height);
 }
 
+// 11-Stage Import Execution Trace Helper
+function setTrace(stageNum, status, text) {
+  const el = document.getElementById(`tr-${stageNum}`);
+  if (el) {
+    el.textContent = `${status} ${text ? '(' + text + ')' : ''}`;
+    el.style.color = status === 'PASS' ? '#50e3c2' : (status === 'FAIL' ? '#ff4d4d' : '#aaa');
+    el.style.fontWeight = 'bold';
+  }
+}
+
 function enableImportControls() {
   if (btnRhinoFileInput) btnRhinoFileInput.disabled = false;
   if (btnRhinoFileInputMain) btnRhinoFileInputMain.disabled = false;
   if (btnLoadSampleSeed) btnLoadSampleSeed.disabled = false;
   if (btnStartSample) btnStartSample.disabled = false;
+
+  const btnTestMutation = document.getElementById('btn-test-mutation');
+  if (btnTestMutation) {
+    btnTestMutation.disabled = true;
+    btnTestMutation.title = 'Mutation engine disabled until Rhino import rendering is verified';
+    btnTestMutation.style.opacity = '0.5';
+    btnTestMutation.style.cursor = 'not-allowed';
+  }
 }
 
 function attachEventListeners() {
@@ -281,6 +299,8 @@ async function handleFileSelect(file) {
 
   console.log('[RHINO] 1 File selected:', file.name, 'Size:', file.size, 'bytes');
 
+  setTrace(1, 'PASS', file.name);
+
   const dbgFileSelected = document.getElementById('dbg-file-selected');
   const dbgFileName = document.getElementById('dbg-file-name');
   const dbgFileSize = document.getElementById('dbg-file-size');
@@ -294,9 +314,11 @@ async function handleFileSelect(file) {
 
   try {
     const arrayBuffer = await file.arrayBuffer();
+    setTrace(2, 'PASS', `${arrayBuffer.byteLength} bytes`);
     await parseRhino3dm(arrayBuffer, file.name);
   } catch (err) {
     console.error('[RHINO ERROR] Failed at Stage 1/2:', err);
+    setTrace(2, 'FAIL', err.message);
     const dbgErrors = document.getElementById('dbg-errors');
     if (dbgErrors) dbgErrors.textContent = `Stage 1/2: ${err.message}`;
   }
@@ -372,6 +394,7 @@ async function parseRhino3dm(arrayBuffer, filename) {
   }
 
   console.log('[RHINO] 4 File3dm parsed');
+  setTrace(3, 'PASS', 'File3dm CREATED');
   if (dbgDocCreated) dbgDocCreated.textContent = 'YES';
   if (rawDocStatus) rawDocStatus.textContent = 'VALID';
 
@@ -382,6 +405,7 @@ async function parseRhino3dm(arrayBuffer, filename) {
 
     if (!objectsTable) {
       console.error('[RHINO ERROR] Failed at Stage 5: doc.objects() returned null');
+      setTrace(4, 'FAIL', 'doc.objects() returned null');
       if (dbgTableFound) dbgTableFound.textContent = 'NO';
       if (rawTableStatus) rawTableStatus.textContent = 'NOT FOUND';
       if (dbgErrors) dbgErrors.textContent = 'Stage 5: doc.objects() is null';
@@ -389,6 +413,7 @@ async function parseRhino3dm(arrayBuffer, filename) {
     }
   } catch (err) {
     console.error('[RHINO ERROR] Failed at Stage 5: doc.objects() threw exception:', err);
+    setTrace(4, 'FAIL', err.message);
     if (dbgTableFound) dbgTableFound.textContent = 'NO (THREW ERROR)';
     if (rawTableStatus) rawTableStatus.textContent = 'NOT FOUND';
     if (dbgErrors) dbgErrors.textContent = `Stage 5: ${err.message}`;
@@ -396,6 +421,7 @@ async function parseRhino3dm(arrayBuffer, filename) {
   }
 
   console.log('[RHINO] 5 Object table found');
+  setTrace(4, 'PASS', 'OBJECT TABLE FOUND');
   if (dbgTableFound) dbgTableFound.textContent = 'YES';
   if (rawTableStatus) rawTableStatus.textContent = 'FOUND';
 
@@ -413,12 +439,13 @@ async function parseRhino3dm(arrayBuffer, filename) {
   }
 
   console.log('[RHINO] 6 Raw object count:', rawCount);
+  setTrace(5, 'PASS', `${rawCount} RAW OBJECTS`);
   if (dbgRawCount) dbgRawCount.textContent = rawCount;
   if (rawObjectCount) rawObjectCount.textContent = rawCount;
   if (diagObjects) diagObjects.textContent = rawCount;
   if (diagFilename) diagFilename.textContent = filename;
 
-  // STORE 41 RETRIEVED RHINO OBJECTS INTO PERSISTENT MEMORY ARRAY
+  // STORE RETRIEVED RHINO OBJECTS INTO PERSISTENT MEMORY ARRAY
   importedRhinoObjects = [];
   let geomCount = 0;
   let nullCount = 0;
@@ -475,16 +502,6 @@ async function parseRhino3dm(arrayBuffer, filename) {
         nullCount++;
       }
 
-      console.log(`[RHINO] Raw Object ${i}:`, {
-        index: i,
-        id: objId,
-        name: objName,
-        geometryExists: !!geom,
-        geometryConstructor: ctorName,
-        rawObject: fileObj,
-        rawGeometry: geom
-      });
-
       importedRhinoObjects.push({
         index: i + 1,
         id: objId,
@@ -501,12 +518,7 @@ async function parseRhino3dm(arrayBuffer, filename) {
     }
   }
 
-  console.log('[RHINO] 6 Raw objects retrieved summary:', {
-    rawCount: rawCount,
-    geomCount: geomCount,
-    nullCount: nullCount,
-    objectsCount: importedRhinoObjects.length
-  });
+  setTrace(6, 'PASS', `${geomCount} CLASSIFIED`);
 
   if (dbgGeomCount) dbgGeomCount.textContent = geomCount;
   if (dbgNullCount) dbgNullCount.textContent = nullCount;
@@ -522,8 +534,10 @@ async function parseRhino3dm(arrayBuffer, filename) {
     processSourceAndDisplayGeometry(doc, importedRhinoObjects);
     appState.sourceRhinoObjects = importedRhinoObjects;
     appState.displayObjects = displayMeshObjects;
+    setTrace(7, 'PASS', `${displayMeshObjects.length} CONVERTED`);
   } catch (err) {
     console.warn('[PIPELINE WARNING] Source and Display processing warning:', err);
+    setTrace(7, 'FAIL', err.message);
   }
 
   try {
@@ -960,6 +974,8 @@ function renderImportedRhinoModel(displayObjects) {
   appState.threeModel = importedRhinoGroup;
   console.log('[RENDER PIPELINE SUCCESS] Added importedRhinoGroup to Three.js scene with', importedRhinoGroup.children.length, 'children.');
 
+  setTrace(8, 'PASS', `${addedCount} ADDED TO THREE.JS`);
+
   if (rndObjectsConv) rndObjectsConv.textContent = convertedCount;
   if (rndObjectsAdded) rndObjectsAdded.textContent = addedCount;
   if (rndObjectsFailed) rndObjectsFailed.textContent = failedCount;
@@ -971,6 +987,8 @@ function renderImportedRhinoModel(displayObjects) {
   // FIT CAMERA TO THREE.JS BOUNDING BOX
   const box = new THREE.Box3().setFromObject(importedRhinoGroup);
   const isBoxValid = !box.isEmpty();
+
+  setTrace(9, 'PASS', isBoxValid ? 'VALID' : 'EMPTY');
 
   if (rndBboxStatus) rndBboxStatus.textContent = isBoxValid ? 'VALID' : 'EMPTY';
   if (vwrBbox) vwrBbox.textContent = isBoxValid ? 'VALID' : 'EMPTY';
@@ -997,6 +1015,8 @@ function renderImportedRhinoModel(displayObjects) {
     controls.update();
     renderer.render(scene, camera);
 
+    setTrace(10, 'PASS', 'YES');
+
     if (rndCamFit) rndCamFit.textContent = 'YES';
     if (vwrCamFit) vwrCamFit.textContent = 'YES';
     if (rndStatus) rndStatus.textContent = 'SUCCESS';
@@ -1007,8 +1027,11 @@ function renderImportedRhinoModel(displayObjects) {
       if (canvasTagsOverlay) canvasTagsOverlay.style.display = 'flex';
       if (diagnosticsOverlay) diagnosticsOverlay.style.display = 'block';
       if (viewerTogglesOverlay) viewerTogglesOverlay.style.display = 'block';
+      setTrace(11, 'PASS', 'MODEL VISIBLE');
     }
   } else {
+    setTrace(10, 'FAIL', 'NO (EMPTY BBOX)');
+    setTrace(11, 'FAIL', 'NO');
     if (rndCamFit) rndCamFit.textContent = 'NO';
     if (vwrCamFit) vwrCamFit.textContent = 'NO';
     if (rndStatus) rndStatus.textContent = 'EMPTY BBOX';

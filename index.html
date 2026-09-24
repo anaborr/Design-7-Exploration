@@ -204,6 +204,22 @@
             <div>3D Bounds: X:<span id="diag-x-range">0</span> Y:<span id="diag-y-range">0</span> Z:<span id="diag-z-range">0</span></div>
             <div>Rhino Units: <span id="diag-units">mm</span> | Projection: <span id="diag-projection">FRONT (XZ)</span></div>
             <div>Status: <span id="diag-status" class="diag-ok">SEED LOADED</span></div>
+            
+            <!-- 11-STAGE EXECUTION TRACE BOX -->
+            <div id="import-trace-box" style="margin-top:0.4rem; padding:0.4rem; background:rgba(0,0,0,0.6); border:1px solid #333; font-size:0.7rem; font-family:monospace; line-height:1.3;">
+              <div style="font-weight:bold; color:var(--accent-gold); margin-bottom:0.2rem;">IMPORT TRACE</div>
+              <div>[1] FILE EVENT: <span id="tr-1" style="color:#aaa;">WAITING</span></div>
+              <div>[2] ARRAY BUFFER: <span id="tr-2" style="color:#aaa;">WAITING</span></div>
+              <div>[3] FILE3DM: <span id="tr-3" style="color:#aaa;">WAITING</span></div>
+              <div>[4] OBJECT TABLE: <span id="tr-4" style="color:#aaa;">WAITING</span></div>
+              <div>[5] RAW OBJECTS: <span id="tr-5" style="color:#aaa;">WAITING</span></div>
+              <div>[6] CLASSIFIED: <span id="tr-6" style="color:#aaa;">WAITING</span></div>
+              <div>[7] CONVERTED: <span id="tr-7" style="color:#aaa;">WAITING</span></div>
+              <div>[8] ADDED TO THREE.JS: <span id="tr-8" style="color:#aaa;">WAITING</span></div>
+              <div>[9] BBOX VALID: <span id="tr-9" style="color:#aaa;">WAITING</span></div>
+              <div>[10] CAMERA FIT: <span id="tr-10" style="color:#aaa;">WAITING</span></div>
+              <div>[11] MODEL VISIBLE: <span id="tr-11" style="color:#aaa;">WAITING</span></div>
+            </div>
           </div>
         </div>
 
