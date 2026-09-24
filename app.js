@@ -1,31 +1,27 @@
 /**
  * ============================================================================
  * DESIGN 7 EXPLORATION - DESCRIPTOR-DRIVEN ARCHITECTURAL EVOLUTION SYSTEM
- * RHINO SUBD SOURCE & DISPLAY MESH THREE.JS ENGINE
- * - Source Geometry: originalSubDObjects (Preserved as Generation 0 immutable SubDs)
- * - Display Geometry: displayMeshObjects (Rhino Meshes rendered in Three.js)
- * - Pairing Engine: Matches SOURCE_SUBD <-> DISPLAY_MESH by name/layer/index
- * - Rhino Mesh to THREE.BufferGeometry Converter (Triangles & Quads support)
- * - Diagnostic Cards: SOURCE & DISPLAY ARCHITECTURE & RENDER PIPELINE
+ * RHINO SUBD & 3D WEBGL ENGINE (THREE.JS IMPORTER & RENDERER)
+ * - 41 Object Reconciliation & Geometry Breakdown Categorization
+ * - 3D World Model Bounding Box Calculator (X/Y/Z Range, Size & Center)
+ * - One Function Renderer: renderImportedRhinoModel(rhinoObjects)
+ * - SubD Display Architecture: Original SubD -> Display Mesh -> Three.js
  * - High-Visibility Debug Material: THREE.MeshNormalMaterial + Edges Wireframe
+ * - Automatic Camera Fit & Near/Far Plane Clipping Calculation
+ * - Render Pipeline UI Card & Failed Object Logger
  * ============================================================================
  */
 
 // Global Rhino3dm Module Reference
 let rhino = null;
 
-// Persistent Global Storage for Generation 0 Source & Display Geometry
-let importedRhinoObjects = [];
-let originalSubDObjects = [];
-let displayMeshObjects = [];
-let pairedSubdMeshList = [];
-
 // Application State
 let appState = {
   originalRhinoGeometry: null,
   projectionMode: 'FRONT',
   displayMode: 'SURFACE',
-  objectVisibilityMap: {}
+  objectVisibilityMap: {},
+  threeObjectMap: {}
 };
 
 // Three.js Global References
@@ -38,7 +34,7 @@ let dirLight1 = null;
 let dirLight2 = null;
 let importedRhinoGroup = null;
 
-// Global Bounding Box & Target Center
+// Global Bounding Box & Model Center
 let globalBoundingBox = {
   min: { x: 0, y: 0, z: 0 },
   max: { x: 0, y: 0, z: 0 },
@@ -100,19 +96,6 @@ const rndBboxStatus = document.getElementById('rnd-bbox-status');
 const rndCamFit = document.getElementById('rnd-cam-fit');
 const rndStatus = document.getElementById('rnd-status');
 
-// Source & Display Architecture Card Elements
-const srcSubdCount = document.getElementById('src-subd-count');
-const srcSubdStored = document.getElementById('src-subd-stored');
-const dspMeshCount = document.getElementById('dsp-mesh-count');
-const dspMeshConv = document.getElementById('dsp-mesh-conv');
-const dspThreeObjs = document.getElementById('dsp-three-objs');
-const pairCount = document.getElementById('pair-count');
-const unpairSubd = document.getElementById('unpair-subd');
-const unpairMesh = document.getElementById('unpair-mesh');
-const vwrBbox = document.getElementById('vwr-bbox');
-const vwrCamFit = document.getElementById('vwr-cam-fit');
-const vwrRender = document.getElementById('vwr-render');
-
 // Bounding Box Card Elements
 const metaXRange = document.getElementById('meta-x-range');
 const metaXBounds = document.getElementById('meta-x-bounds');
@@ -149,7 +132,7 @@ const objectVisibilityList = document.getElementById('object-visibility-list');
 // ============================================================================
 
 window.addEventListener('DOMContentLoaded', () => {
-  console.log('[SYSTEM] Initializing Design 7 SubD Source & Display Mesh Engine...');
+  console.log('[SYSTEM] Initializing Design 7 SubD & 3D WebGL Engine...');
 
   initThreeJS();
 
@@ -178,11 +161,11 @@ function initThreeJS() {
   const height = threeCanvasContainer ? (threeCanvasContainer.clientHeight || 600) : 600;
 
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0a0a0a);
+  scene.background = new THREE.Color(0x0a0a0a); // Dark technical theme
 
   camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000);
   camera.position.set(0, -300, 150);
-  camera.up.set(0, 0, 1);
+  camera.up.set(0, 0, 1); // Z-Up Coordinate System (Rhino standard)
 
   renderer = new THREE.WebGLRenderer({
     canvas: threeCanvas,
@@ -213,7 +196,7 @@ function initThreeJS() {
   scene.add(dirLight2);
 
   const gridHelper = new THREE.GridHelper(500, 50, 0xffd700, 0x333333);
-  gridHelper.rotation.x = Math.PI / 2;
+  gridHelper.rotation.x = Math.PI / 2; // Orient grid to XY plane
   scene.add(gridHelper);
 
   const axesHelper = new THREE.AxesHelper(20);
@@ -286,7 +269,7 @@ function attachEventListeners() {
 }
 
 // ============================================================================
-// 2. STAGE 1: FILE SELECT & ARRAY BUFFER LOADING
+// 2. FILE SELECTION & MAIN PARSER: parseRhino3dm(arrayBuffer, filename)
 // ============================================================================
 
 async function handleFileSelect(file) {
@@ -315,13 +298,6 @@ async function handleFileSelect(file) {
   }
 }
 
-// ============================================================================
-// 3. RESTORED WORKING IMPORTER: parseRhino3dm(arrayBuffer, filename)
-// ============================================================================
-
-/**
- * RESTORED WORKING IMPORTER (Commit 3235a8b baseline)
- */
 async function parseRhino3dm(arrayBuffer, filename) {
   console.log('[RHINO] 2 ArrayBuffer loaded. Byte length:', arrayBuffer ? arrayBuffer.byteLength : 0);
 
@@ -434,151 +410,8 @@ async function parseRhino3dm(arrayBuffer, filename) {
   if (diagObjects) diagObjects.textContent = rawCount;
   if (diagFilename) diagFilename.textContent = filename;
 
-  // STORE 41 RETRIEVED RHINO OBJECTS INTO PERSISTENT MEMORY ARRAY
-  importedRhinoObjects = [];
-  originalSubDObjects = [];
-  displayMeshObjects = [];
-
-  let geomCount = 0;
-  let nullCount = 0;
-
-  // Query Document Layers to check for SOURCE_SUBD and DISPLAY_MESH
-  const docLayers = typeof doc.layers === 'function' ? doc.layers() : doc.layers;
-  const layerMap = {};
-  if (docLayers) {
-    const lCount = typeof docLayers.count === 'function' ? docLayers.count() : (docLayers.count || 0);
-    for (let l = 0; l < lCount; l++) {
-      const layer = docLayers.get(l);
-      const lIndex = typeof layer.index === 'function' ? layer.index() : (layer.index !== undefined ? layer.index : l);
-      const lName = typeof layer.name === 'function' ? layer.name() : (layer.name || `Layer_${l}`);
-      layerMap[lIndex] = lName;
-    }
-  }
-
-  for (let i = 0; i < rawCount; i++) {
-    try {
-      const fileObj = objectsTable.get ? objectsTable.get(i) : null;
-
-      let geom = null;
-      if (fileObj) {
-        if (typeof fileObj.geometry === 'function') {
-          geom = fileObj.geometry();
-        } else if (fileObj.geometry) {
-          geom = fileObj.geometry;
-        }
-      }
-
-      let attributes = null;
-      if (fileObj) {
-        if (typeof fileObj.attributes === 'function') {
-          attributes = fileObj.attributes();
-        } else if (fileObj.attributes) {
-          attributes = fileObj.attributes;
-        }
-      }
-
-      let objId = `obj_${i + 1}`;
-      let objName = `Object ${i + 1}`;
-      let layerIndex = 0;
-
-      if (attributes) {
-        if (typeof attributes.id === 'function') {
-          objId = attributes.id();
-        } else if (attributes.id) {
-          objId = attributes.id;
-        }
-        if (typeof attributes.name === 'function') {
-          objName = attributes.name() || objName;
-        } else if (attributes.name) {
-          objName = attributes.name;
-        }
-        if (typeof attributes.layerIndex === 'function') {
-          layerIndex = attributes.layerIndex();
-        } else if (attributes.layerIndex !== undefined) {
-          layerIndex = attributes.layerIndex;
-        }
-      }
-
-      const layerName = layerMap[layerIndex] || `Layer_${layerIndex}`;
-      const ctorName = geom && geom.constructor ? geom.constructor.name : (geom ? 'GeometryBase' : 'None');
-
-      if (geom) {
-        geomCount++;
-      } else {
-        nullCount++;
-      }
-
-      const objRecord = {
-        index: i + 1,
-        id: objId,
-        name: objName,
-        layerIndex: layerIndex,
-        layerName: layerName,
-        rawObject: fileObj,
-        geom: geom,
-        ctorName: ctorName,
-        type: 'Other'
-      };
-
-      importedRhinoObjects.push(objRecord);
-
-    } catch (objErr) {
-      console.error(`[RHINO ERROR] Error retrieving raw object at index ${i}:`, objErr);
-      nullCount++;
-    }
-  }
-
-  console.log('[RHINO] 6 Raw objects retrieved summary:', {
-    rawCount: rawCount,
-    geomCount: geomCount,
-    nullCount: nullCount,
-    objectsCount: importedRhinoObjects.length
-  });
-
-  if (dbgGeomCount) dbgGeomCount.textContent = geomCount;
-  if (dbgNullCount) dbgNullCount.textContent = nullCount;
-  if (rawGeomRetrieved) rawGeomRetrieved.textContent = geomCount;
-  if (rawNullGeom) rawNullGeom.textContent = nullCount;
-  if (rawClassified) rawClassified.textContent = geomCount;
-  if (rawUnclassified) rawUnclassified.textContent = nullCount;
-
-  if (dbgErrors) dbgErrors.textContent = 'NONE';
-  if (diagStatus) {
-    diagStatus.textContent = rawCount > 0 ? `OBJECT TABLE: ${rawCount} OBJECTS FOUND` : 'OBJECT TABLE EMPTY';
-    diagStatus.className = rawCount > 0 ? 'diag-ok' : 'diag-err';
-  }
-
-  // DECOUPLED PIPELINE EXECUTION (Isolated Error Handling)
-  try {
-    classifyAndPairRhinoObjects(importedRhinoObjects);
-  } catch (err) {
-    console.warn('[PIPELINE WARNING] Object classification step warning:', err);
-  }
-
-  try {
-    calculateModelBounds(importedRhinoObjects);
-  } catch (err) {
-    console.warn('[PIPELINE WARNING] Bounding box calculation warning:', err);
-  }
-
-  try {
-    renderDisplayMeshObjects(displayMeshObjects, originalSubDObjects);
-  } catch (err) {
-    console.error('[PIPELINE ERROR] Rendering step threw exception:', err);
-    const rndStatus = document.getElementById('rnd-status');
-    if (rndStatus) rndStatus.textContent = 'FAILED';
-  }
-}
-
-// ============================================================================
-// 4. CLASSIFY SUBD SOURCE vs DISPLAY MESH & PAIRING ENGINE
-// ============================================================================
-
-function classifyAndPairRhinoObjects(objects) {
-  originalSubDObjects = [];
-  displayMeshObjects = [];
-  pairedSubdMeshList = [];
-
+  // PROCESS & CLASSIFY ALL RETRIEVED OBJECTS
+  const processedObjects = [];
   const counts = {
     subd: 0, nurbs: 0, polylines: 0, polycurves: 0, lines: 0,
     arcs: 0, breps: 0, extrusions: 0, meshes: 0, points: 0,
@@ -587,123 +420,161 @@ function classifyAndPairRhinoObjects(objects) {
 
   const subdMetrics = { totalObjects: 0, totalVertices: 0, totalEdges: 0, totalFaces: 0 };
 
-  objects.forEach((obj) => {
-    const geom = obj.geom;
-    if (!geom) {
-      counts.unsupported++;
-      obj.type = 'Unsupported';
-      return;
-    }
+  let geomCount = 0;
+  let nullCount = 0;
 
-    const ctorName = obj.ctorName || (geom.constructor ? geom.constructor.name : 'Unknown');
-    const objTypeVal = typeof geom.objectType === 'function' ? geom.objectType() : geom.objectType;
-    const objTypeName = typeof objTypeVal === 'object' ? (objTypeVal.name || 'Unknown') : String(objTypeVal || 'Unknown');
-    const layerName = obj.layerName || '';
+  for (let i = 0; i < rawCount; i++) {
+    try {
+      const fileObj = objectsTable.get ? objectsTable.get(i) : null;
+      let geom = fileObj ? (typeof fileObj.geometry === 'function' ? fileObj.geometry() : fileObj.geometry) : null;
+      let attributes = fileObj ? (typeof fileObj.attributes === 'function' ? fileObj.attributes() : fileObj.attributes) : null;
+      let objId = attributes ? (typeof attributes.id === 'function' ? attributes.id() : attributes.id) : `obj_${i + 1}`;
+      let objName = attributes ? (typeof attributes.name === 'function' ? attributes.name() : attributes.name) : `Object ${i + 1}`;
 
-    const isSubD = (rhino.SubD && geom instanceof rhino.SubD) ||
-                   ctorName === 'SubD' || objTypeName === 'SubD' ||
-                   layerName.toUpperCase().includes('SOURCE_SUBD') ||
-                   (rhino.ObjectType && objTypeVal === rhino.ObjectType.SubD) || objTypeVal === 262144;
+      const ctorName = geom && geom.constructor ? geom.constructor.name : (geom ? 'GeometryBase' : 'None');
+      const objTypeVal = geom ? (typeof geom.objectType === 'function' ? geom.objectType() : geom.objectType) : null;
+      const objTypeName = typeof objTypeVal === 'object' ? (objTypeVal.name || 'Unknown') : String(objTypeVal || 'Unknown');
 
-    const isMesh = (rhino.Mesh && geom instanceof rhino.Mesh) ||
-                   ctorName === 'Mesh' || objTypeName === 'Mesh' ||
-                   layerName.toUpperCase().includes('DISPLAY_MESH') ||
-                   (rhino.ObjectType && objTypeVal === rhino.ObjectType.Mesh) || objTypeVal === 32;
+      if (!geom) {
+        nullCount++;
+        counts.unsupported++;
+        processedObjects.push({
+          index: i + 1, id: objId, name: objName, type: 'Unsupported', rhinoType: 'Null', geom: null, bounds: null
+        });
+        continue;
+      }
 
-    const isBrep = (rhino.Brep && geom instanceof rhino.Brep) ||
-                   ctorName === 'Brep' || objTypeName === 'Brep' ||
-                   (rhino.ObjectType && objTypeVal === rhino.ObjectType.Brep) || objTypeVal === 16;
+      geomCount++;
 
-    const isExtrusion = (rhino.Extrusion && geom instanceof rhino.Extrusion) ||
-                        ctorName === 'Extrusion' || objTypeName === 'Extrusion' ||
-                        (rhino.ObjectType && objTypeVal === rhino.ObjectType.Extrusion) || objTypeVal === 1073741824;
-
-    const isCurve = (rhino.Curve && geom instanceof rhino.Curve) ||
-                    ctorName.includes('Curve') || objTypeName.includes('Curve') ||
-                    (rhino.ObjectType && objTypeVal === rhino.ObjectType.Curve) || objTypeVal === 4;
-
-    if (isSubD) {
-      obj.type = 'SubD';
-      counts.subd++;
-      subdMetrics.totalObjects++;
-      originalSubDObjects.push(obj);
-
-      let vCount = 0, eCount = 0, fCount = 0;
+      // Compute Object Bounding Box
+      let objBounds = null;
       try {
-        const vList = typeof geom.vertices === 'function' ? geom.vertices() : geom.vertices;
-        const eList = typeof geom.edges === 'function' ? geom.edges() : geom.edges;
-        const fList = typeof geom.faces === 'function' ? geom.faces() : geom.faces;
+        const bbox = typeof geom.getBoundingBox === 'function' ? geom.getBoundingBox() : null;
+        if (bbox && bbox.min && bbox.max) {
+          objBounds = {
+            min: { x: bbox.min[0], y: bbox.min[1], z: bbox.min[2] },
+            max: { x: bbox.max[0], y: bbox.max[1], z: bbox.max[2] }
+          };
+        }
+      } catch (e) {
+        console.warn('Bounding box query warning for object', i, e);
+      }
 
-        if (vList) vCount = typeof vList.count === 'function' ? vList.count() : (vList.count || 0);
-        if (eList) eCount = typeof eList.count === 'function' ? eList.count() : (eList.count || 0);
-        if (fList) fCount = typeof fList.count === 'function' ? fList.count() : (fList.count || 0);
-      } catch (e) {}
+      const objData = {
+        index: i + 1,
+        id: objId,
+        name: objName,
+        type: 'Other',
+        rhinoType: objTypeName !== 'Unknown' ? objTypeName : ctorName,
+        ctorName: ctorName,
+        geom: geom,
+        bounds: objBounds,
+        subdData: null
+      };
 
-      subdMetrics.totalVertices += vCount;
-      subdMetrics.totalEdges += eCount;
-      subdMetrics.totalFaces += fCount;
-      obj.subdData = { vertexCount: vCount, edgeCount: eCount, faceCount: fCount };
+      // Classification checks
+      const isSubD = (rhino.SubD && geom instanceof rhino.SubD) ||
+                     ctorName === 'SubD' || objTypeName === 'SubD' ||
+                     (rhino.ObjectType && objTypeVal === rhino.ObjectType.SubD) || objTypeVal === 262144;
 
-    } else if (isMesh) {
-      obj.type = 'Mesh';
-      counts.meshes++;
-      displayMeshObjects.push(obj);
-    } else if (isBrep) {
-      obj.type = 'Brep';
-      counts.breps++;
-      displayMeshObjects.push(obj);
-    } else if (isExtrusion) {
-      obj.type = 'Extrusion';
-      counts.extrusions++;
-      displayMeshObjects.push(obj);
-    } else if (isCurve) {
-      obj.type = 'Curve';
-      counts.lines++;
-      displayMeshObjects.push(obj);
-    } else {
-      counts.unsupported++;
-      obj.type = 'Unsupported';
+      const isBrep = (rhino.Brep && geom instanceof rhino.Brep) ||
+                     ctorName === 'Brep' || objTypeName === 'Brep' ||
+                     (rhino.ObjectType && objTypeVal === rhino.ObjectType.Brep) || objTypeVal === 16;
+
+      const isExtrusion = (rhino.Extrusion && geom instanceof rhino.Extrusion) ||
+                          ctorName === 'Extrusion' || objTypeName === 'Extrusion' ||
+                          (rhino.ObjectType && objTypeVal === rhino.ObjectType.Extrusion) || objTypeVal === 1073741824;
+
+      const isMesh = (rhino.Mesh && geom instanceof rhino.Mesh) ||
+                     ctorName === 'Mesh' || objTypeName === 'Mesh' ||
+                     (rhino.ObjectType && objTypeVal === rhino.ObjectType.Mesh) || objTypeVal === 32;
+
+      const isCurve = (rhino.Curve && geom instanceof rhino.Curve) ||
+                      ctorName.includes('Curve') || objTypeName.includes('Curve') ||
+                      (rhino.ObjectType && objTypeVal === rhino.ObjectType.Curve) || objTypeVal === 4;
+
+      const isPoint = (rhino.Point && geom instanceof rhino.Point) ||
+                      ctorName === 'Point' || objTypeName === 'Point' ||
+                      (rhino.ObjectType && objTypeVal === rhino.ObjectType.Point) || objTypeVal === 1;
+
+      const isBlock = (rhino.InstanceReference && geom instanceof rhino.InstanceReference) ||
+                      ctorName === 'InstanceReference' || objTypeName === 'InstanceReference' ||
+                      (rhino.ObjectType && objTypeVal === rhino.ObjectType.InstanceReference) || objTypeVal === 4096;
+
+      if (isSubD) {
+        objData.type = 'SubD';
+        counts.subd++;
+        subdMetrics.totalObjects++;
+
+        let vCount = 0, eCount = 0, fCount = 0;
+        try {
+          const vList = typeof geom.vertices === 'function' ? geom.vertices() : geom.vertices;
+          const eList = typeof geom.edges === 'function' ? geom.edges() : geom.edges;
+          const fList = typeof geom.faces === 'function' ? geom.faces() : geom.faces;
+
+          if (vList) vCount = typeof vList.count === 'function' ? vList.count() : (vList.count || 0);
+          if (eList) eCount = typeof eList.count === 'function' ? eList.count() : (eList.count || 0);
+          if (fList) fCount = typeof fList.count === 'function' ? fList.count() : (fList.count || 0);
+        } catch (e) {}
+
+        subdMetrics.totalVertices += vCount;
+        subdMetrics.totalEdges += eCount;
+        subdMetrics.totalFaces += fCount;
+
+        objData.subdData = { vertexCount: vCount, edgeCount: eCount, faceCount: fCount };
+      } else if (isBrep) {
+        objData.type = 'Brep';
+        counts.breps++;
+      } else if (isExtrusion) {
+        objData.type = 'Extrusion';
+        counts.extrusions++;
+      } else if (isMesh) {
+        objData.type = 'Mesh';
+        counts.meshes++;
+      } else if (isCurve) {
+        if (ctorName.includes('Polyline') || objTypeName.includes('Polyline')) {
+          objData.type = 'PolylineCurve';
+          counts.polylines++;
+        } else if (ctorName.includes('PolyCurve') || objTypeName.includes('PolyCurve')) {
+          objData.type = 'PolyCurve';
+          counts.polycurves++;
+        } else if (ctorName.includes('Line') || objTypeName.includes('Line')) {
+          objData.type = 'LineCurve';
+          counts.lines++;
+        } else if (ctorName.includes('Arc') || ctorName.includes('Circle') || objTypeName.includes('Arc')) {
+          objData.type = 'ArcCurve';
+          counts.arcs++;
+        } else {
+          objData.type = 'NurbsCurve';
+          counts.nurbs++;
+        }
+      } else if (isPoint) {
+        objData.type = 'Point';
+        counts.points++;
+      } else if (isBlock) {
+        objData.type = 'InstanceReference';
+        counts.blocks++;
+      } else {
+        counts.unsupported++;
+      }
+
+      processedObjects.push(objData);
+
+    } catch (objErr) {
+      console.error(`[RHINO ERROR] Error reading object at index ${i}:`, objErr);
+      nullCount++;
     }
-  });
-
-  // If file contains ONLY SubD objects (no separate DISPLAY_MESH layer objects in file),
-  // treat displayMeshObjects as available display representations for visualization
-  if (displayMeshObjects.length === 0 && originalSubDObjects.length > 0) {
-    console.log('[PAIRING ENGINE] File contains SubD source objects. Setting up display representations...');
-    displayMeshObjects = [...originalSubDObjects];
   }
 
-  // PAIRING ENGINE: Match SOURCE_SUBD <-> DISPLAY_MESH
-  let pairedCount = 0;
-  let unpairedSubdCount = 0;
-  let unpairedMeshCount = 0;
+  if (dbgGeomCount) dbgGeomCount.textContent = geomCount;
+  if (dbgNullCount) dbgNullCount.textContent = nullCount;
+  if (rawGeomRetrieved) rawGeomRetrieved.textContent = geomCount;
+  if (rawNullGeom) rawNullGeom.textContent = nullCount;
+  if (rawClassified) rawClassified.textContent = geomCount;
+  if (rawUnclassified) rawUnclassified.textContent = nullCount;
+  if (dbgErrors) dbgErrors.textContent = 'NONE';
 
-  originalSubDObjects.forEach((subdObj, sIdx) => {
-    // Search for companion mesh by name match (e.g. SPACE_01 <-> SPACE_01_DISPLAY) or index match
-    let matchMesh = displayMeshObjects.find(m => m.name.replace('_DISPLAY', '') === subdObj.name);
-    if (!matchMesh && displayMeshObjects[sIdx]) {
-      matchMesh = displayMeshObjects[sIdx];
-    }
-
-    if (matchMesh) {
-      pairedCount++;
-      pairedSubdMeshList.push({ subd: subdObj, mesh: matchMesh });
-    } else {
-      unpairedSubdCount++;
-    }
-  });
-
-  unpairedMeshCount = Math.max(0, displayMeshObjects.length - pairedCount);
-
-  // Update SOURCE & DISPLAY ARCHITECTURE CARD
-  if (srcSubdCount) srcSubdCount.textContent = originalSubDObjects.length;
-  if (srcSubdStored) srcSubdStored.textContent = originalSubDObjects.length;
-  if (dspMeshCount) dspMeshCount.textContent = displayMeshObjects.length;
-  if (pairCount) pairCount.textContent = pairedCount;
-  if (unpairSubd) unpairSubd.textContent = unpairedSubdCount;
-  if (unpairMesh) unpairMesh.textContent = unpairedMeshCount;
-
-  // Update Geometry Breakdown UI Counters
+  // 1. POPULATE GEOMETRY BREAKDOWN COUNTERS (TOTAL = 41)
   if (countSubd) countSubd.textContent = counts.subd;
   if (countNurbs) countNurbs.textContent = counts.nurbs;
   if (countPolylines) countPolylines.textContent = counts.polylines;
@@ -722,53 +593,61 @@ function classifyAndPairRhinoObjects(objects) {
   if (countSubdEdges) countSubdEdges.textContent = subdMetrics.totalEdges;
   if (countSubdFaces) countSubdFaces.textContent = subdMetrics.totalFaces;
 
-  if (diagSubdCount) diagSubdCount.textContent = subdMetrics.totalObjects;
-
-  console.log('[SOURCE & DISPLAY ARCHITECTURE SUMMARY]', {
-    originalSubDObjects: originalSubDObjects.length,
-    displayMeshObjects: displayMeshObjects.length,
-    pairedCount: pairedCount,
-    unpairedSubdCount: unpairedSubdCount,
-    unpairedMeshCount: unpairedMeshCount
+  console.log('[RHINO RECONCILIATION SUMMARY]', {
+    totalRaw: rawCount,
+    geomRetrieved: geomCount,
+    nullGeom: nullCount,
+    breakdown: counts,
+    subdMetrics: subdMetrics
   });
 
-  renderObjectVisibilityList(objects);
+  // 2. COMPUTE REAL MODEL BOUNDING BOX
+  calculateGlobalBounds(processedObjects);
+
+  const unitsObj = typeof doc.settings === 'function' ? doc.settings().modelUnitSystem() : null;
+  const unitsName = unitsObj ? (unitsObj.name || 'mm') : 'mm';
+
+  appState.originalRhinoGeometry = {
+    filename: filename,
+    objects: processedObjects,
+    counts: counts,
+    subdMetrics: subdMetrics,
+    bounds: globalBoundingBox,
+    units: unitsName
+  };
+
+  appState.objectVisibilityMap = {};
+  processedObjects.forEach((obj) => {
+    appState.objectVisibilityMap[obj.id] = true;
+  });
+
+  // Populate Object Debugger List in Sidebar
+  renderObjectVisibilityList(processedObjects);
+
+  // 3. CALL ONE FUNCTION RENDERER: renderImportedRhinoModel
+  renderImportedRhinoModel(processedObjects);
 }
 
 // ============================================================================
-// 5. CALCULATE RHINO WORLD BOUNDS
+// 3. BOUNDING BOX CALCULATOR
 // ============================================================================
 
-function calculateModelBounds(objects) {
+function calculateGlobalBounds(objects) {
   let minX = Infinity, minY = Infinity, minZ = Infinity;
   let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
   let validCount = 0;
 
   objects.forEach((obj) => {
-    if (!obj.geom) return;
-    try {
-      let bbox = null;
-      if (typeof obj.geom.getBoundingBox === 'function') {
-        bbox = obj.geom.getBoundingBox();
+    if (obj.bounds && obj.bounds.min && obj.bounds.max) {
+      if (isFinite(obj.bounds.min.x)) {
+        minX = Math.min(minX, obj.bounds.min.x);
+        minY = Math.min(minY, obj.bounds.min.y);
+        minZ = Math.min(minZ, obj.bounds.min.z);
+        maxX = Math.max(maxX, obj.bounds.max.x);
+        maxY = Math.max(maxY, obj.bounds.max.y);
+        maxZ = Math.max(maxZ, obj.bounds.max.z);
+        validCount++;
       }
-      if (bbox && bbox.min && bbox.max) {
-        const bx0 = bbox.min[0], by0 = bbox.min[1], bz0 = bbox.min[2];
-        const bx1 = bbox.max[0], by1 = bbox.max[1], bz1 = bbox.max[2];
-
-        if (isFinite(bx0) && isFinite(bx1)) {
-          minX = Math.min(minX, bx0);
-          minY = Math.min(minY, by0);
-          minZ = Math.min(minZ, bz0);
-          maxX = Math.max(maxX, bx1);
-          maxY = Math.max(maxY, by1);
-          maxZ = Math.max(maxZ, bz1);
-          validCount++;
-
-          obj.bounds = { min: { x: bx0, y: by0, z: bz0 }, max: { x: bx1, y: by1, z: bz1 } };
-        }
-      }
-    } catch (e) {
-      console.warn('Bounding box query error for object', obj.id, e);
     }
   });
 
@@ -794,6 +673,7 @@ function calculateModelBounds(objects) {
     maxDim: maxDim
   };
 
+  // Update Bounding Box UI elements (No longer show "-")
   if (metaXRange) metaXRange.textContent = `${minX.toFixed(1)} to ${maxX.toFixed(1)}`;
   if (metaXBounds) metaXBounds.textContent = `${sizeX.toFixed(1)} mm`;
 
@@ -811,87 +691,15 @@ function calculateModelBounds(objects) {
 }
 
 // ============================================================================
-// 6. RHINO MESH TO THREE.JS BUFFERGEOMETRY CONVERTER
+// 4. ONE FUNCTION RENDERER: renderImportedRhinoModel(rhinoObjects)
 // ============================================================================
 
 /**
- * Converts a Rhino Mesh (with Triangles and Quads) into a THREE.BufferGeometry
+ * Converts 41 retrieved Rhino objects into Three.js meshes/wireframes,
+ * adds them to importedRhinoModel group, fits camera, and renders scene.
  */
-function convertRhinoMeshToThreeBufferGeometry(mesh) {
-  try {
-    const vertsList = typeof mesh.vertices === 'function' ? mesh.vertices() : mesh.vertices;
-    const facesList = typeof mesh.faces === 'function' ? mesh.faces() : mesh.faces;
-    const normalsList = typeof mesh.normals === 'function' ? mesh.normals() : mesh.normals;
-
-    if (!vertsList || !facesList) return null;
-
-    const vCount = typeof vertsList.count === 'function' ? vertsList.count() : (vertsList.count || 0);
-    const fCount = typeof facesList.count === 'function' ? facesList.count() : (facesList.count || 0);
-
-    if (vCount === 0) return null;
-
-    const positions = new Float32Array(vCount * 3);
-    for (let i = 0; i < vCount; i++) {
-      const pt = vertsList.get(i);
-      positions[i * 3] = pt[0];
-      positions[i * 3 + 1] = pt[1];
-      positions[i * 3 + 2] = pt[2];
-    }
-
-    const indices = [];
-    for (let i = 0; i < fCount; i++) {
-      const f = facesList.get(i);
-      if (f.length === 4) {
-        indices.push(f[0], f[1], f[2]);
-        indices.push(f[0], f[2], f[3]);
-      } else if (f.length >= 3) {
-        indices.push(f[0], f[1], f[2]);
-      }
-    }
-
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    if (indices.length > 0) {
-      geometry.setIndex(new THREE.Uint32BufferAttribute(indices, 1));
-    }
-
-    if (normalsList) {
-      const nCount = typeof normalsList.count === 'function' ? normalsList.count() : (normalsList.count || 0);
-      if (nCount === vCount) {
-        const normals = new Float32Array(vCount * 3);
-        for (let i = 0; i < vCount; i++) {
-          const n = normalsList.get(i);
-          normals[i * 3] = n[0];
-          normals[i * 3 + 1] = n[1];
-          normals[i * 3 + 2] = n[2];
-        }
-        geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
-      } else {
-        geometry.computeVertexNormals();
-      }
-    } else {
-      geometry.computeVertexNormals();
-    }
-
-    geometry.computeBoundingBox();
-    geometry.computeBoundingSphere();
-    return geometry;
-  } catch (err) {
-    console.error('Error converting Rhino Mesh to Three.js BufferGeometry:', err);
-    return null;
-  }
-}
-
-// ============================================================================
-// 7. RENDER PIPELINE: renderDisplayMeshObjects(displayMeshes, originalSubDs)
-// ============================================================================
-
-/**
- * Converts display mesh objects into Three.js WebGL surfaces & edges,
- * fits camera to Box3, and updates render diagnostics.
- */
-function renderDisplayMeshObjects(displayMeshes, originalSubDs) {
-  console.log('[RENDER PIPELINE] Rendering', displayMeshes.length, 'display meshes in Three.js...');
+function renderImportedRhinoModel(rhinoObjects) {
+  console.log('[RENDER PIPELINE] Starting renderImportedRhinoModel with', rhinoObjects.length, 'objects...');
 
   const rndObjectsRcvd = document.getElementById('rnd-objects-rcvd');
   const rndObjectsConv = document.getElementById('rnd-objects-conv');
@@ -902,8 +710,9 @@ function renderDisplayMeshObjects(displayMeshes, originalSubDs) {
   const rndCamFit = document.getElementById('rnd-cam-fit');
   const rndStatus = document.getElementById('rnd-status');
 
-  if (rndObjectsRcvd) rndObjectsRcvd.textContent = displayMeshes.length;
+  if (rndObjectsRcvd) rndObjectsRcvd.textContent = rhinoObjects.length;
 
+  // Clear previous model from scene
   if (importedRhinoGroup) {
     scene.remove(importedRhinoGroup);
   }
@@ -915,68 +724,127 @@ function renderDisplayMeshObjects(displayMeshes, originalSubDs) {
   let addedCount = 0;
   let failedCount = 0;
 
+  // High-visibility debug materials
   const surfaceMaterial = new THREE.MeshNormalMaterial({
     side: THREE.DoubleSide
   });
 
   const edgeMaterial = new THREE.LineBasicMaterial({
-    color: 0xffd700, // Bright gold wireframe
+    color: 0xffd700, // Bright gold wireframe edges
     linewidth: 1.5
   });
 
   const curveMaterial = new THREE.LineBasicMaterial({
-    color: 0x00ffff,
+    color: 0x00ffff, // Cyan for curves
     linewidth: 2.0
   });
 
-  displayMeshes.forEach((obj, idx) => {
+  const pointMaterial = new THREE.PointsMaterial({
+    color: 0xff4500,
+    size: (globalBoundingBox.maxDim || 100) * 0.02
+  });
+
+  // Loop through all 41 retrieved objects
+  rhinoObjects.forEach((obj, idx) => {
     if (!obj.geom) {
       failedCount++;
+      console.warn(`[RENDER PIPELINE] Object ${idx + 1} (${obj.name}): Null geometry. Skipping.`);
       return;
     }
 
     const objGroup = new THREE.Group();
     objGroup.name = obj.id;
+
     let success = false;
+    let failReason = '';
 
     try {
-      if (obj.type === 'Mesh' || obj.geom instanceof rhino.Mesh) {
-        const threeGeom = convertRhinoMeshToThreeBufferGeometry(obj.geom);
-        if (threeGeom) {
-          const meshObj = new THREE.Mesh(threeGeom, surfaceMaterial);
-          objGroup.add(meshObj);
-
-          const edgesGeom = new THREE.EdgesGeometry(threeGeom);
-          const lineSegs = new THREE.LineSegments(edgesGeom, edgeMaterial);
-          objGroup.add(lineSegs);
-          success = true;
+      // 1. SUBD GEOMETRY
+      if (obj.type === 'SubD') {
+        let subdMesh = null;
+        if (rhino.Mesh && rhino.Mesh.createFromSubDControlNet) {
+          subdMesh = rhino.Mesh.createFromSubDControlNet(obj.geom);
+        } else if (typeof obj.geom.toMesh === 'function') {
+          subdMesh = obj.geom.toMesh();
         }
-      } else if (obj.type === 'SubD' || obj.geom instanceof rhino.SubD) {
-        // Build display mesh representation from SubD face/vertex topology
-        const threeGeom = convertSubDToDisplayBufferGeometry(obj.geom);
-        if (threeGeom) {
-          const meshObj = new THREE.Mesh(threeGeom, surfaceMaterial);
-          objGroup.add(meshObj);
 
-          const edgesGeom = new THREE.EdgesGeometry(threeGeom);
-          const lineSegs = new THREE.LineSegments(edgesGeom, edgeMaterial);
-          objGroup.add(lineSegs);
-          success = true;
-        }
-      } else if (obj.type === 'Brep' && rhino.Mesh.createFromBrep) {
-        const meshes = rhino.Mesh.createFromBrep(obj.geom);
-        if (meshes && meshes.length > 0) {
-          const threeGeom = convertRhinoMeshToThreeBufferGeometry(meshes[0]);
+        if (subdMesh) {
+          const threeGeom = convertRhinoMeshToThreeBufferGeometry(subdMesh);
           if (threeGeom) {
             const meshObj = new THREE.Mesh(threeGeom, surfaceMaterial);
             objGroup.add(meshObj);
+
+            // Add Edges wireframe
             const edgesGeom = new THREE.EdgesGeometry(threeGeom);
             const lineSegs = new THREE.LineSegments(edgesGeom, edgeMaterial);
             objGroup.add(lineSegs);
             success = true;
           }
         }
-      } else if (obj.type === 'Curve' || obj.type.includes('Curve')) {
+
+        // SubD Cage wireframe fallback
+        const cageLines = extractSubDCageWireframe(obj.geom);
+        if (cageLines.length > 0) {
+          const linePositions = [];
+          cageLines.forEach(pair => {
+            linePositions.push(pair.start.x, pair.start.y, pair.start.z);
+            linePositions.push(pair.end.x, pair.end.y, pair.end.z);
+          });
+          const lineGeom = new THREE.BufferGeometry();
+          lineGeom.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+          const lineSegs = new THREE.LineSegments(lineGeom, edgeMaterial);
+          objGroup.add(lineSegs);
+          success = true;
+        }
+      }
+      // 2. BREP / SURFACE
+      else if (obj.type === 'Brep') {
+        if (rhino.Mesh && rhino.Mesh.createFromBrep) {
+          const meshes = rhino.Mesh.createFromBrep(obj.geom);
+          if (meshes && meshes.length > 0) {
+            const threeGeom = convertRhinoMeshToThreeBufferGeometry(meshes[0]);
+            if (threeGeom) {
+              const meshObj = new THREE.Mesh(threeGeom, surfaceMaterial);
+              objGroup.add(meshObj);
+              const edgesGeom = new THREE.EdgesGeometry(threeGeom);
+              const lineSegs = new THREE.LineSegments(edgesGeom, edgeMaterial);
+              objGroup.add(lineSegs);
+              success = true;
+            }
+          }
+        }
+      }
+      // 3. EXTRUSION
+      else if (obj.type === 'Extrusion') {
+        if (typeof obj.geom.getMesh === 'function') {
+          const mesh = obj.geom.getMesh(rhino.MeshType ? rhino.MeshType.Any : 0);
+          if (mesh) {
+            const threeGeom = convertRhinoMeshToThreeBufferGeometry(mesh);
+            if (threeGeom) {
+              const meshObj = new THREE.Mesh(threeGeom, surfaceMaterial);
+              objGroup.add(meshObj);
+              const edgesGeom = new THREE.EdgesGeometry(threeGeom);
+              const lineSegs = new THREE.LineSegments(edgesGeom, edgeMaterial);
+              objGroup.add(lineSegs);
+              success = true;
+            }
+          }
+        }
+      }
+      // 4. MESH
+      else if (obj.type === 'Mesh') {
+        const threeGeom = convertRhinoMeshToThreeBufferGeometry(obj.geom);
+        if (threeGeom) {
+          const meshObj = new THREE.Mesh(threeGeom, surfaceMaterial);
+          objGroup.add(meshObj);
+          const edgesGeom = new THREE.EdgesGeometry(threeGeom);
+          const lineSegs = new THREE.LineSegments(edgesGeom, edgeMaterial);
+          objGroup.add(lineSegs);
+          success = true;
+        }
+      }
+      // 5. CURVES
+      else if (obj.type.includes('Curve') || obj.type === 'PolylineCurve' || obj.type === 'NurbsCurve') {
         const linePairs = sampleCurveTo3DLines(obj.geom);
         if (linePairs.length > 0) {
           const positions = [];
@@ -991,8 +859,19 @@ function renderDisplayMeshObjects(displayMeshes, originalSubDs) {
           success = true;
         }
       }
-    } catch (err) {
-      console.warn(`[RENDER WARNING] Object ${idx + 1} (${obj.name}) conversion error:`, err);
+      // 6. POINT
+      else if (obj.type === 'Point') {
+        const pt = typeof obj.geom.location === 'function' ? obj.geom.location() : obj.geom.location;
+        if (pt) {
+          const ptGeom = new THREE.BufferGeometry();
+          ptGeom.setAttribute('position', new THREE.Float32BufferAttribute([pt[0], pt[1], pt[2]], 3));
+          const pointsObj = new THREE.Points(ptGeom, pointMaterial);
+          objGroup.add(pointsObj);
+          success = true;
+        }
+      }
+    } catch (conversionErr) {
+      failReason = conversionErr.message;
     }
 
     if (success && objGroup.children.length > 0) {
@@ -1001,26 +880,24 @@ function renderDisplayMeshObjects(displayMeshes, originalSubDs) {
       addedCount++;
     } else {
       failedCount++;
+      console.warn(`[RENDER PIPELINE LOG] Object ${idx + 1} (${obj.name}) | Type: ${obj.type} | Ctor: ${obj.ctorName} | Conversion FAILED. Reason: ${failReason || 'No mesh/lines generated'}`);
     }
   });
 
   scene.add(importedRhinoGroup);
   console.log('[RENDER PIPELINE SUCCESS] Added importedRhinoGroup to Three.js scene with', importedRhinoGroup.children.length, 'children.');
 
+  // Update UI Card Metrics
   if (rndObjectsConv) rndObjectsConv.textContent = convertedCount;
   if (rndObjectsAdded) rndObjectsAdded.textContent = addedCount;
   if (rndObjectsFailed) rndObjectsFailed.textContent = failedCount;
   if (rndModelChildren) rndModelChildren.textContent = importedRhinoGroup.children.length;
 
-  if (dspMeshConv) dspMeshConv.textContent = convertedCount;
-  if (dspThreeObjs) dspThreeObjs.textContent = addedCount;
-
-  // FIT CAMERA TO THREE.JS BOUNDING BOX
+  // 8. CAMERA FIT TO THREE.JS BOUNDING BOX
   const box = new THREE.Box3().setFromObject(importedRhinoGroup);
   const isBoxValid = !box.isEmpty();
 
   if (rndBboxStatus) rndBboxStatus.textContent = isBoxValid ? 'VALID' : 'EMPTY';
-  if (vwrBbox) vwrBbox.textContent = isBoxValid ? 'VALID' : 'EMPTY';
 
   if (isBoxValid && camera && controls) {
     const center = new THREE.Vector3();
@@ -1046,112 +923,86 @@ function renderDisplayMeshObjects(displayMeshes, originalSubDs) {
 
     if (rndCamFit) rndCamFit.textContent = 'YES';
     if (rndStatus) rndStatus.textContent = 'SUCCESS';
-
-    if (vwrCamFit) vwrCamFit.textContent = 'YES';
-    if (vwrRender) vwrRender.textContent = 'SUCCESS';
-
-    // HIDE START CARD UPON SUCCESSFUL DISPLAY RENDER (ADDED TO THREE.JS > 0)
-    if (addedCount > 0 && startScreenCard) {
-      startScreenCard.style.display = 'none';
-      if (canvasTagsOverlay) canvasTagsOverlay.style.display = 'flex';
-      if (diagnosticsOverlay) diagnosticsOverlay.style.display = 'block';
-      if (viewerTogglesOverlay) viewerTogglesOverlay.style.display = 'block';
-    }
   } else {
     if (rndCamFit) rndCamFit.textContent = 'NO';
     if (rndStatus) rndStatus.textContent = 'EMPTY BBOX';
-
-    if (vwrCamFit) vwrCamFit.textContent = 'NO';
-    if (vwrRender) vwrRender.textContent = 'FAILED';
   }
+
+  // 12. HIDE START CARD UPON SUCCESSFUL IMPORT & SHOW CANVAS
+  if (startScreenCard) startScreenCard.style.display = 'none';
+  if (canvasTagsOverlay) canvasTagsOverlay.style.display = 'flex';
+  if (diagnosticsOverlay) diagnosticsOverlay.style.display = 'block';
+  if (viewerTogglesOverlay) viewerTogglesOverlay.style.display = 'block';
 
   if (diagRendered) diagRendered.textContent = addedCount;
   if (diagStatus) {
-    diagStatus.textContent = `IMPORTED: ${addedCount}/${displayMeshes.length} DISPLAY MESHES VISIBLE`;
+    diagStatus.textContent = `IMPORTED: ${addedCount}/${rhinoObjects.length} OBJECTS VISIBLE`;
     diagStatus.className = 'diag-ok';
   }
 }
 
 /**
- * Builds THREE.BufferGeometry from SubD vertex and face topology for display
+ * Converts a rhino3dm Mesh into a THREE.BufferGeometry
  */
-function convertSubDToDisplayBufferGeometry(subd) {
+function convertRhinoMeshToThreeBufferGeometry(mesh) {
   try {
-    const vList = typeof subd.vertices === 'function' ? subd.vertices() : subd.vertices;
-    const fList = typeof subd.faces === 'function' ? subd.faces() : subd.faces;
+    const vertsList = typeof mesh.vertices === 'function' ? mesh.vertices() : mesh.vertices;
+    const facesList = typeof mesh.faces === 'function' ? mesh.faces() : mesh.faces;
 
-    if (!vList) return null;
-
-    const vCount = typeof vList.count === 'function' ? vList.count() : (vList.count || 0);
-    const fCount = fList ? (typeof fList.count === 'function' ? fList.count() : (fList.count || 0)) : 0;
+    if (!vertsList || !facesList) return null;
 
     const positions = [];
-    for (let i = 0; i < vCount; i++) {
-      const v = vList.get(i);
-      const loc = typeof v.location === 'function' ? v.location() : v.location;
-      if (loc) {
-        positions.push(loc[0], loc[1], loc[2]);
-      } else {
-        positions.push(0, 0, 0);
-      }
-    }
-
     const indices = [];
-    if (fCount > 0) {
-      for (let i = 0; i < fCount; i++) {
-        const face = fList.get(i);
-        let vIndices = [];
 
-        if (typeof face.vertexIndices === 'function') {
-          vIndices = face.vertexIndices();
-        } else if (face.vertexIndices) {
-          vIndices = face.vertexIndices;
-        } else {
-          const fVerts = typeof face.vertices === 'function' ? face.vertices() : face.vertices;
-          if (fVerts) {
-            const fvCount = typeof fVerts.count === 'function' ? fVerts.count() : (fVerts.count || 0);
-            for (let j = 0; j < fvCount; j++) {
-              const fv = fVerts.get(j);
-              const vIdx = typeof fv.vertexIndex === 'function' ? fv.vertexIndex() : (fv.vertexIndex || j);
-              vIndices.push(vIdx);
-            }
-          }
-        }
+    const vCount = typeof vertsList.count === 'function' ? vertsList.count() : (vertsList.count || 0);
+    for (let i = 0; i < vCount; i++) {
+      const pt = vertsList.get(i);
+      positions.push(pt[0], pt[1], pt[2]);
+    }
 
-        if (vIndices && vIndices.length >= 3) {
-          if (vIndices.length === 3) {
-            indices.push(vIndices[0], vIndices[1], vIndices[2]);
-          } else if (vIndices.length === 4) {
-            indices.push(vIndices[0], vIndices[1], vIndices[2]);
-            indices.push(vIndices[0], vIndices[2], vIndices[3]);
-          } else {
-            for (let k = 1; k < vIndices.length - 1; k++) {
-              indices.push(vIndices[0], vIndices[k], vIndices[k + 1]);
-            }
-          }
-        }
+    const fCount = typeof facesList.count === 'function' ? facesList.count() : (facesList.count || 0);
+    for (let i = 0; i < fCount; i++) {
+      const f = facesList.get(i);
+      if (f.length === 4) {
+        indices.push(f[0], f[1], f[2]);
+        indices.push(f[0], f[2], f[3]);
+      } else if (f.length === 3) {
+        indices.push(f[0], f[1], f[2]);
       }
     }
 
-    if (indices.length === 0 && positions.length >= 9) {
-      for (let i = 0; i < (positions.length / 3) - 2; i += 2) {
-        indices.push(i, i + 1, i + 2);
-      }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    if (indices.length > 0) {
+      geometry.setIndex(new THREE.Uint32BufferAttribute(indices, 1));
     }
+    geometry.computeVertexNormals();
+    return geometry;
+  } catch (err) {
+    console.error('Error converting rhino mesh to THREE.BufferGeometry:', err);
+    return null;
+  }
+}
 
-    if (positions.length >= 9) {
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      if (indices.length > 0) {
-        geometry.setIndex(new THREE.Uint32BufferAttribute(indices, 1));
+function extractSubDCageWireframe(subd) {
+  const linePairs = [];
+  try {
+    const edges = typeof subd.edges === 'function' ? subd.edges() : subd.edges;
+    const count = edges ? (typeof edges.count === 'function' ? edges.count() : (edges.count || 0)) : 0;
+    for (let i = 0; i < count; i++) {
+      const edge = edges.get(i);
+      const line = typeof edge.toLine === 'function' ? edge.toLine() : edge.toLine;
+      if (line) {
+        const pA = line.from;
+        const pB = line.to;
+        linePairs.push({
+          start: { x: pA[0], y: pA[1], z: pA[2] },
+          end: { x: pB[0], y: pB[1], z: pB[2] }
+        });
       }
-      geometry.computeVertexNormals();
-      geometry.computeBoundingBox();
-      geometry.computeBoundingSphere();
-      return geometry;
     }
   } catch (err) {}
-  return null;
+  return linePairs;
 }
 
 function sampleCurveTo3DLines(curve) {
@@ -1215,6 +1066,8 @@ function setCameraProjection(proj) {
 
 function updateDisplayModeVisibility() {
   if (!importedRhinoGroup) return;
+  const mode = appState.displayMode;
+
   importedRhinoGroup.children.forEach(child => {
     const isObjVisible = appState.objectVisibilityMap[child.name] !== false;
     child.visible = isObjVisible;
@@ -1284,10 +1137,6 @@ function toggleAllObjectVisibility() {
   updateDisplayModeVisibility();
 }
 
-// ============================================================================
-// 8. SAMPLE SEED GENERATOR (Generates SOURCE_SUBD + DISPLAY_MESH companion)
-// ============================================================================
-
 async function loadSampleSeed() {
   console.log('[RHINO] 1 File selected (Sample Seed)');
 
@@ -1316,50 +1165,41 @@ async function loadSampleSeed() {
   try {
     const doc = new rhino.File3dm();
 
-    // Layer 1: SOURCE_SUBD
-    const srcLayer = new rhino.Layer();
-    srcLayer.name = 'SOURCE_SUBD';
-    doc.layers().add(srcLayer);
-
-    // Layer 2: DISPLAY_MESH
-    const dspLayer = new rhino.Layer();
-    dspLayer.name = 'DISPLAY_MESH';
-    doc.layers().add(dspLayer);
-
-    // Quad mesh vault
-    const mesh = new rhino.Mesh();
-    mesh.vertices().add(-50, -50, 0);
-    mesh.vertices().add(50, -50, 0);
-    mesh.vertices().add(50, 50, 0);
-    mesh.vertices().add(-50, 50, 0);
-    mesh.vertices().add(-50, -50, 80);
-    mesh.vertices().add(50, -50, 80);
-    mesh.vertices().add(50, 50, 80);
-    mesh.vertices().add(-50, 50, 80);
-
-    mesh.faces().addFace(0, 1, 2, 3);
-    mesh.faces().addFace(4, 5, 6, 7);
-    mesh.faces().addFace(0, 1, 5, 4);
-    mesh.faces().addFace(1, 2, 6, 5);
-    mesh.faces().addFace(2, 3, 7, 6);
-    mesh.faces().addFace(3, 0, 4, 7);
-
-    // Add SOURCE_SUBD object
+    let subd = null;
     if (rhino.SubD && rhino.SubD.createFromMesh) {
-      const subd = rhino.SubD.createFromMesh(mesh);
-      if (subd) {
-        const attrSrc = new rhino.ObjectAttributes();
-        attrSrc.name = 'SPACE_01';
-        attrSrc.layerIndex = 0;
-        doc.objects().add(subd, attrSrc);
-      }
+      const mesh = new rhino.Mesh();
+      mesh.vertices().add(-50, -50, 0);
+      mesh.vertices().add(50, -50, 0);
+      mesh.vertices().add(50, 50, 0);
+      mesh.vertices().add(-50, 50, 0);
+      mesh.vertices().add(-50, -50, 80);
+      mesh.vertices().add(50, -50, 80);
+      mesh.vertices().add(50, 50, 80);
+      mesh.vertices().add(-50, 50, 80);
+
+      mesh.faces().addFace(0, 1, 2, 3);
+      mesh.faces().addFace(4, 5, 6, 7);
+      mesh.faces().addFace(0, 1, 5, 4);
+      mesh.faces().addFace(1, 2, 6, 5);
+      mesh.faces().addFace(2, 3, 7, 6);
+      mesh.faces().addFace(3, 0, 4, 7);
+
+      subd = rhino.SubD.createFromMesh(mesh);
     }
 
-    // Add DISPLAY_MESH companion object
-    const attrDsp = new rhino.ObjectAttributes();
-    attrDsp.name = 'SPACE_01_DISPLAY';
-    attrDsp.layerIndex = 1;
-    doc.objects().add(mesh, attrDsp);
+    if (subd) {
+      const attr = new rhino.ObjectAttributes();
+      attr.name = 'Sample SubD Vault';
+      doc.objects().add(subd, attr);
+    } else {
+      const ptList = new rhino.Point3dCollection();
+      ptList.add(-60, 0, 0);
+      ptList.add(-30, 0, 90);
+      ptList.add(30, 0, 90);
+      ptList.add(60, 0, 0);
+      const curve = rhino.NurbsCurve.create(false, 3, ptList);
+      doc.objects().add(curve, null);
+    }
 
     const bytes = doc.toByteArray();
     if (dbgFileSize) dbgFileSize.textContent = `${bytes.byteLength} bytes`;
