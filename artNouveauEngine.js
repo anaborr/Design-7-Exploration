@@ -1,165 +1,85 @@
 /**
  * ============================================================================
- * ART NOUVEAU GEOMETRIC SYSTEM - MUTATION ENGINE (STAGE A: TRANSFORM)
- * Applies parametric geometric transformations (Floor -> Wall, Wall -> Ceiling,
- * Floor -> Ramp, Floor -> Seating) directly to imported Rhino 3D geometry vertices.
+ * ART NOUVEAU FORM-FINDING ENGINE
+ * Applies Art Nouveau structural transformations (whiplash curves, S-curves,
+ * continuous floor-wall-ceiling transitions, branching supports) directly onto the
+ * spatial topology graph.
  * ============================================================================
  */
 
-function mutateRhinoGeometry(sourceObjects, options) {
-  if (!sourceObjects || sourceObjects.length === 0) return null;
+function generateArtNouveauGeometry(topology, width, height, seed, designIntent) {
+  const datumY = topology.plates[0]?.y1 || height * 0.82;
+  const spanWidth = width * 0.8;
+  const marginX = width * 0.1;
 
-  console.log('[ART NOUVEAU ENGINE] Executing Stage A TRANSFORM mutation with options:', options);
+  // Curvature & structural strength derived from design intent
+  const whiplashCurvature = designIntent.dynamic === 'HIGH' || designIntent.dynamic === 'PRIMARY' ? 55 : 35;
+  const primaryDominance = designIntent.hierarchy === 'PRIMARY' || designIntent.hierarchy === 'HIGH' ? 1.4 : 1.0;
 
-  const rule = options.rule || 'TRANSFORM';
-  const transformType = options.transformType || 'FloorWall';
-  const influenceRegion = options.influenceRegion || 'UPPER';
-  const bendAngleDeg = options.bendAngle !== undefined ? options.bendAngle : 35;
-  const curvatureLevel = options.curvature || 'MEDIUM';
-  const mutationStrength = options.mutationStrength !== undefined ? options.mutationStrength : 30;
+  // 1. Primary Vault Profile derived from Topology Plates & Voids
+  const points = [];
+  const ribCount = Math.max(5, topology.plates.length * 2 + 2);
+  const baselineY = height * 0.42;
 
-  const bendRad = (bendAngleDeg * Math.PI) / 180;
-  const strengthFactor = mutationStrength / 100;
-  const curvatureExponent = curvatureLevel === 'HIGH' ? 0.6 : (curvatureLevel === 'LOW' ? 2.0 : 1.0);
+  for (let i = 0; i < ribCount; i++) {
+    const t = i / (ribCount - 1);
+    const x = marginX + t * spanWidth;
 
-  // 1. Calculate global 3D domain bounds across all source objects
-  let minX = Infinity, minY = Infinity, minZ = Infinity;
-  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    // Calculate vertical position: Art Nouveau whiplash S-curve inflection
+    const waveDirection = (i % 2 === 0) ? -1 : 1;
+    const amp = (whiplashCurvature / 100) * (height * 0.28);
+    const yOffset = waveDirection * amp * (0.6 + seededRandom(seed + i * 11) * 0.5) * primaryDominance;
 
-  sourceObjects.forEach((obj) => {
-    if (obj.bounds && obj.bounds.min && obj.bounds.max) {
-      minX = Math.min(minX, obj.bounds.min.x);
-      minY = Math.min(minY, obj.bounds.min.y);
-      minZ = Math.min(minZ, obj.bounds.min.z);
-      maxX = Math.max(maxX, obj.bounds.max.x);
-      maxY = Math.max(maxY, obj.bounds.max.y);
-      maxZ = Math.max(maxZ, obj.bounds.max.z);
-    }
-  });
+    let y = baselineY + yOffset;
 
-  if (minX === Infinity) {
-    minX = -50; minY = -50; minZ = -50;
-    maxX = 50; maxY = 50; maxZ = 50;
+    // Adjust height for typology plates & voids
+    topology.voids.forEach(v => {
+      const dist = Math.abs(x - v.cx);
+      if (dist < v.rx * 1.5) {
+        y -= (1 - dist / (v.rx * 1.5)) * (v.ry * 0.8);
+      }
+    });
+
+    points.push({ x: clamp(x, marginX, width - marginX), y: clamp(y, height * 0.12, datumY - 35) });
   }
 
-  const spanX = maxX - minX || 1;
-  const spanY = maxY - minY || 1;
-  const spanZ = maxZ - minZ || 1;
-  const midZ = (minZ + maxZ) / 2;
-  const midX = (minX + maxX) / 2;
+  // 2. Continuous Floor-Wall-Ceiling Structural Spline
+  const primarySplineD = getCatmullRomBezierPath(points);
 
-  // 2. Clone parent objects and apply vertex spatial transformation
-  const mutatedObjects = sourceObjects.map((obj, objIdx) => {
-    const clonedObj = {
-      index: obj.index,
-      id: `${obj.id}_G1`,
-      name: `${obj.name}_MUTATED`,
-      layerIndex: obj.layerIndex,
-      type: obj.type,
-      rhinoType: obj.rhinoType,
-      ctorName: obj.ctorName,
-      geom: obj.geom,
-      bounds: obj.bounds ? JSON.parse(JSON.stringify(obj.bounds)) : null
-    };
+  // 3. Secondary Offset Line (Slab & Wall Thickness)
+  const offsetPoints = points.map(pt => ({ x: pt.x, y: pt.y + 16 }));
+  const secondarySplineD = getCatmullRomBezierPath(offsetPoints);
 
-    // Transform SubD / Mesh vertices or 3D curve domain
-    if (obj.geom) {
-      try {
-        const vList = typeof obj.geom.vertices === 'function' ? obj.geom.vertices() : obj.geom.vertices;
-        if (vList) {
-          const vCount = typeof vList.count === 'function' ? vList.count() : (vList.count || 0);
+  // 4. Branching Support Ribs
+  const branchingRibs = [];
+  topology.plates.forEach((plate, idx) => {
+    if (idx > 0) {
+      const startPt = { x: plate.x1, y: plate.y1 };
+      const endPt = { x: plate.x2, y: plate.y2 };
+      const midX = (startPt.x + endPt.x) / 2;
+      const midY = (startPt.y + endPt.y) / 2 - 40;
 
-          for (let i = 0; i < vCount; i++) {
-            const v = vList.get(i);
-            const loc = typeof v.location === 'function' ? v.location() : v.location;
-            if (!loc) continue;
-
-            let x = loc[0];
-            let y = loc[1];
-            let z = loc[2];
-
-            // Determine influence factor w in [0, 1]
-            let w = 0.0;
-            switch (influenceRegion) {
-              case 'UPPER':
-                w = Math.max(0, (z - (minZ + spanZ * 0.4)) / (spanZ * 0.6));
-                break;
-              case 'LOWER':
-                w = Math.max(0, ((minZ + spanZ * 0.6) - z) / (spanZ * 0.6));
-                break;
-              case 'MIDDLE':
-                w = 1.0 - Math.min(1.0, Math.abs(z - midZ) / (spanZ * 0.4));
-                break;
-              case 'START':
-                w = Math.max(0, ((minX + spanX * 0.5) - x) / (spanX * 0.5));
-                break;
-              case 'CENTER':
-                w = 1.0 - Math.min(1.0, Math.abs(x - midX) / (spanX * 0.4));
-                break;
-              case 'END':
-                w = Math.max(0, (x - (minX + spanX * 0.5)) / (spanX * 0.5));
-                break;
-              case 'WHOLE':
-              default:
-                w = 1.0;
-                break;
-            }
-
-            w = Math.pow(Math.min(1.0, Math.max(0.0, w)), curvatureExponent);
-
-            if (w > 0.001) {
-              const localAngle = bendRad * strengthFactor * w;
-              const hOffset = (z - minZ);
-
-              // Apply smooth transformation curve
-              let dx = 0, dy = 0, dz = 0;
-              if (transformType === 'FloorWall' || transformType === 'WallCeiling') {
-                dx = -Math.sin(localAngle) * hOffset * 0.4;
-                dz = (Math.cos(localAngle) - 1.0) * hOffset * 0.4 + (spanZ * 0.15 * strengthFactor * w);
-                dy = Math.sin(Math.PI * w) * (spanY * 0.2 * strengthFactor);
-              } else if (transformType === 'FloorRamp') {
-                dz = w * spanZ * 0.3 * strengthFactor;
-                dx = w * spanX * 0.1 * strengthFactor;
-              } else if (transformType === 'FloorSeating') {
-                dy = -Math.sin(localAngle) * hOffset * 0.3;
-                dz = (Math.cos(localAngle) - 1.0) * hOffset * 0.2;
-              }
-
-              // Update vertex position
-              const newX = x + dx;
-              const newY = y + dy;
-              const newZ = z + dz;
-
-              if (typeof v.setPoint === 'function') {
-                v.setPoint(newX, newY, newZ);
-              } else if (v.location) {
-                loc[0] = newX;
-                loc[1] = newY;
-                loc[2] = newZ;
-              }
-            }
-          }
-        }
-      } catch (err) {
-        console.warn(`[MUTATION WARNING] Vertex displacement warning for object ${obj.id}:`, err);
-      }
+      branchingRibs.push({
+        pathD: `M ${startPt.x.toFixed(1)},${startPt.y.toFixed(1)} Q ${midX.toFixed(1)},${midY.toFixed(1)} ${endPt.x.toFixed(1)},${endPt.y.toFixed(1)}`
+      });
     }
-
-    return clonedObj;
   });
 
+  // 5. Section Fill Path
+  const firstPt = points[0];
+  const lastPt = points[points.length - 1];
+  const sectionFillD = `${primarySplineD} L ${lastPt.x.toFixed(1)},${datumY.toFixed(1)} L ${firstPt.x.toFixed(1)},${datumY.toFixed(1)} Z`;
+
   return {
-    parentID: 'G0',
-    generation: 1,
-    recipe: {
-      rule: rule,
-      transformType: transformType,
-      influenceRegion: influenceRegion,
-      bendAngle: bendAngleDeg,
-      curvature: curvatureLevel,
-      mutationStrength: mutationStrength,
-      dnaPreservation: 'HIGH (75-90%)'
-    },
-    mutatedObjects: mutatedObjects
+    datumY,
+    width,
+    height,
+    spanWidth,
+    points,
+    primarySplineD,
+    secondarySplineD,
+    sectionFillD,
+    branchingRibs,
+    topology
   };
 }

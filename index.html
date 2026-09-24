@@ -59,101 +59,17 @@
     <!-- MAIN WORKSPACE -->
     <main id="workspace">
       
-      <!-- LEFT SIDEBAR: GENERATION TREE & ART NOUVEAU SYSTEM -->
+      <!-- LEFT SIDEBAR: GENERATION TREE LINEAGE -->
       <aside id="sidebar-left" class="sidebar">
         <div class="sidebar-header">
-          <h2>ART NOUVEAU GEOMETRIC SYSTEM</h2>
-          <p class="subtitle">Parametric mutation engine derived from Art Nouveau geometric grammar.</p>
+          <h2>GENERATION HISTORY</h2>
+          <p class="subtitle">Multi-generation lineage tree descending from imported Rhino seed.</p>
         </div>
 
         <div class="sidebar-scrollable" id="generation-tree-container">
-          
-          <!-- PRIMARY RULES PANEL -->
-          <div class="info-card">
-            <div class="info-label">PRIMARY RULES</div>
-            <div style="display:flex; flex-wrap:wrap; gap:0.35rem; margin-bottom:0.6rem;">
-              <span class="delta-badge neutral">CONTINUE</span>
-              <span class="delta-badge neutral">BRANCH</span>
-              <span class="delta-badge neutral">MERGE</span>
-              <span class="delta-badge pos">TRANSFORM (STAGE A)</span>
-              <span class="delta-badge neutral">INTERLOCK</span>
-              <span class="delta-badge neutral">GROW</span>
-            </div>
-
-            <!-- STAGE A: TRANSFORM PARAMETERS -->
-            <div style="display:flex; flex-direction:column; gap:0.55rem; font-size:0.75rem;">
-              <div>
-                <label>Transformation Type:</label>
-                <select id="param-transform-type" style="width:100%; padding:0.25rem; background:#1e1e1e; color:#fff; border:1px solid #333; border-radius:4px;">
-                  <option value="FloorWall">Floor &rarr; Wall</option>
-                  <option value="WallCeiling">Wall &rarr; Ceiling</option>
-                  <option value="FloorRamp">Floor &rarr; Ramp</option>
-                  <option value="FloorSeating">Floor &rarr; Seating</option>
-                </select>
-              </div>
-
-              <div>
-                <label>Influence Region:</label>
-                <select id="param-influence-region" style="width:100%; padding:0.25rem; background:#1e1e1e; color:#fff; border:1px solid #333; border-radius:4px;">
-                  <option value="UPPER" selected>UPPER REGION</option>
-                  <option value="MIDDLE">MIDDLE REGION</option>
-                  <option value="LOWER">LOWER REGION</option>
-                  <option value="WHOLE">WHOLE FORM</option>
-                  <option value="START">START REGION</option>
-                  <option value="CENTER">CENTER REGION</option>
-                  <option value="END">END REGION</option>
-                </select>
-              </div>
-
-              <div>
-                <label>Bend Angle: <span id="val-bend-angle" style="color:var(--accent-gold);">35&deg;</span></label>
-                <input type="range" id="param-bend-angle" min="0" max="90" value="35" style="width:100%;">
-              </div>
-
-              <div>
-                <label>Curvature:</label>
-                <select id="param-curvature" style="width:100%; padding:0.25rem; background:#1e1e1e; color:#fff; border:1px solid #333; border-radius:4px;">
-                  <option value="LOW">LOW</option>
-                  <option value="MEDIUM" selected>MEDIUM</option>
-                  <option value="HIGH">HIGH</option>
-                </select>
-              </div>
-
-              <div>
-                <label>Mutation Strength: <span id="val-mutation-strength" style="color:var(--accent-gold);">30%</span></label>
-                <input type="range" id="param-mutation-strength" min="0" max="100" value="30" style="width:100%;">
-              </div>
-
-              <div class="delta-row">
-                <span>DNA Preservation:</span>
-                <span id="val-dna-preservation" class="delta-badge pos">HIGH (75-90%)</span>
-              </div>
-
-              <button id="btn-test-mutation" class="header-btn accent" style="width:100%; margin-top:0.4rem; justify-content:center;">
-                TEST MUTATION (STAGE A)
-              </button>
-            </div>
+          <div class="tree-placeholder-note">
+            Import a Rhino .3dm file to establish Generation 0 seed.
           </div>
-
-          <!-- MUTATION RECIPE CARD -->
-          <div class="info-card" id="mutation-recipe-card" style="display:none; border:1px solid #4a90e2; background:#0d1117;">
-            <div class="info-label" style="color:#4a90e2;">DESCENDANT RECIPE (G1-01)</div>
-            <div class="delta-row"><span>Parent ID:</span><span class="delta-badge neutral">G0 (Rhino Seed)</span></div>
-            <div class="delta-row"><span>Active Rule:</span><span class="delta-badge pos">TRANSFORM</span></div>
-            <div class="delta-row"><span>Region:</span><span id="rcp-region" class="delta-badge neutral">UPPER</span></div>
-            <div class="delta-row"><span>Bend Angle:</span><span id="rcp-bend" class="delta-badge neutral">35&deg;</span></div>
-            <div class="delta-row"><span>Mutation:</span><span id="rcp-mutation" class="delta-badge neutral">30%</span></div>
-            <div class="delta-row"><span>Preservation:</span><span class="delta-badge pos">HIGH</span></div>
-          </div>
-
-          <!-- LINEAGE TREE CARD -->
-          <div class="info-card">
-            <div class="info-label">LINEAGE TREE</div>
-            <div class="tree-placeholder-note">
-              Import a Rhino .3dm file to establish Generation 0 seed.
-            </div>
-          </div>
-
         </div>
       </aside>
 
@@ -204,22 +120,6 @@
             <div>3D Bounds: X:<span id="diag-x-range">0</span> Y:<span id="diag-y-range">0</span> Z:<span id="diag-z-range">0</span></div>
             <div>Rhino Units: <span id="diag-units">mm</span> | Projection: <span id="diag-projection">FRONT (XZ)</span></div>
             <div>Status: <span id="diag-status" class="diag-ok">SEED LOADED</span></div>
-            
-            <!-- 11-STAGE EXECUTION TRACE BOX -->
-            <div id="import-trace-box" style="margin-top:0.4rem; padding:0.4rem; background:rgba(0,0,0,0.6); border:1px solid #333; font-size:0.7rem; font-family:monospace; line-height:1.3;">
-              <div style="font-weight:bold; color:var(--accent-gold); margin-bottom:0.2rem;">IMPORT TRACE</div>
-              <div>[1] FILE EVENT: <span id="tr-1" style="color:#aaa;">WAITING</span></div>
-              <div>[2] ARRAY BUFFER: <span id="tr-2" style="color:#aaa;">WAITING</span></div>
-              <div>[3] FILE3DM: <span id="tr-3" style="color:#aaa;">WAITING</span></div>
-              <div>[4] OBJECT TABLE: <span id="tr-4" style="color:#aaa;">WAITING</span></div>
-              <div>[5] RAW OBJECTS: <span id="tr-5" style="color:#aaa;">WAITING</span></div>
-              <div>[6] CLASSIFIED: <span id="tr-6" style="color:#aaa;">WAITING</span></div>
-              <div>[7] CONVERTED: <span id="tr-7" style="color:#aaa;">WAITING</span></div>
-              <div>[8] ADDED TO THREE.JS: <span id="tr-8" style="color:#aaa;">WAITING</span></div>
-              <div>[9] BBOX VALID: <span id="tr-9" style="color:#aaa;">WAITING</span></div>
-              <div>[10] CAMERA FIT: <span id="tr-10" style="color:#aaa;">WAITING</span></div>
-              <div>[11] MODEL VISIBLE: <span id="tr-11" style="color:#aaa;">WAITING</span></div>
-            </div>
           </div>
         </div>
 
@@ -239,13 +139,6 @@
               <button class="view-toggle-btn active" data-view="SURFACE">SUBD SURFACE</button>
               <button class="view-toggle-btn" data-view="CAGE">CONTROL CAGE</button>
               <button class="view-toggle-btn" data-view="OVERLAY">OVERLAY (BOTH)</button>
-            </div>
-            <!-- PARENT VS CHILD COMPARISON TOGGLES -->
-            <div class="viewer-toggles" id="comparison-toggles" style="display:none;">
-              <span class="proj-label">COMPARE:</span>
-              <button class="cmp-toggle-btn active" data-cmp="CHILD">CHILD ONLY</button>
-              <button class="cmp-toggle-btn" data-cmp="PARENT">PARENT ONLY</button>
-              <button class="cmp-toggle-btn" data-cmp="OVERLAY">OVERLAY (BOTH)</button>
             </div>
           </div>
         </div>
@@ -316,27 +209,28 @@
             <div class="delta-row"><span>RENDER STATUS:</span><span id="rnd-status" class="delta-badge neutral">PENDING</span></div>
           </div>
 
-          <!-- SOURCE & DISPLAY GEOMETRY PAIRING DIAGNOSTICS CARD -->
-          <div class="info-card" id="source-display-pairing-card" style="border: 2px solid #32cd32; background: #111;">
-            <div class="info-label" style="color: #32cd32; font-size: 0.85rem; font-weight: 700;">SOURCE & DISPLAY DIAGNOSTICS</div>
-            <div style="font-weight:600; color:#aaa; margin-top:0.25rem; font-size:0.75rem;">SOURCE GEOMETRY</div>
+          <!-- SOURCE & DISPLAY ARCHITECTURE CARD -->
+          <div class="info-card" id="subd-mesh-architecture-card" style="border: 2px solid #ffd700; background: #111;">
+            <div class="info-label" style="color: #ffd700; font-size: 0.85rem; font-weight: 700;">SOURCE & DISPLAY ARCHITECTURE</div>
+            
+            <div style="font-weight: 700; color: #ffd700; margin-top: 0.25rem;">SOURCE GEOMETRY</div>
             <div class="delta-row"><span>SubD Objects:</span><span id="src-subd-count" class="delta-badge pos">0</span></div>
             <div class="delta-row"><span>SubD Source Stored:</span><span id="src-subd-stored" class="delta-badge pos">0</span></div>
             
-            <div style="font-weight:600; color:#aaa; margin-top:0.4rem; font-size:0.75rem;">DISPLAY GEOMETRY</div>
-            <div class="delta-row"><span>Display Meshes:</span><span id="dsp-mesh-count" class="delta-badge pos">0</span></div>
-            <div class="delta-row"><span>Meshes Converted:</span><span id="dsp-mesh-conv" class="delta-badge pos">0</span></div>
-            <div class="delta-row"><span>Three.js Objects:</span><span id="dsp-three-count" class="delta-badge pos">0</span></div>
+            <div style="font-weight: 700; color: #4a90e2; margin-top: 0.25rem;">DISPLAY GEOMETRY</div>
+            <div class="delta-row"><span>Display Meshes:</span><span id="dsp-mesh-count" class="delta-badge neutral">0</span></div>
+            <div class="delta-row"><span>Meshes Converted:</span><span id="dsp-mesh-conv" class="delta-badge neutral">0</span></div>
+            <div class="delta-row"><span>Three.js Objects:</span><span id="dsp-three-objs" class="delta-badge neutral">0</span></div>
 
-            <div style="font-weight:600; color:#aaa; margin-top:0.4rem; font-size:0.75rem;">PAIRING</div>
-            <div class="delta-row"><span>SubD/Mesh Pairs:</span><span id="pair-count" class="delta-badge pos">0</span></div>
-            <div class="delta-row"><span>Unpaired SubD:</span><span id="pair-unpaired-subd" class="delta-badge neutral">0</span></div>
-            <div class="delta-row"><span>Unpaired Meshes:</span><span id="pair-unpaired-mesh" class="delta-badge neutral">0</span></div>
+            <div style="font-weight: 700; color: #aaa; margin-top: 0.25rem;">PAIRING</div>
+            <div class="delta-row"><span>SubD/Mesh Pairs:</span><span id="pair-count" class="delta-badge neutral">0</span></div>
+            <div class="delta-row"><span>Unpaired SubD:</span><span id="unpair-subd" class="delta-badge neutral">0</span></div>
+            <div class="delta-row"><span>Unpaired Meshes:</span><span id="unpair-mesh" class="delta-badge neutral">0</span></div>
 
-            <div style="font-weight:600; color:#aaa; margin-top:0.4rem; font-size:0.75rem;">VIEWER</div>
-            <div class="delta-row"><span>Bounding Box:</span><span id="vwr-bbox" class="delta-badge pos">VALID</span></div>
-            <div class="delta-row"><span>Camera Fit:</span><span id="vwr-cam-fit" class="delta-badge pos">YES</span></div>
-            <div class="delta-row"><span>Render Status:</span><span id="vwr-status" class="delta-badge pos">SUCCESS</span></div>
+            <div style="font-weight: 700; color: #aaa; margin-top: 0.25rem;">VIEWER</div>
+            <div class="delta-row"><span>Bounding Box:</span><span id="vwr-bbox" class="delta-badge neutral">EMPTY</span></div>
+            <div class="delta-row"><span>Camera Fit:</span><span id="vwr-cam-fit" class="delta-badge neutral">NO</span></div>
+            <div class="delta-row"><span>Render Status:</span><span id="vwr-render" class="delta-badge neutral">PENDING</span></div>
           </div>
 
           <!-- RAW RHINO IMPORT CARD -->
