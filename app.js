@@ -527,7 +527,10 @@ function parseRhinoObjects(doc, filename) {
     } else if (typeInt === rhino.ObjectType.SubD) {
       subdCount++;
       subdObjectsInMemory.push(geom);
-      buildSubDCageOverlay(geom);
+      const subdMesh = convertSubDToMesh(geom);
+      if (subdMesh) {
+        buildThreeMesh(subdMesh);
+      }
     }
   }
 
@@ -629,6 +632,33 @@ function buildThreeCurve(curveGeom) {
 
     originalCurves.push({ line, originalPositions: posArray });
   }
+/**
+ * CONVERT RHINO SUBD GEOMETRY TO MESH (NO CONTROL CAGE WIREFRAME)
+ */
+function convertSubDToMesh(subdGeom) {
+  if (!subdGeom) return null;
+  let mesh = null;
+  try {
+    if (rhino.Mesh.createFromSubD) {
+      mesh = rhino.Mesh.createFromSubD(subdGeom);
+    }
+  } catch (e) {
+    console.warn('[SUBD] rhino.Mesh.createFromSubD failed, falling back:', e);
+  }
+
+  if (!mesh && typeof subdGeom.toMesh === 'function') {
+    try {
+      mesh = subdGeom.toMesh();
+    } catch (e) {}
+  }
+
+  if (!mesh && rhino.Mesh.createFromSubDControlNet) {
+    try {
+      mesh = rhino.Mesh.createFromSubDControlNet(subdGeom, false);
+    } catch (e) {}
+  }
+
+  return mesh;
 }
 
 function buildSubDCageOverlay(subdGeom) {
