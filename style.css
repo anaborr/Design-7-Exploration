@@ -165,9 +165,8 @@ body, html {
   z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 10px;
-  overflow-y: auto;
+  padding: 8px 8px;
+  overflow: hidden;
 }
 
 .app-sidebar::-webkit-scrollbar {
@@ -186,6 +185,80 @@ body, html {
 .right-sidebar {
   width: 310px;
   border-left: 1px solid #171a21;
+}
+
+/* ----------------------------------------------------------------------------
+   SIDEBAR TOP-LEVEL MAIN TAB SYSTEM
+   ---------------------------------------------------------------------------- */
+.sidebar-main-tabbar {
+  display: flex;
+  background: #060709;
+  border-bottom: 1px solid #171a21;
+  padding: 4px 4px 0 4px;
+  gap: 3px;
+  flex-shrink: 0;
+  margin-bottom: 8px;
+  border-radius: 6px 6px 0 0;
+}
+
+.sidebar-main-tab-btn {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.02);
+  color: #64748b;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 5px 5px 0 0;
+  padding: 6px 4px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-main-tab-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.left-sidebar .sidebar-main-tab-btn.active {
+  background: rgba(223, 177, 91, 0.14);
+  color: #dfb15b;
+  border-color: rgba(223, 177, 91, 0.35);
+  border-bottom: 2px solid #dfb15b;
+}
+
+.right-sidebar .sidebar-main-tab-btn.active {
+  background: rgba(70, 217, 230, 0.14);
+  color: #46d9e6;
+  border-color: rgba(70, 217, 230, 0.35);
+  border-bottom: 2px solid #46d9e6;
+}
+
+.sidebar-main-tab-content {
+  display: none;
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.sidebar-main-tab-content::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-main-tab-content::-webkit-scrollbar-thumb {
+  background: #222733;
+  border-radius: 2px;
+}
+
+.sidebar-main-tab-content.active {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 /* ----------------------------------------------------------------------------

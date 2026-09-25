@@ -47,189 +47,206 @@
   </header>
 
   <!-- MAIN APP CONTAINER -->
-  <div class="app-main-layout">
+  <div class="app-main-layout">  <div class="app-main-layout">
 
-    <!-- LEFT SIDEBAR: LINEAGE & DOMAIN B DNA -->
+    <!-- LEFT SIDEBAR: DOMAIN B DNA, METRICS & LINEAGE (TABBED) -->
     <aside id="left-sidebar" class="app-sidebar left-sidebar">
       
-      <!-- CARD 1: LINEAGE HISTORY -->
-      <div class="sidebar-card">
-        <div class="sidebar-card-header" onclick="toggleSidebarCard('card-lineage')">
-          <div class="card-header-titles">
-            <h2 class="sidebar-title">GENERATION HISTORY</h2>
-            <p class="sidebar-subtitle">Multi-generation lineage tree descending from seed.</p>
+      <!-- TOP SIDEBAR TAB BAR -->
+      <div class="sidebar-main-tabbar">
+        <button class="sidebar-main-tab-btn active" onclick="switchMainSidebarTab('left', 'dna', this)">
+          🧬 DNA CONTROLS
+        </button>
+        <button class="sidebar-main-tab-btn" onclick="switchMainSidebarTab('left', 'metrics', this)">
+          📊 METRICS & RULES
+        </button>
+        <button class="sidebar-main-tab-btn" onclick="switchMainSidebarTab('left', 'lineage', this)">
+          🌳 LINEAGE
+        </button>
+      </div>
+
+      <!-- TAB CONTENT 1: DOMAIN B DNA SLIDERS -->
+      <div id="maintab-left-dna" class="sidebar-main-tab-content active">
+        <div class="sidebar-card gold-accent">
+          <div class="sidebar-card-header">
+            <div class="card-header-titles">
+              <h2 class="sidebar-title gold">DOMAIN B — ART NOUVEAU DNA</h2>
+              <p class="sidebar-subtitle">Rule-based shape grammar transformation engine.</p>
+            </div>
           </div>
-          <span class="card-toggle-icon" id="toggle-card-lineage">−</span>
-        </div>
-        <div class="sidebar-card-body" id="card-lineage">
-          <div id="lineage-history-tree" class="lineage-tree">
-            <div class="lineage-placeholder-msg">
-              Import a Rhino .3dm file or load a sample seed to establish Generation 0 seed.
+
+          <div class="sidebar-card-body">
+            <!-- SIX PRIMARY TRANSFORMATION SLIDERS -->
+            <div class="dna-sliders-container">
+              <!-- CONTINUITY -->
+              <div class="slider-group-dna">
+                <div class="slider-label-dna">
+                  <span class="dna-title">CONTINUITY (C)</span>
+                  <span class="qual-badge badge-c" id="badge-dna-c">INDEPENDENT</span>
+                  <span class="val-dna" id="val-dna-c">0%</span>
+                </div>
+                <input type="range" id="slider-dna-c" min="0" max="100" value="0" class="slider slider-gold">
+              </div>
+
+              <!-- BRANCHING -->
+              <div class="slider-group-dna">
+                <div class="slider-label-dna">
+                  <span class="dna-title">BRANCHING (B)</span>
+                  <span class="qual-badge badge-b" id="badge-dna-b">SINGULAR</span>
+                  <span class="val-dna" id="val-dna-b">0%</span>
+                </div>
+                <input type="range" id="slider-dna-b" min="0" max="100" value="0" class="slider slider-gold">
+              </div>
+
+              <!-- WHIPLASH CURVATURE -->
+              <div class="slider-group-dna">
+                <div class="slider-label-dna">
+                  <span class="dna-title">WHIPLASH CURVATURE (W)</span>
+                  <span class="qual-badge badge-w" id="badge-dna-w">LINEAR</span>
+                  <span class="val-dna" id="val-dna-w">0%</span>
+                </div>
+                <input type="range" id="slider-dna-w" min="0" max="100" value="0" class="slider slider-gold">
+              </div>
+
+              <!-- MERGING SURFACES -->
+              <div class="slider-group-dna">
+                <div class="slider-label-dna">
+                  <span class="dna-title">MERGING SURFACES (M)</span>
+                  <span class="qual-badge badge-m" id="badge-dna-m">INDEPENDENT</span>
+                  <span class="val-dna" id="val-dna-m">0%</span>
+                </div>
+                <input type="range" id="slider-dna-m" min="0" max="100" value="0" class="slider slider-gold">
+              </div>
+
+              <!-- POSITIVE / NEGATIVE SPACE -->
+              <div class="slider-group-dna">
+                <div class="slider-label-dna">
+                  <span class="dna-title">POS / NEG SPACE (V)</span>
+                  <span class="qual-badge badge-v" id="badge-dna-v">SOLID / ENCLOSED</span>
+                  <span class="val-dna" id="val-dna-v">0%</span>
+                </div>
+                <input type="range" id="slider-dna-v" min="0" max="100" value="0" class="slider slider-gold">
+              </div>
+
+              <!-- GROWTH / AGGREGATION -->
+              <div class="slider-group-dna">
+                <div class="slider-label-dna">
+                  <span class="dna-title">GROWTH / AGGREGATION (G)</span>
+                  <span class="qual-badge badge-g" id="badge-dna-g">CONTAINED</span>
+                  <span class="val-dna" id="val-dna-g">0%</span>
+                </div>
+                <input type="range" id="slider-dna-g" min="0" max="100" value="0" class="slider slider-gold">
+              </div>
+            </div>
+
+            <!-- FORM DNA VECTOR READOUT -->
+            <div class="form-dna-box">
+              <div class="dna-box-header">FORM DNA</div>
+              <div class="dna-vector-code" id="readout-form-dna">0 / 0 / 0 / 0 / 0 / 0</div>
+              <div class="dna-principles-row">
+                <div>DOMINANT: <span id="readout-dominant-principle" class="val-gold">CONTINUITY</span></div>
+                <div>SECONDARY: <span id="readout-secondary-principle" class="val-white">BRANCHING</span></div>
+              </div>
+            </div>
+
+            <!-- SEED IDENTITY PROTECTION -->
+            <div class="identity-box">
+              <div class="id-row">
+                <span class="ctrl-label">SEED IDENTITY:</span>
+                <span id="val-seed-identity" class="val-gold highlight-gold" style="font-size:11px; font-weight:800;">100%</span>
+              </div>
+              <div class="slider-group-compact" style="margin-top:2px;">
+                <div class="slider-label">
+                  <span>Preserve Seed Identity Min:</span>
+                  <span id="val-seed-identity-threshold" class="highlight-gold">75%</span>
+                </div>
+                <input type="range" id="slider-seed-identity-threshold" min="50" max="95" value="75" class="slider">
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- CARD 2: DOMAIN B — ART NOUVEAU DNA -->
-      <div class="sidebar-card gold-accent">
-        <div class="sidebar-card-header" onclick="toggleSidebarCard('card-domain-b')">
-          <div class="card-header-titles">
-            <h2 class="sidebar-title gold">DOMAIN B — ART NOUVEAU DNA</h2>
-            <p class="sidebar-subtitle">Rule-based shape grammar transformation engine.</p>
-          </div>
-          <span class="card-toggle-icon" id="toggle-card-domain-b">−</span>
-        </div>
-
-        <div class="sidebar-card-body" id="card-domain-b">
-          <!-- SIX PRIMARY TRANSFORMATION SLIDERS -->
-          <div class="dna-sliders-container">
-            <!-- CONTINUITY -->
-            <div class="slider-group-dna">
-              <div class="slider-label-dna">
-                <span class="dna-title">CONTINUITY (C)</span>
-                <span class="qual-badge badge-c" id="badge-dna-c">INDEPENDENT</span>
-                <span class="val-dna" id="val-dna-c">0%</span>
-              </div>
-              <input type="range" id="slider-dna-c" min="0" max="100" value="0" class="slider slider-gold">
-            </div>
-
-            <!-- BRANCHING -->
-            <div class="slider-group-dna">
-              <div class="slider-label-dna">
-                <span class="dna-title">BRANCHING (B)</span>
-                <span class="qual-badge badge-b" id="badge-dna-b">SINGULAR</span>
-                <span class="val-dna" id="val-dna-b">0%</span>
-              </div>
-              <input type="range" id="slider-dna-b" min="0" max="100" value="0" class="slider slider-gold">
-            </div>
-
-            <!-- WHIPLASH CURVATURE -->
-            <div class="slider-group-dna">
-              <div class="slider-label-dna">
-                <span class="dna-title">WHIPLASH CURVATURE (W)</span>
-                <span class="qual-badge badge-w" id="badge-dna-w">LINEAR</span>
-                <span class="val-dna" id="val-dna-w">0%</span>
-              </div>
-              <input type="range" id="slider-dna-w" min="0" max="100" value="0" class="slider slider-gold">
-            </div>
-
-            <!-- MERGING SURFACES -->
-            <div class="slider-group-dna">
-              <div class="slider-label-dna">
-                <span class="dna-title">MERGING SURFACES (M)</span>
-                <span class="qual-badge badge-m" id="badge-dna-m">INDEPENDENT</span>
-                <span class="val-dna" id="val-dna-m">0%</span>
-              </div>
-              <input type="range" id="slider-dna-m" min="0" max="100" value="0" class="slider slider-gold">
-            </div>
-
-            <!-- POSITIVE / NEGATIVE SPACE -->
-            <div class="slider-group-dna">
-              <div class="slider-label-dna">
-                <span class="dna-title">POS / NEG SPACE (V)</span>
-                <span class="qual-badge badge-v" id="badge-dna-v">SOLID / ENCLOSED</span>
-                <span class="val-dna" id="val-dna-v">0%</span>
-              </div>
-              <input type="range" id="slider-dna-v" min="0" max="100" value="0" class="slider slider-gold">
-            </div>
-
-            <!-- GROWTH / AGGREGATION -->
-            <div class="slider-group-dna">
-              <div class="slider-label-dna">
-                <span class="dna-title">GROWTH / AGGREGATION (G)</span>
-                <span class="qual-badge badge-g" id="badge-dna-g">CONTAINED</span>
-                <span class="val-dna" id="val-dna-g">0%</span>
-              </div>
-              <input type="range" id="slider-dna-g" min="0" max="100" value="0" class="slider slider-gold">
+      <!-- TAB CONTENT 2: GEOMETRIC METRICS & VALIDATION -->
+      <div id="maintab-left-metrics" class="sidebar-main-tab-content">
+        <div class="sidebar-card cyan-accent">
+          <div class="sidebar-card-header">
+            <div class="card-header-titles">
+              <h2 class="sidebar-title cyan">METRICS & RULE VALIDATION</h2>
+              <p class="sidebar-subtitle">Post-transformation spatial readouts & rule checks.</p>
             </div>
           </div>
 
-          <!-- FORM DNA VECTOR READOUT -->
-          <div class="form-dna-box">
-            <div class="dna-box-header">FORM DNA</div>
-            <div class="dna-vector-code" id="readout-form-dna">0 / 0 / 0 / 0 / 0 / 0</div>
-            <div class="dna-principles-row">
-              <div>DOMINANT: <span id="readout-dominant-principle" class="val-gold">CONTINUITY</span></div>
-              <div>SECONDARY: <span id="readout-secondary-principle" class="val-white">BRANCHING</span></div>
-            </div>
+          <!-- SUB TABS INSIDE METRICS -->
+          <div class="sidebar-sub-tabbar">
+            <button class="sub-tab-btn active" onclick="switchSidebarSubTab('left', 'effects', this)">EFFECTS</button>
+            <button class="sub-tab-btn" onclick="switchSidebarSubTab('left', 'measurements', this)">METRICS</button>
+            <button class="sub-tab-btn" onclick="switchSidebarSubTab('left', 'rules', this)">RULES</button>
           </div>
 
-          <!-- SEED IDENTITY PROTECTION -->
-          <div class="identity-box">
-            <div class="id-row">
-              <span class="ctrl-label">SEED IDENTITY:</span>
-              <span id="val-seed-identity" class="val-gold highlight-gold" style="font-size:11px; font-weight:800;">100%</span>
-            </div>
-            <div class="slider-group-compact" style="margin-top:2px;">
-              <div class="slider-label">
-                <span>Preserve Seed Identity Min:</span>
-                <span id="val-seed-identity-threshold" class="highlight-gold">75%</span>
+          <div class="sidebar-card-body">
+            <!-- TAB 1: GEOMETRIC EFFECTS -->
+            <div id="subtab-left-effects" class="subtab-content active">
+              <div class="readout-box-effects-grid" id="domain-b-spatial-effects-readout">
+                <div class="effect-chip">Vertices: <span id="effect-affected-pct">0%</span></div>
+                <div class="effect-chip">Max Disp: <span id="effect-max-disp">0.0 ft</span></div>
+                <div class="effect-chip">Width: <span id="effect-width-change">+0%</span></div>
+                <div class="effect-chip">Height: <span id="effect-height-change">+0%</span></div>
+                <div class="effect-chip">Depth: <span id="effect-depth-change">+0%</span></div>
               </div>
-              <input type="range" id="slider-seed-identity-threshold" min="50" max="95" value="75" class="slider">
             </div>
+
+            <!-- TAB 2: READ-ONLY MEASUREMENTS -->
+            <div id="subtab-left-measurements" class="subtab-content">
+              <div class="measurements-grid" id="readonly-measurements-grid">
+                <div class="meas-item"><span>Continuity Strength:</span> <span id="m-cont-str" class="val-white">0%</span></div>
+                <div class="meas-item"><span>Branch Count:</span> <span id="m-branch-cnt" class="val-white">0</span></div>
+                <div class="meas-item"><span>Hierarchy Depth:</span> <span id="m-branch-depth" class="val-white">1</span></div>
+                <div class="meas-item"><span>Curvature Strength:</span> <span id="m-whip-str" class="val-white">0%</span></div>
+                <div class="meas-item"><span>Inflection Count:</span> <span id="m-whip-inf" class="val-white">0</span></div>
+                <div class="meas-item"><span>Merge Count:</span> <span id="m-merge-cnt" class="val-white">0</span></div>
+                <div class="meas-item"><span>Void Ratio:</span> <span id="m-void-ratio" class="val-white">0%</span></div>
+                <div class="meas-item"><span>Opening Count:</span> <span id="m-open-cnt" class="val-white">0</span></div>
+                <div class="meas-item"><span>Added Elements:</span> <span id="m-growth-cnt" class="val-white">0</span></div>
+              </div>
+            </div>
+
+            <!-- TAB 3: RULE VALIDATION STATUS -->
+            <div id="subtab-left-rules" class="subtab-content">
+              <div class="validation-list" id="rule-validation-list">
+                <div class="val-item"><span class="val-rule">01 CONTINUITY:</span> <span id="val-rule-cont" class="val-pass">✓ CONNECTED FLOW</span></div>
+                <div class="val-item"><span class="val-rule">02 BRANCHING:</span> <span id="val-rule-branch" class="val-pass">✓ PARENT ATTACHED</span></div>
+                <div class="val-item"><span class="val-rule">03 WHIPLASH:</span> <span id="val-rule-whip" class="val-pass">✓ CONTINUOUS INFLECTION</span></div>
+                <div class="val-item"><span class="val-rule">04 MERGING:</span> <span id="val-rule-merge" class="val-pass">✓ PRECONDITION MET</span></div>
+                <div class="val-item"><span class="val-rule">05 POS / NEG:</span> <span id="val-rule-posneg" class="val-pass">✓ VOID INTERLOCK</span></div>
+                <div class="val-item"><span class="val-rule">06 GROWTH:</span> <span id="val-rule-growth" class="val-pass">✓ ADJACENCY MAINTAINED</span></div>
+              </div>
+            </div>
+
+            <!-- VIEW MATHEMATICAL REASONING BUTTON -->
+            <button id="btn-view-reasoning" class="btn btn-header-cyan" style="width:100%; margin-top:6px;">
+              🔍 VIEW MATHEMATICAL REASONING
+            </button>
           </div>
         </div>
       </div>
 
-      <!-- CARD 3: GEOMETRIC METRICS & VALIDATION (TABBED) -->
-      <div class="sidebar-card cyan-accent">
-        <div class="sidebar-card-header">
-          <div class="card-header-titles">
-            <h2 class="sidebar-title cyan">METRICS & RULE VALIDATION</h2>
-            <p class="sidebar-subtitle">Post-transformation spatial readouts & rule checks.</p>
-          </div>
-        </div>
-
-        <!-- CARD SUB-TABS -->
-        <div class="sidebar-sub-tabbar">
-          <button class="sub-tab-btn active" onclick="switchSidebarSubTab('left', 'effects', this)">EFFECTS</button>
-          <button class="sub-tab-btn" onclick="switchSidebarSubTab('left', 'measurements', this)">METRICS</button>
-          <button class="sub-tab-btn" onclick="switchSidebarSubTab('left', 'rules', this)">RULES</button>
-        </div>
-
-        <div class="sidebar-card-body">
-          <!-- TAB 1: GEOMETRIC EFFECTS -->
-          <div id="subtab-left-effects" class="subtab-content active">
-            <div class="readout-box-effects-grid" id="domain-b-spatial-effects-readout">
-              <div class="effect-chip">Vertices: <span id="effect-affected-pct">0%</span></div>
-              <div class="effect-chip">Max Disp: <span id="effect-max-disp">0.0 ft</span></div>
-              <div class="effect-chip">Width: <span id="effect-width-change">+0%</span></div>
-              <div class="effect-chip">Height: <span id="effect-height-change">+0%</span></div>
-              <div class="effect-chip">Depth: <span id="effect-depth-change">+0%</span></div>
+      <!-- TAB CONTENT 3: LINEAGE TREE -->
+      <div id="maintab-left-lineage" class="sidebar-main-tab-content">
+        <div class="sidebar-card">
+          <div class="sidebar-card-header">
+            <div class="card-header-titles">
+              <h2 class="sidebar-title">GENERATION HISTORY</h2>
+              <p class="sidebar-subtitle">Multi-generation lineage tree descending from seed.</p>
             </div>
           </div>
-
-          <!-- TAB 2: READ-ONLY MEASUREMENTS -->
-          <div id="subtab-left-measurements" class="subtab-content">
-            <div class="measurements-grid" id="readonly-measurements-grid">
-              <div class="meas-item"><span>Continuity Strength:</span> <span id="m-cont-str" class="val-white">0%</span></div>
-              <div class="meas-item"><span>Branch Count:</span> <span id="m-branch-cnt" class="val-white">0</span></div>
-              <div class="meas-item"><span>Hierarchy Depth:</span> <span id="m-branch-depth" class="val-white">1</span></div>
-              <div class="meas-item"><span>Curvature Strength:</span> <span id="m-whip-str" class="val-white">0%</span></div>
-              <div class="meas-item"><span>Inflection Count:</span> <span id="m-whip-inf" class="val-white">0</span></div>
-              <div class="meas-item"><span>Merge Count:</span> <span id="m-merge-cnt" class="val-white">0</span></div>
-              <div class="meas-item"><span>Void Ratio:</span> <span id="m-void-ratio" class="val-white">0%</span></div>
-              <div class="meas-item"><span>Opening Count:</span> <span id="m-open-cnt" class="val-white">0</span></div>
-              <div class="meas-item"><span>Added Elements:</span> <span id="m-growth-cnt" class="val-white">0</span></div>
+          <div class="sidebar-card-body">
+            <div id="lineage-history-tree" class="lineage-tree">
+              <div class="lineage-placeholder-msg">
+                Import a Rhino .3dm file or load a sample seed to establish Generation 0 seed.
+              </div>
             </div>
           </div>
-
-          <!-- TAB 3: RULE VALIDATION STATUS -->
-          <div id="subtab-left-rules" class="subtab-content">
-            <div class="validation-list" id="rule-validation-list">
-              <div class="val-item"><span class="val-rule">01 CONTINUITY:</span> <span id="val-rule-cont" class="val-pass">✓ CONNECTED FLOW</span></div>
-              <div class="val-item"><span class="val-rule">02 BRANCHING:</span> <span id="val-rule-branch" class="val-pass">✓ PARENT ATTACHED</span></div>
-              <div class="val-item"><span class="val-rule">03 WHIPLASH:</span> <span id="val-rule-whip" class="val-pass">✓ CONTINUOUS INFLECTION</span></div>
-              <div class="val-item"><span class="val-rule">04 MERGING:</span> <span id="val-rule-merge" class="val-pass">✓ PRECONDITION MET</span></div>
-              <div class="val-item"><span class="val-rule">05 POS / NEG:</span> <span id="val-rule-posneg" class="val-pass">✓ VOID INTERLOCK</span></div>
-              <div class="val-item"><span class="val-rule">06 GROWTH:</span> <span id="val-rule-growth" class="val-pass">✓ ADJACENCY MAINTAINED</span></div>
-            </div>
-          </div>
-
-          <!-- VIEW MATHEMATICAL REASONING BUTTON -->
-          <button id="btn-view-reasoning" class="btn btn-header-cyan" style="width:100%; margin-top:6px;">
-            🔍 VIEW MATHEMATICAL REASONING
-          </button>
         </div>
       </div>
 
@@ -336,160 +353,177 @@
 
     </main>
 
-    <!-- RIGHT SIDEBAR: DOMAIN C & SYSTEM DIAGNOSTICS -->
+    <!-- RIGHT SIDEBAR: DOMAIN C & SYSTEM DIAGNOSTICS (TABBED) -->
     <aside id="right-sidebar" class="app-sidebar right-sidebar">
 
-      <!-- CARD 1: DOMAIN C — GENERATIVE ITERATIONS (PRIMARY FOCUS AT TOP) -->
-      <div class="sidebar-card cyan-accent">
-        <div class="sidebar-card-header" onclick="toggleSidebarCard('card-domain-c')">
-          <div class="card-header-titles">
-            <h2 class="sidebar-title cyan">DOMAIN C — GENERATIVE ITERATIONS</h2>
-            <p class="sidebar-subtitle">Generate & study controlled design alternatives.</p>
-          </div>
-          <span class="card-toggle-icon" id="toggle-card-domain-c">−</span>
-        </div>
+      <!-- TOP SIDEBAR TAB BAR -->
+      <div class="sidebar-main-tabbar">
+        <button class="sidebar-main-tab-btn active" onclick="switchMainSidebarTab('right', 'generator', this)">
+          ⚡ ITERATIONS
+        </button>
+        <button class="sidebar-main-tab-btn" onclick="switchMainSidebarTab('right', 'diagnostics', this)">
+          🔧 DIAGNOSTICS
+        </button>
+      </div>
 
-        <div class="sidebar-card-body" id="card-domain-c">
-          <!-- READOUT STATUS BLOCK -->
-          <div class="readout-box-domain-c">
-            <div>Parent: <span id="c-readout-parent" class="highlight-cyan">Rhino Seed</span></div>
-            <div>Principle: <span id="c-readout-principle" class="highlight-cyan">Whiplash Curvature</span></div>
-            <div>Target: <span id="c-readout-target" class="highlight-white">Zone D (Regional)</span></div>
-            <div>Identity Min: <span id="c-readout-identity" class="highlight-gold">75%</span></div>
-          </div>
-
-          <!-- POPULATION SIZE SELECTOR -->
-          <div class="control-row" style="margin-top:4px;">
-            <span class="ctrl-label">Pop Size:</span>
-            <div class="btn-group-segmented" id="group-pop-size">
-              <button class="btn-segment" data-val="4">4</button>
-              <button class="btn-segment active" data-val="6">6</button>
-              <button class="btn-segment" data-val="8">8</button>
-              <button class="btn-segment" data-val="12">12</button>
+      <!-- TAB CONTENT 1: DOMAIN C GENERATOR -->
+      <div id="maintab-right-generator" class="sidebar-main-tab-content active">
+        <div class="sidebar-card cyan-accent">
+          <div class="sidebar-card-header">
+            <div class="card-header-titles">
+              <h2 class="sidebar-title cyan">DOMAIN C — GENERATIVE ITERATIONS</h2>
+              <p class="sidebar-subtitle">Generate & study controlled design alternatives.</p>
             </div>
           </div>
 
-          <!-- VARIATION RANGE SELECTOR -->
-          <div class="control-row">
-            <span class="ctrl-label">Variation:</span>
-            <div class="btn-group-segmented" id="group-variation-range">
-              <button class="btn-segment" data-val="LOW">Low</button>
-              <button class="btn-segment active" data-val="MEDIUM">Med</button>
-              <button class="btn-segment" data-val="HIGH">High</button>
+          <div class="sidebar-card-body">
+            <!-- READOUT STATUS BLOCK -->
+            <div class="readout-box-domain-c">
+              <div>Parent: <span id="c-readout-parent" class="highlight-cyan">Rhino Seed</span></div>
+              <div>Principle: <span id="c-readout-principle" class="highlight-cyan">Whiplash Curvature</span></div>
+              <div>Target: <span id="c-readout-target" class="highlight-white">Zone D (Regional)</span></div>
+              <div>Identity Min: <span id="c-readout-identity" class="highlight-gold">75%</span></div>
             </div>
-          </div>
 
-          <!-- GENERATION STRATEGY SELECTOR -->
-          <div class="control-row">
-            <span class="ctrl-label">Strategy:</span>
-            <div class="btn-group-segmented" id="group-generation-strategy">
-              <button class="btn-segment active" data-val="PARAMETRIC">Parametric</button>
-              <button class="btn-segment" data-val="EFFECT_DRIVEN">Effect</button>
-              <button class="btn-segment" data-val="PRINCIPLE_STUDY">Study</button>
+            <!-- POPULATION SIZE SELECTOR -->
+            <div class="control-row" style="margin-top:4px;">
+              <span class="ctrl-label">Pop Size:</span>
+              <div class="btn-group-segmented" id="group-pop-size">
+                <button class="btn-segment" data-val="4">4</button>
+                <button class="btn-segment active" data-val="6">6</button>
+                <button class="btn-segment" data-val="8">8</button>
+                <button class="btn-segment" data-val="12">12</button>
+              </div>
             </div>
-          </div>
 
-          <!-- STUDY VARIABLE SELECTOR -->
-          <div class="control-row">
-            <span class="ctrl-label">Study Var:</span>
-            <select id="select-study-variable" class="select-input-compact" style="width:140px;" onchange="if(window.domainState) window.domainState.studyVariable = this.value;">
-              <option value="CONTINUITY">CONTINUITY (C)</option>
-              <option value="BRANCHING" selected>BRANCHING (B)</option>
-              <option value="WHIPLASH">WHIPLASH (W)</option>
-              <option value="MERGING">MERGING (M)</option>
-              <option value="POSITIVE_NEGATIVE">POS/NEG (V)</option>
-              <option value="GROWTH">GROWTH (G)</option>
-            </select>
-          </div>
+            <!-- VARIATION RANGE SELECTOR -->
+            <div class="control-row">
+              <span class="ctrl-label">Variation:</span>
+              <div class="btn-group-segmented" id="group-variation-range">
+                <button class="btn-segment" data-val="LOW">Low</button>
+                <button class="btn-segment active" data-val="MEDIUM">Med</button>
+                <button class="btn-segment" data-val="HIGH">High</button>
+              </div>
+            </div>
 
-          <!-- GENERATE BUTTON -->
-          <button id="btn-generate-iterations" class="btn btn-generate" style="margin-top:6px;">
-            ⚡ GENERATE CONTROLLED ITERATIONS
-          </button>
+            <!-- GENERATION STRATEGY SELECTOR -->
+            <div class="control-row">
+              <span class="ctrl-label">Strategy:</span>
+              <div class="btn-group-segmented" id="group-generation-strategy">
+                <button class="btn-segment active" data-val="PARAMETRIC">Parametric</button>
+                <button class="btn-segment" data-val="EFFECT_DRIVEN">Effect</button>
+                <button class="btn-segment" data-val="PRINCIPLE_STUDY">Study</button>
+              </div>
+            </div>
+
+            <!-- STUDY VARIABLE SELECTOR -->
+            <div class="control-row">
+              <span class="ctrl-label">Study Var:</span>
+              <select id="select-study-variable" class="select-input-compact" style="width:140px;" onchange="if(window.domainState) window.domainState.studyVariable = this.value;">
+                <option value="CONTINUITY">CONTINUITY (C)</option>
+                <option value="BRANCHING" selected>BRANCHING (B)</option>
+                <option value="WHIPLASH">WHIPLASH (W)</option>
+                <option value="MERGING">MERGING (M)</option>
+                <option value="POSITIVE_NEGATIVE">POS/NEG (V)</option>
+                <option value="GROWTH">GROWTH (G)</option>
+              </select>
+            </div>
+
+            <!-- GENERATE BUTTON -->
+            <button id="btn-generate-iterations" class="btn btn-generate" style="margin-top:6px;">
+              ⚡ GENERATE CONTROLLED ITERATIONS
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- CARD 2: SYSTEM & RHINO DIAGNOSTICS (TABBED SWITCHER) -->
-      <div class="sidebar-card gold-accent">
-        <div class="sidebar-card-header">
-          <div class="card-header-titles">
-            <h2 class="sidebar-title gold">SYSTEM DIAGNOSTICS</h2>
-            <p class="sidebar-subtitle">Rhino file, WebGL renderer & automated tests.</p>
-          </div>
-        </div>
-
-        <!-- CARD SUB-TABS -->
-        <div class="sidebar-sub-tabbar">
-          <button class="sub-tab-btn active" onclick="switchSidebarSubTab('right', 'file', this)">RHINO FILE</button>
-          <button class="sub-tab-btn" onclick="switchSidebarSubTab('right', 'render', this)">RENDER PIPELINE</button>
-          <button class="sub-tab-btn" onclick="switchSidebarSubTab('right', 'tests', this)">15-PARAM TESTS</button>
-        </div>
-
-        <div class="sidebar-card-body">
-          <!-- TAB 1: RHINO FILE DIAGNOSTICS -->
-          <div id="subtab-right-file" class="subtab-content active">
-            <div class="diag-table-box">
-              <div class="diag-table-row"><span>1 FILE SIZE:</span><span id="d-filesize" class="val-gold">740736 bytes</span></div>
-              <div class="diag-table-row"><span>2 FILE BYTES:</span><span id="d-filebytes" class="val-gold">740736</span></div>
-              <div class="diag-table-row"><span>3 RHINO3DM INITIALIZED:</span><span id="d-init" class="val-green">YES</span></div>
-              <div class="diag-table-row"><span>4 FILE3DM CREATED:</span><span id="d-created" class="val-green">YES</span></div>
-              <div class="diag-table-row"><span>5 OBJECT TABLE FOUND:</span><span id="d-table" class="val-green">YES</span></div>
-              <div class="diag-table-row"><span>6 RAW OBJECT COUNT:</span><span id="d-rawcount" class="val-white">161</span></div>
-              <div class="diag-table-row"><span>7 GEOMETRY RETRIEVED:</span><span id="d-retrieved" class="val-white">161</span></div>
-              <div class="diag-table-row"><span>8 NULL GEOMETRY:</span><span id="d-nullgeom" class="val-white">0</span></div>
-              <div class="diag-table-row"><span>9 ERRORS:</span><span id="d-errors" class="val-green">NONE</span></div>
-            </div>
-            
-            <div class="gold-border-box" style="margin-top:6px;">
-              <div class="box-title gold">RAW IMPORT DETAILS</div>
-              <div class="diag-table-row"><span>FILE NAME:</span><span id="raw-filename" class="val-gold">compressed.3dm</span></div>
-              <div class="diag-table-row"><span>FILE SIZE:</span><span id="raw-filesize" class="val-gold">740736 bytes</span></div>
-              <div class="diag-table-row"><span>DOCUMENT:</span><span id="raw-doc" class="val-green">VALID</span></div>
-              <div class="diag-table-row"><span>OBJECT TABLE:</span><span id="raw-objtable" class="val-green">FOUND</span></div>
+      <!-- TAB CONTENT 2: SYSTEM DIAGNOSTICS -->
+      <div id="maintab-right-diagnostics" class="sidebar-main-tab-content">
+        <div class="sidebar-card gold-accent">
+          <div class="sidebar-card-header">
+            <div class="card-header-titles">
+              <h2 class="sidebar-title gold">SYSTEM DIAGNOSTICS</h2>
+              <p class="sidebar-subtitle">Rhino file, WebGL renderer & automated tests.</p>
             </div>
           </div>
 
-          <!-- TAB 2: RENDER PIPELINE -->
-          <div id="subtab-right-render" class="subtab-content">
-            <div class="cyan-border-box">
-              <div class="box-title cyan">RENDER PIPELINE (THREE.JS)</div>
-              <div class="diag-table-row"><span>RHINO OBJECTS RECEIVED:</span><span id="p-recv" class="val-white">161</span></div>
-              <div class="diag-table-row"><span>OBJECTS CONVERTED:</span><span id="p-conv" class="val-white">157</span></div>
-              <div class="diag-table-row"><span>ADDED TO THREE.JS:</span><span id="p-added" class="val-white">157</span></div>
-              <div class="diag-table-row"><span>FAILED CONVERSIONS:</span><span id="p-failed" class="val-white">4</span></div>
-              <div class="diag-table-row"><span>THREEJS MODEL CHILDREN:</span><span id="p-children" class="val-white">157</span></div>
-              <div class="diag-table-row"><span>THREEJS BOUNDING BOX:</span><span id="p-bbox" class="val-green">VALID</span></div>
-              <div class="diag-table-row"><span>CAMERA FIT:</span><span id="p-camfit" class="val-green">YES</span></div>
-              <div class="diag-table-row"><span>RENDER STATUS:</span><span id="p-status" class="val-green">SUCCESS</span></div>
-            </div>
+          <!-- CARD SUB-TABS -->
+          <div class="sidebar-sub-tabbar">
+            <button class="sub-tab-btn active" onclick="switchSidebarSubTab('right', 'file', this)">RHINO FILE</button>
+            <button class="sub-tab-btn" onclick="switchSidebarSubTab('right', 'render', this)">RENDER PIPELINE</button>
+            <button class="sub-tab-btn" onclick="switchSidebarSubTab('right', 'tests', this)">15-PARAM TESTS</button>
           </div>
 
-          <!-- TAB 3: 15-PARAM TEST SUITE -->
-          <div id="subtab-right-tests" class="subtab-content">
-            <div class="gold-border-box" id="diag-tests-panel">
-              <div class="box-title gold" style="display:flex; justify-content:space-between; align-items:center;">
-                <span>15-PARAMETER DIAGNOSTIC SUITE</span>
-                <button id="btn-run-diagnostics" class="btn-import-compact" style="font-size:8px; padding:2px 6px;" onclick="runDomainBDiagnostics()">RUN TESTS</button>
+          <div class="sidebar-card-body">
+            <!-- TAB 1: RHINO FILE DIAGNOSTICS -->
+            <div id="subtab-right-file" class="subtab-content active">
+              <div class="diag-table-box">
+                <div class="diag-table-row"><span>1 FILE SIZE:</span><span id="d-filesize" class="val-gold">740736 bytes</span></div>
+                <div class="diag-table-row"><span>2 FILE BYTES:</span><span id="d-filebytes" class="val-gold">740736</span></div>
+                <div class="diag-table-row"><span>3 RHINO3DM INITIALIZED:</span><span id="d-init" class="val-green">YES</span></div>
+                <div class="diag-table-row"><span>4 FILE3DM CREATED:</span><span id="d-created" class="val-green">YES</span></div>
+                <div class="diag-table-row"><span>5 OBJECT TABLE FOUND:</span><span id="d-table" class="val-green">YES</span></div>
+                <div class="diag-table-row"><span>6 RAW OBJECT COUNT:</span><span id="d-rawcount" class="val-white">161</span></div>
+                <div class="diag-table-row"><span>7 GEOMETRY RETRIEVED:</span><span id="d-retrieved" class="val-white">161</span></div>
+                <div class="diag-table-row"><span>8 NULL GEOMETRY:</span><span id="d-nullgeom" class="val-white">0</span></div>
+                <div class="diag-table-row"><span>9 ERRORS:</span><span id="d-errors" class="val-green">NONE</span></div>
               </div>
-              <div id="diag-tests-grid" class="diag-tests-grid">
-                <div class="diag-test-item"><span class="test-name">Affected Region</span><span class="test-status pass">PASS</span></div>
-                <div class="diag-test-item"><span class="test-name">Affected Length</span><span class="test-status pass">PASS</span></div>
-                <div class="diag-test-item"><span class="test-name">Branch Count</span><span class="test-status pass">PASS</span></div>
-                <div class="diag-test-item"><span class="test-name">Hierarchy Depth</span><span class="test-status pass">PASS</span></div>
-                <div class="diag-test-item"><span class="test-name">Continuity (G0/G1/G2)</span><span class="test-status pass">PASS</span></div>
-                <div class="diag-test-item"><span class="test-name">Lateral Disp</span><span class="test-status pass">PASS</span></div>
-                <div class="diag-test-item"><span class="test-name">Inflection Count</span><span class="test-status pass">PASS</span></div>
-                <div class="diag-test-item"><span class="test-name">Merge Count</span><span class="test-status pass">PASS</span></div>
-                <div class="diag-test-item"><span class="test-name">Merge Radius</span><span class="test-status pass">PASS</span></div>
-                <div class="diag-test-item"><span class="test-name">Opening Count</span><span class="test-status pass">PASS</span></div>
-                <div class="diag-test-item"><span class="test-name">Opening Scale</span><span class="test-status pass">PASS</span></div>
-                <div class="diag-test-item"><span class="test-name">Enclosure Ratio</span><span class="test-status pass">PASS</span></div>
-                <div class="diag-test-item"><span class="test-name">Repetition Count</span><span class="test-status pass">PASS</span></div>
-                <div class="diag-test-item"><span class="test-name">Scale Variation</span><span class="test-status pass">PASS</span></div>
-                <div class="diag-test-item"><span class="test-name">Growth Distance</span><span class="test-status pass">PASS</span></div>
+              
+              <div class="gold-border-box" style="margin-top:6px;">
+                <div class="box-title gold">RAW IMPORT DETAILS</div>
+                <div class="diag-table-row"><span>FILE NAME:</span><span id="raw-filename" class="val-gold">compressed.3dm</span></div>
+                <div class="diag-table-row"><span>FILE SIZE:</span><span id="raw-filesize" class="val-gold">740736 bytes</span></div>
+                <div class="diag-table-row"><span>DOCUMENT:</span><span id="raw-doc" class="val-green">VALID</span></div>
+                <div class="diag-table-row"><span>OBJECT TABLE:</span><span id="raw-objtable" class="val-green">FOUND</span></div>
               </div>
             </div>
+
+            <!-- TAB 2: RENDER PIPELINE -->
+            <div id="subtab-right-render" class="subtab-content">
+              <div class="cyan-border-box">
+                <div class="box-title cyan">RENDER PIPELINE (THREE.JS)</div>
+                <div class="diag-table-row"><span>RHINO OBJECTS RECEIVED:</span><span id="p-recv" class="val-white">161</span></div>
+                <div class="diag-table-row"><span>OBJECTS CONVERTED:</span><span id="p-conv" class="val-white">157</span></div>
+                <div class="diag-table-row"><span>ADDED TO THREE.JS:</span><span id="p-added" class="val-white">157</span></div>
+                <div class="diag-table-row"><span>FAILED CONVERSIONS:</span><span id="p-failed" class="val-white">4</span></div>
+                <div class="diag-table-row"><span>THREEJS MODEL CHILDREN:</span><span id="p-children" class="val-white">157</span></div>
+                <div class="diag-table-row"><span>THREEJS BOUNDING BOX:</span><span id="p-bbox" class="val-green">VALID</span></div>
+                <div class="diag-table-row"><span>CAMERA FIT:</span><span id="p-camfit" class="val-green">YES</span></div>
+                <div class="diag-table-row"><span>RENDER STATUS:</span><span id="p-status" class="val-green">SUCCESS</span></div>
+              </div>
+            </div>
+
+            <!-- TAB 3: 15-PARAM TEST SUITE -->
+            <div id="subtab-right-tests" class="subtab-content">
+              <div class="gold-border-box" id="diag-tests-panel">
+                <div class="box-title gold" style="display:flex; justify-content:space-between; align-items:center;">
+                  <span>15-PARAMETER DIAGNOSTIC SUITE</span>
+                  <button id="btn-run-diagnostics" class="btn-import-compact" style="font-size:8px; padding:2px 6px;" onclick="runDomainBDiagnostics()">RUN TESTS</button>
+                </div>
+                <div id="diag-tests-grid" class="diag-tests-grid">
+                  <div class="diag-test-item"><span class="test-name">Affected Region</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Affected Length</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Branch Count</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Hierarchy Depth</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Continuity (G0/G1/G2)</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Lateral Disp</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Inflection Count</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Merge Count</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Merge Radius</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Opening Count</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Opening Scale</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Enclosure Ratio</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Repetition Count</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Scale Variation</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Growth Distance</span><span class="test-status pass">PASS</span></div>
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
+      </div>
+
+    </aside>  </div>
         </div>
       </div>
     </aside>
@@ -700,6 +734,18 @@
         card.style.display = 'none';
         if (icon) icon.textContent = '+';
       }
+    }
+
+    function switchMainSidebarTab(side, tabName, btnEl) {
+      const parentSidebar = btnEl.closest('.app-sidebar');
+      if (!parentSidebar) return;
+      
+      parentSidebar.querySelectorAll('.sidebar-main-tab-btn').forEach(btn => btn.classList.remove('active'));
+      parentSidebar.querySelectorAll('.sidebar-main-tab-content').forEach(content => content.classList.remove('active'));
+      
+      btnEl.classList.add('active');
+      const target = document.getElementById('maintab-' + side + '-' + tabName);
+      if (target) target.classList.add('active');
     }
 
     function switchSidebarSubTab(side, tabName, btnEl) {
