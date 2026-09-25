@@ -513,6 +513,7 @@ function parseRhinoObjects(doc, filename) {
 
   for (let i = 0; i < objects.count; i++) {
     const obj = objects.get(i);
+    if (!obj) continue;
     const geom = obj.geometry();
     if (!geom) continue;
 
@@ -530,6 +531,52 @@ function parseRhinoObjects(doc, filename) {
       const subdMesh = convertSubDToMesh(geom);
       if (subdMesh) {
         buildThreeMesh(subdMesh);
+      }
+    } else if (rhino.ObjectType.Brep && typeInt === rhino.ObjectType.Brep) {
+      try {
+        if (rhino.Mesh.createFromBrep) {
+          const bMeshes = rhino.Mesh.createFromBrep(geom);
+          if (bMeshes) {
+            const count = bMeshes.count !== undefined ? bMeshes.count : (bMeshes.length || 0);
+            for (let m = 0; m < count; m++) {
+              const mGeom = bMeshes.get ? bMeshes.get(m) : bMeshes[m];
+              if (mGeom) {
+                meshCount++;
+                buildThreeMesh(mGeom);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[RHINO PARSE] Brep conversion:', e);
+      }
+    } else if (rhino.ObjectType.Extrusion && typeInt === rhino.ObjectType.Extrusion) {
+      try {
+        if (geom.toBrep && rhino.Mesh.createFromBrep) {
+          const brep = geom.toBrep();
+          if (brep) {
+            const bMeshes = rhino.Mesh.createFromBrep(brep);
+            if (bMeshes) {
+              const count = bMeshes.count !== undefined ? bMeshes.count : (bMeshes.length || 0);
+              for (let m = 0; m < count; m++) {
+                const mGeom = bMeshes.get ? bMeshes.get(m) : bMeshes[m];
+                if (mGeom) {
+                  meshCount++;
+                  buildThreeMesh(mGeom);
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[RHINO PARSE] Extrusion conversion:', e);
+      }
+    } else {
+      if (geom.vertices && geom.faces) {
+        try {
+          meshCount++;
+          buildThreeMesh(geom);
+        } catch (e) {}
       }
     }
   }
@@ -554,15 +601,34 @@ function parseRhinoObjects(doc, filename) {
     window.selectSeedParent();
   }
 
-  document.getElementById('info-filename').textContent = filename;
-  document.getElementById('info-meshes').textContent = meshCount;
-  document.getElementById('info-subds').textContent = subdCount;
-  document.getElementById('info-curves').textContent = curveCount;
+  const elFile = document.getElementById('info-filename');
+  const elMesh = document.getElementById('info-meshes');
+  const elSubd = document.getElementById('info-subds');
+  const elCurve = document.getElementById('info-curves');
+  if (elFile) elFile.textContent = filename;
+  if (elMesh) elMesh.textContent = meshCount;
+  if (elSubd) elSubd.textContent = subdCount;
+  if (elCurve) elCurve.textContent = curveCount;
 
   fitCamera();
 }
 
+function getVertPoint(verts, idx) {
+  try {
+    const v = verts.get(idx);
+    if (!v) return null;
+    const rx = v[0] !== undefined ? v[0] : (v.x !== undefined ? v.x : 0);
+    const ry = v[1] !== undefined ? v[1] : (v.y !== undefined ? v.y : 0);
+    const rz = v[2] !== undefined ? v[2] : (v.z !== undefined ? v.z : 0);
+    return rhinoPointToThree(rx, ry, rz);
+  } catch (e) {
+    return null;
+  }
+}
+
 function buildThreeMesh(meshGeom) {
+  if (!meshGeom || !meshGeom.vertices || !meshGeom.faces) return;
+
   const verts = meshGeom.vertices();
   const faces = meshGeom.faces();
 
@@ -570,21 +636,28 @@ function buildThreeMesh(meshGeom) {
 
   for (let f = 0; f < faces.count; f++) {
     const face = faces.get(f);
-    const p1 = rhinoPointToThree(verts.get(face[0])[0], verts.get(face[0])[1], verts.get(face[0])[2]);
-    const p2 = rhinoPointToThree(verts.get(face[1])[0], verts.get(face[1])[1], verts.get(face[1])[2]);
-    const p3 = rhinoPointToThree(verts.get(face[2])[0], verts.get(face[2])[1], verts.get(face[2])[2]);
+    if (!face) continue;
+
+    const p1 = getVertPoint(verts, face[0]);
+    const p2 = getVertPoint(verts, face[1]);
+    const p3 = getVertPoint(verts, face[2]);
+    if (!p1 || !p2 || !p3) continue;
 
     positions.push(p1.x, p1.y, p1.z);
     positions.push(p2.x, p2.y, p2.z);
     positions.push(p3.x, p3.y, p3.z);
 
-    if (faces.isQuad(face)) {
-      const p4 = rhinoPointToThree(verts.get(face[3])[0], verts.get(face[3])[1], verts.get(face[3])[2]);
-      positions.push(p1.x, p1.y, p1.z);
-      positions.push(p3.x, p3.y, p3.z);
-      positions.push(p4.x, p4.y, p4.z);
+    if (faces.isQuad && faces.isQuad(face)) {
+      const p4 = getVertPoint(verts, face[3]);
+      if (p4) {
+        positions.push(p1.x, p1.y, p1.z);
+        positions.push(p3.x, p3.y, p3.z);
+        positions.push(p4.x, p4.y, p4.z);
+      }
     }
   }
+
+  if (positions.length === 0) return;
 
   const posArray = new Float32Array(positions);
   const geometry = new THREE.BufferGeometry();
@@ -592,8 +665,8 @@ function buildThreeMesh(meshGeom) {
   geometry.computeVertexNormals();
 
   const material = new THREE.MeshStandardMaterial({
-    color: 0x888888,
-    roughness: 0.5,
+    color: 0xcccccc,
+    roughness: 0.4,
     metalness: 0.1,
     side: THREE.DoubleSide,
     wireframe: false
@@ -606,17 +679,51 @@ function buildThreeMesh(meshGeom) {
 }
 
 function buildThreeCurve(curveGeom) {
-  const dom = curveGeom.domain ? curveGeom.domain : [0, 1];
-  const samples = 80;
+  if (!curveGeom) return;
   const positions = [];
 
+  let minT = 0, maxT = 1;
+  try {
+    if (curveGeom.domain) {
+      const d = typeof curveGeom.domain === 'function' ? curveGeom.domain() : curveGeom.domain;
+      if (Array.isArray(d)) {
+        minT = d[0]; maxT = d[1];
+      } else if (d && d.min !== undefined && d.max !== undefined) {
+        minT = d.min; maxT = d.max;
+      } else if (d && d[0] !== undefined) {
+        minT = d[0]; maxT = d[1];
+      }
+    }
+  } catch (e) {}
+
+  const samples = 100;
   for (let s = 0; s <= samples; s++) {
-    const t = dom[0] + (s / samples) * (dom[1] - dom[0]);
+    const t = minT + (s / samples) * (maxT - minT);
     try {
       const pt = curveGeom.pointAt ? curveGeom.pointAt(t) : null;
       if (pt) {
-        const p3 = rhinoPointToThree(pt[0], pt[1], pt[2]);
+        const rx = pt[0] !== undefined ? pt[0] : (pt.x !== undefined ? pt.x : 0);
+        const ry = pt[1] !== undefined ? pt[1] : (pt.y !== undefined ? pt.y : 0);
+        const rz = pt[2] !== undefined ? pt[2] : (pt.z !== undefined ? pt.z : 0);
+        const p3 = rhinoPointToThree(rx, ry, rz);
         positions.push(p3.x, p3.y, p3.z);
+      }
+    } catch (e) {}
+  }
+
+  if (positions.length < 6 && curveGeom.toPolyline) {
+    try {
+      const pline = curveGeom.toPolyline();
+      if (pline && pline.count) {
+        positions.length = 0;
+        for (let i = 0; i < pline.count; i++) {
+          const pt = pline.get(i);
+          const rx = pt[0] !== undefined ? pt[0] : (pt.x !== undefined ? pt.x : 0);
+          const ry = pt[1] !== undefined ? pt[1] : (pt.y !== undefined ? pt.y : 0);
+          const rz = pt[2] !== undefined ? pt[2] : (pt.z !== undefined ? pt.z : 0);
+          const p3 = rhinoPointToThree(rx, ry, rz);
+          positions.push(p3.x, p3.y, p3.z);
+        }
       }
     } catch (e) {}
   }
@@ -626,25 +733,29 @@ function buildThreeCurve(curveGeom) {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(posArray.slice(), 3));
 
-    const material = new THREE.LineBasicMaterial({ color: 0xffff00 });
+    const material = new THREE.LineBasicMaterial({
+      color: 0xffffff,
+      linewidth: 2
+    });
     const line = new THREE.Line(geometry, material);
     curveGroup.add(line);
 
     originalCurves.push({ line, originalPositions: posArray });
   }
+}
+
 /**
  * CONVERT RHINO SUBD GEOMETRY TO MESH (NO CONTROL CAGE WIREFRAME)
  */
 function convertSubDToMesh(subdGeom) {
   if (!subdGeom) return null;
   let mesh = null;
+
   try {
-    if (rhino.Mesh.createFromSubD) {
+    if (typeof rhino.Mesh.createFromSubD === 'function') {
       mesh = rhino.Mesh.createFromSubD(subdGeom);
     }
-  } catch (e) {
-    console.warn('[SUBD] rhino.Mesh.createFromSubD failed, falling back:', e);
-  }
+  } catch (e) {}
 
   if (!mesh && typeof subdGeom.toMesh === 'function') {
     try {
@@ -656,6 +767,10 @@ function convertSubDToMesh(subdGeom) {
     try {
       mesh = rhino.Mesh.createFromSubDControlNet(subdGeom, false);
     } catch (e) {}
+  }
+
+  if (!mesh && subdGeom.vertices && subdGeom.faces) {
+    mesh = subdGeom;
   }
 
   return mesh;
