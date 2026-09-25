@@ -3,7 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DESIGN 7 EXPLORATION // Descriptor-Driven Architectural Evolution System</title>
+  <title>DESIGN 7 EXPLORATION // Primary Descriptors - Workspace</title>
+
+  <!-- Google Fonts: Orbitron, Rajdhani, Space Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800;900&family=Rajdhani:wght@600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 
   <!-- Rhino3dm.js for browser .3dm file parsing -->
   <script src="https://cdn.jsdelivr.net/npm/rhino3dm@8.4.0/rhino3dm.min.js"></script>
@@ -16,10 +21,19 @@
 </head>
 <body>
 
-  <!-- TOP NAVIGATION HEADER BAR -->
+  <!-- TOP NAVIGATION HEADER BAR WITH TECH CIRCUIT GRAPHIC -->
   <header class="app-top-header">
     <div class="brand-title-group">
-      <h1 class="brand-main-title">DESIGN 7 EXPLORATION</h1>
+      <div class="tech-header-line">
+        <span class="tech-node large">●</span>
+        <span class="tech-wire"></span>
+        <span class="tech-node">●</span>
+        <span class="tech-wire short"></span>
+        <span class="tech-node">●</span>
+        <span class="tech-wire"></span>
+        <span class="tech-node ring">◯</span>
+      </div>
+      <h1 class="brand-main-title">PRIMARY DESCRIPTORS - WORKSPACE</h1>
       <p class="brand-subtitle">DESCRIPTOR-DRIVEN ARCHITECTURAL EVOLUTION SYSTEM</p>
     </div>
 
@@ -47,7 +61,7 @@
   </header>
 
   <!-- MAIN APP CONTAINER -->
-  <div class="app-main-layout">  <div class="app-main-layout">
+  <div class="app-main-layout">
 
     <!-- LEFT SIDEBAR: DOMAIN B DNA, METRICS & LINEAGE (TABBED) -->
     <aside id="left-sidebar" class="app-sidebar left-sidebar">
@@ -760,6 +774,15 @@
       if (target) target.classList.add('active');
     }
   </script>
+  <!-- ACADEMIC METADATA FOOTER BAR -->
+  <footer class="app-academic-footer">
+    <div class="footer-line"></div>
+    <div class="footer-content">
+      <span class="footer-node">●</span>
+      <span class="footer-text">FALL 2026 | FAU SOA | ASSIGNMENT_02 | PROFESSOR SMARO KATSANGELOU | ANA BORREGO, TARYN MASCIOLETTI, KARYNA SHKURKO</span>
+    </div>
+  </footer>
+
   <script src="generator.js"></script>
   <script src="app.js"></script>
 </body>

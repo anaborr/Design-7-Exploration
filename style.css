@@ -14,49 +14,88 @@ body, html {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: #050505;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: #020204;
+  font-family: 'Rajdhani', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color: #e2e8f0;
 }
 
 /* ----------------------------------------------------------------------------
-   TOP NAVIGATION HEADER BAR
+   TOP NAVIGATION HEADER BAR WITH TECH CIRCUIT GRAPHIC
    ---------------------------------------------------------------------------- */
 .app-top-header {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
-  height: 48px;
-  background: #0c0d10;
-  border-bottom: 1px solid #1f242d;
+  height: 52px;
+  background: #06070a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
 }
 
 .brand-title-group {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
+}
+
+.tech-header-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 1px;
+}
+
+.tech-node {
+  font-size: 8px;
+  color: #ffffff;
+  text-shadow: 0 0 6px #ffffff;
+  line-height: 1;
+}
+
+.tech-node.large {
+  font-size: 13px;
+  color: #ffffff;
+}
+
+.tech-node.ring {
+  font-size: 11px;
+  color: #ffffff;
+}
+
+.tech-wire {
+  display: inline-block;
+  height: 2px;
+  width: 75px;
+  background: #ffffff;
+  box-shadow: 0 0 5px #ffffff;
+}
+
+.tech-wire.short {
+  width: 30px;
 }
 
 .brand-main-title {
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 1.2px;
-  color: #dfb15b; /* Gold Accent */
+  font-family: 'Orbitron', 'Rajdhani', sans-serif;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #e6f432; /* Electric Neon Yellow */
   text-transform: uppercase;
+  text-shadow: 0 0 12px rgba(230, 244, 50, 0.4);
 }
 
 .brand-subtitle {
-  font-size: 9px;
+  font-family: 'Space Mono', monospace;
+  font-size: 8.5px;
   font-weight: 600;
-  letter-spacing: 0.8px;
-  color: #6b7280;
+  letter-spacing: 1px;
+  color: #8a8f9d;
   text-transform: uppercase;
 }
 
@@ -68,11 +107,12 @@ body, html {
 
 /* Header Action Buttons */
 .btn-header-gold {
-  background: #dfb15b;
+  background: #e6f432;
   color: #000000;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
   padding: 6px 12px;
   border-radius: 4px;
   border: none;
@@ -80,19 +120,22 @@ body, html {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  box-shadow: 0 0 12px rgba(230, 244, 50, 0.3);
   transition: all 0.15s ease;
 }
 
 .btn-header-gold:hover {
-  background: #f0c36e;
+  background: #f2fd42;
+  box-shadow: 0 0 16px rgba(230, 244, 50, 0.5);
 }
 
 .btn-header-cyan {
-  background: #46d9e6;
-  color: #000000;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
+  background: #ff2a85; /* Hot Neon Pink */
+  color: #ffffff;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
   padding: 6px 12px;
   border-radius: 4px;
   border: none;
@@ -100,22 +143,25 @@ body, html {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  box-shadow: 0 0 14px rgba(255, 42, 133, 0.5);
   transition: all 0.15s ease;
 }
 
 .btn-header-cyan:hover {
-  background: #6fe4f0;
+  background: #ff4797;
+  box-shadow: 0 0 20px rgba(255, 42, 133, 0.7);
 }
 
 .btn-header-disabled {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.04);
   color: #4b5563;
-  font-size: 10px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.5px;
   padding: 6px 12px;
   border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   cursor: not-allowed;
   display: inline-flex;
   align-items: center;
@@ -123,12 +169,13 @@ body, html {
 }
 
 .btn-header-outline {
-  background: rgba(0, 0, 0, 0.4);
-  color: #dfb15b;
-  border: 1px solid #dfb15b;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #e6f432;
+  border: 1px solid #e6f432;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
   padding: 6px 12px;
   border-radius: 4px;
   cursor: pointer;
@@ -136,6 +183,11 @@ body, html {
   align-items: center;
   gap: 6px;
   transition: all 0.15s ease;
+}
+
+.btn-header-outline:hover {
+  background: rgba(230, 244, 50, 0.15);
+  box-shadow: 0 0 12px rgba(230, 244, 50, 0.3);
 }
 
 .btn-header-outline:hover {
@@ -147,10 +199,10 @@ body, html {
    ---------------------------------------------------------------------------- */
 .app-main-layout {
   position: absolute;
-  top: 48px;
+  top: 52px;
   left: 0;
   width: 100vw;
-  height: calc(100vh - 48px);
+  height: calc(100vh - 76px);
   display: flex;
   overflow: hidden;
 }
@@ -497,46 +549,49 @@ body, html {
 .dna-sliders-container {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(223, 177, 91, 0.2);
+  gap: 8px;
+  background: rgba(4, 5, 8, 0.95);
+  border: 1px solid rgba(230, 244, 50, 0.3);
   border-radius: 6px;
-  padding: 8px;
+  padding: 10px;
 }
 
 .slider-group-dna {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .slider-label-dna {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 8px;
+  font-size: 8.5px;
   font-weight: 700;
   color: #e2e8f0;
 }
 
 .dna-title {
-  color: #dfb15b;
-  letter-spacing: 0.5px;
+  color: #e6f432;
+  font-family: 'Orbitron', sans-serif;
+  letter-spacing: 0.8px;
 }
 
 .qual-badge {
-  font-size: 7px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 7.5px;
   font-weight: 800;
-  padding: 1px 4px;
+  padding: 1px 5px;
   border-radius: 3px;
-  background: rgba(70, 217, 230, 0.15);
-  color: #46d9e6;
-  border: 1px solid rgba(70, 217, 230, 0.3);
-  letter-spacing: 0.5px;
+  background: rgba(255, 42, 133, 0.2);
+  color: #ff2a85;
+  border: 1px solid rgba(255, 42, 133, 0.6);
+  letter-spacing: 0.8px;
+  box-shadow: 0 0 8px rgba(255, 42, 133, 0.3);
 }
 
 .val-dna {
-  font-family: monospace;
+  font-family: 'Space Mono', monospace;
   font-size: 9px;
   color: #ffffff;
   font-weight: 800;
@@ -544,36 +599,38 @@ body, html {
 
 /* FORM DNA VECTOR READOUT BOX */
 .form-dna-box {
-  background: rgba(12, 14, 18, 0.95);
-  border: 1px solid #dfb15b;
+  background: rgba(6, 7, 10, 0.95);
+  border: 1px solid #e6f432;
   border-radius: 6px;
   padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   margin-top: 4px;
-  box-shadow: inset 0 0 10px rgba(223, 177, 91, 0.1);
+  box-shadow: inset 0 0 12px rgba(230, 244, 50, 0.12);
 }
 
 .dna-box-header {
+  font-family: 'Orbitron', sans-serif;
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 1px;
-  color: #dfb15b;
+  color: #e6f432;
   text-transform: uppercase;
 }
 
 .dna-vector-code {
-  font-family: monospace;
+  font-family: 'Space Mono', monospace;
   font-size: 13px;
   font-weight: 800;
-  color: #46d9e6;
-  letter-spacing: 1px;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 4px 8px;
-  border-radius: 3px;
-  border: 1px solid rgba(70, 217, 230, 0.3);
+  color: #ff2a85;
+  letter-spacing: 1.5px;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 5px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 42, 133, 0.5);
   text-align: center;
+  box-shadow: 0 0 10px rgba(255, 42, 133, 0.2);
 }
 
 .dna-principles-row {
@@ -585,8 +642,8 @@ body, html {
 }
 
 .identity-box {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 4px;
   padding: 6px;
   margin-top: 4px;
@@ -610,7 +667,7 @@ body, html {
   color: #94a3b8;
   display: flex;
   justify-content: space-between;
-  font-family: monospace;
+  font-family: 'Space Mono', monospace;
 }
 
 .validation-list {
@@ -622,7 +679,7 @@ body, html {
 
 .val-item {
   font-size: 8px;
-  font-family: monospace;
+  font-family: 'Space Mono', monospace;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -642,19 +699,28 @@ body, html {
 .slider {
   -webkit-appearance: none;
   width: 100%;
-  height: 4px;
-  background: #1e293b;
-  border-radius: 2px;
+  height: 6px;
+  background: rgba(255, 42, 133, 0.2);
+  border-radius: 3px;
   outline: none;
+  border: 1px solid rgba(255, 42, 133, 0.4);
 }
 
 .slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background: #dfb15b;
+  background: #ff2a85;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 0 10px #ff2a85, 0 0 18px rgba(255, 42, 133, 0.8);
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 14px #ff2a85, 0 0 24px rgba(255, 42, 133, 0.9);
 }
 
 .effect-header-title {
@@ -677,50 +743,53 @@ body, html {
   border-radius: 3px;
   padding: 2px 4px;
   font-size: 8px;
-  font-family: monospace;
+  font-family: 'Space Mono', monospace;
   color: #94a3b8;
 }
 
 .effect-chip span {
-  color: #dfb15b;
+  color: #e6f432;
   font-weight: 700;
 }
 
 .btn-group-segmented {
   display: flex;
   gap: 2px;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 4px;
-  padding: 1px;
+  padding: 2px;
 }
 
 .btn-segment {
   background: transparent;
   color: #64748b;
+  font-family: 'Orbitron', sans-serif;
   font-size: 8px;
   font-weight: 700;
-  padding: 2px 5px;
+  padding: 3px 6px;
   border: none;
   border-radius: 3px;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .btn-segment.active {
-  background: #dfb15b;
-  color: #000000;
+  background: #ff2a85;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(255, 42, 133, 0.5);
 }
 
 /* Diagnostics Table Box */
 .diag-table-box {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 4px;
   padding: 6px;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-family: monospace;
+  font-family: 'Space Mono', monospace;
   font-size: 9px;
 }
 
@@ -731,78 +800,81 @@ body, html {
   color: #94a3b8;
 }
 
-.val-gold { color: #dfb15b; font-weight: 700; }
+.val-gold { color: #e6f432; font-weight: 700; }
 .val-green { color: #00ff88; font-weight: 700; }
-.val-cyan { color: #46d9e6; font-weight: 700; }
+.val-cyan { color: #ff2a85; font-weight: 700; }
 .val-white { color: #ffffff; font-weight: 600; }
 
 .cyan-border-box {
-  background: rgba(70, 217, 230, 0.03);
-  border: 1px solid #46d9e6;
+  background: rgba(255, 42, 133, 0.04);
+  border: 1px solid #ff2a85;
   border-radius: 4px;
   padding: 6px;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-family: monospace;
+  font-family: 'Space Mono', monospace;
   font-size: 9px;
 }
 
 .gold-border-box {
-  background: rgba(223, 177, 91, 0.03);
-  border: 1px solid #dfb15b;
+  background: rgba(230, 244, 50, 0.04);
+  border: 1px solid #e6f432;
   border-radius: 4px;
   padding: 6px;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-family: monospace;
+  font-family: 'Space Mono', monospace;
   font-size: 9px;
 }
 
 .box-title {
+  font-family: 'Orbitron', sans-serif;
   font-size: 9px;
   font-weight: 800;
-  letter-spacing: 0.8px;
+  letter-spacing: 1px;
   margin-bottom: 2px;
+  text-transform: uppercase;
 }
-.box-title.cyan { color: #46d9e6; }
-.box-title.gold { color: #dfb15b; }
+.box-title.cyan { color: #ff2a85; }
+.box-title.gold { color: #e6f432; }
 
 .readout-box-domain-c {
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 4px;
-  padding: 5px;
+  padding: 6px;
   font-size: 9px;
-  font-family: monospace;
+  font-family: 'Space Mono', monospace;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   color: #94a3b8;
 }
 
-.highlight-cyan { color: #46d9e6; font-weight: 700; }
-.highlight-gold { color: #dfb15b; font-weight: 700; }
+.highlight-cyan { color: #ff2a85; font-weight: 700; }
+.highlight-gold { color: #e6f432; font-weight: 700; }
 .highlight-white { color: #ffffff; font-weight: 600; }
 
 .btn-generate {
-  background: linear-gradient(135deg, #46d9e6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #ff2a85 0%, #c4005b 100%);
   color: #ffffff;
-  font-size: 10px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 9.5px;
   font-weight: 800;
-  letter-spacing: 0.5px;
-  padding: 7px 10px;
+  letter-spacing: 1px;
+  padding: 8px 12px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(70, 217, 230, 0.3);
+  box-shadow: 0 0 16px rgba(255, 42, 133, 0.5);
   transition: all 0.15s ease;
 }
 
 .btn-generate:hover {
-  filter: brightness(1.15);
-  box-shadow: 0 6px 16px rgba(70, 217, 230, 0.5);
+  filter: brightness(1.2);
+  box-shadow: 0 0 22px rgba(255, 42, 133, 0.7);
 }
 
 /* ----------------------------------------------------------------------------
@@ -821,8 +893,8 @@ body, html {
   left: 0;
   width: 100%;
   height: 38px;
-  background: #090a0d;
-  border-bottom: 1px solid #1a1e27;
+  background: #040508;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   z-index: 50;
   display: flex;
   align-items: center;
@@ -833,10 +905,10 @@ body, html {
 .workspace-tab-btn {
   background: transparent;
   color: #64748b;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
   padding: 6px 14px;
   border: 1px solid transparent;
   border-radius: 4px;
@@ -845,12 +917,14 @@ body, html {
   align-items: center;
   gap: 6px;
   transition: all 0.15s ease;
+  text-transform: uppercase;
 }
 
 .workspace-tab-btn.active {
-  background: rgba(70, 217, 230, 0.1);
-  color: #46d9e6;
-  border-color: rgba(70, 217, 230, 0.4);
+  background: rgba(230, 244, 50, 0.12);
+  color: #e6f432;
+  border-color: rgba(230, 244, 50, 0.4);
+  box-shadow: 0 0 10px rgba(230, 244, 50, 0.2);
 }
 
 .workspace-tab-btn:hover {
@@ -1530,4 +1604,48 @@ body, html {
   background: rgba(239, 68, 68, 0.15);
   color: #ef4444;
   border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+/* ----------------------------------------------------------------------------
+   ACADEMIC METADATA FOOTER BAR
+   ---------------------------------------------------------------------------- */
+.app-academic-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100vw;
+  height: 24px;
+  background: #020204;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+}
+
+.footer-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Space Mono', monospace;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: #8a8f9d;
+  text-transform: uppercase;
+  width: 100%;
+}
+
+.footer-node {
+  color: #ffffff;
+  font-size: 6px;
+  text-shadow: 0 0 4px #ffffff;
+}
+
+.footer-text {
+  color: #a0a6b5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
