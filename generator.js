@@ -587,14 +587,14 @@ function renderGalleryUI(genIndex, iterations) {
         <span class="iter-gen-badge">GEN ${iter.generation}</span>
         <label style="cursor:pointer; display:flex; align-items:center; gap:3px; margin-left:auto;">
           <input type="checkbox" onchange="toggleCompareSelect('${iter.id}')" ${isChecked?'checked':''}>
-          <span style="font-size:9px; color:#46d9e6; font-weight:700;">CMP</span>
+          <span style="font-size:9px; color:#b0b0b0; font-weight:700;">CMP</span>
         </label>
       </div>
 
-      <div class="iter-title-banner" style="font-size:10px; font-weight:800; color:#46d9e6; letter-spacing:0.5px; padding:2px 4px; background:rgba(70, 217, 230, 0.08); border-radius:3px; border:1px solid rgba(70, 217, 230, 0.2); text-transform:uppercase;">${iter.title || iter.dominantPrinciple}</div>
+      <div class="iter-title-banner" style="font-size:10px; font-weight:800; color:#b0b0b0; letter-spacing:0.5px; padding:2px 4px; background:rgba(255, 255, 255, 0.05); border-radius:3px; border:1px solid rgba(255, 255, 255, 0.15); text-transform:uppercase;">${iter.title || iter.dominantPrinciple}</div>
       <div class="iter-principle-badge">DOMINANT: ${iter.dominantPrinciple}</div>
       <div class="iter-zone-tag">FORM DNA: ${dnaCode}</div>
-      <div class="iter-interp-tag" style="color:#dfb15b; font-weight:800;">STUDIED: ${iter.studyVariable} = ${iter.studyValuePct}%</div>
+      <div class="iter-interp-tag" style="color:#a0a0a0; font-weight:800;">STUDIED: ${iter.studyVariable} = ${iter.studyValuePct}%</div>
       <div class="iter-identity-score">SEED ID: <strong>${iter.seedSimilarity}%</strong></div>
       
       <!-- ACTUAL 3D MESH PREVIEW THUMBNAIL CANVAS -->
@@ -750,7 +750,7 @@ function loadIterationToMainViewport(iter) {
     badge.style.display = 'block';
     badge.innerHTML = `
       <strong>ACTIVE VIEW: ${iter.id}</strong> | Dominant: ${iter.dominantPrinciple}<br>
-      <span style="color:#00ffff">Form DNA: ${iter.dna.map(v=>Math.round(v*100)).join('/')} | Seed Identity: ${iter.seedSimilarity}%</span>
+      <span style="color:#b0b0b0">Form DNA: ${iter.dna.map(v=>Math.round(v*100)).join('/')} | Seed Identity: ${iter.seedSimilarity}%</span>
     `;
   }
 
@@ -970,18 +970,18 @@ function renderCompareModal() {
     card.className = 'compare-card';
     card.innerHTML = `
       <div style="display:flex; justify-space-between; align-items:center;">
-        <strong style="color:#ffffff; font-family:monospace; font-size:12px;">${iter.id}</strong>
+        <strong style="color:#b0b0b0; font-family:monospace; font-size:12px;">${iter.id}</strong>
         <span class="badge badge-seed">GEN ${iter.generation}</span>
       </div>
-      <div style="font-size:9px; color:#00ffff; font-weight:700;">${iter.dominantPrinciple}</div>
-      <div style="font-size:8px; color:#aaaaaa;">FORM DNA: ${iter.dna.map(v=>Math.round(v*100)).join('/')}</div>
+      <div style="font-size:9px; color:#b0b0b0; font-weight:700;">${iter.dominantPrinciple}</div>
+      <div style="font-size:8px; color:#888888;">FORM DNA: ${iter.dna.map(v=>Math.round(v*100)).join('/')}</div>
       
       <div class="iter-thumb-wrapper" style="height:90px;">
         <canvas id="canvas-compare-${iter.id}" width="200" height="120" class="iter-canvas"></canvas>
       </div>
 
-      <div style="font-size:9px; color:#ffd700;">Seed Identity: ${iter.seedSimilarity}%</div>
-      <div style="font-size:8px; color:#cccccc; line-height:1.3;">Study: ${iter.studyVariable} = ${iter.studyValuePct}%</div>
+      <div style="font-size:9px; color:#b0b0b0;">Seed Identity: ${iter.seedSimilarity}%</div>
+      <div style="font-size:8px; color:#94a3b8; line-height:1.3;">Study: ${iter.studyVariable} = ${iter.studyValuePct}%</div>
       <button class="btn btn-iter-select" style="margin-top:4px;" onclick="useAsParent('${iter.id}')">USE AS PARENT</button>
     `;
     cardsGrid.appendChild(card);
@@ -1015,7 +1015,7 @@ function renderCompareModal() {
         </tr>
         <tr>
           <td>Seed Identity %</td>
-          ${compareItems.map(it => `<td style="color:#ffd700; font-weight:700;">${it.seedSimilarity}%</td>`).join('')}
+          ${compareItems.map(it => `<td style="color:#b0b0b0; font-weight:700;">${it.seedSimilarity}%</td>`).join('')}
         </tr>
         <tr>
           <td>Verticality</td>
@@ -1083,16 +1083,16 @@ function updateLibraryUI() {
         <canvas id="canvas-lib-${iter.id}" width="180" height="110" class="iter-canvas"></canvas>
       </div>
 
-      <div style="font-size:9px; color:#00ffff; font-weight:700;">${iter.dominantPrinciple}</div>
-      <div style="font-size:8px; color:#aaaaaa;">DNA: ${iter.dna.map(v=>Math.round(v*100)).join('/')}</div>
-      <div style="font-size:8px; color:#ffd700;">Seed Identity: ${iter.seedSimilarity}%</div>
-      <div style="font-size:8px; color:#ffffff;">${iter.studyVariable} = ${iter.studyValuePct}%</div>
+      <div style="font-size:9px; color:#b0b0b0; font-weight:700;">${iter.dominantPrinciple}</div>
+      <div style="font-size:8px; color:#888888;">DNA: ${iter.dna.map(v=>Math.round(v*100)).join('/')}</div>
+      <div style="font-size:8px; color:#b0b0b0;">Seed Identity: ${iter.seedSimilarity}%</div>
+      <div style="font-size:8px; color:#94a3b8;">${iter.studyVariable} = ${iter.studyValuePct}%</div>
 
       <div class="lib-card-actions">
         <button class="btn-lib-action highlight" onclick="openLibraryDetail('${iter.id}')">OPEN</button>
         <button class="btn-lib-action" onclick="toggleCompareSelect('${iter.id}'); renderCompareModal();">COMPARE</button>
         <button class="btn-lib-action" onclick="useAsParent('${iter.id}')">USE PARENT</button>
-        <button class="btn-lib-action" style="color:#ff4444;" onclick="deleteIterationFromDB('${iter.id}')">DELETE</button>
+        <button class="btn-lib-action" style="color:#888888;" onclick="deleteIterationFromDB('${iter.id}')">DELETE</button>
       </div>
     `;
 
