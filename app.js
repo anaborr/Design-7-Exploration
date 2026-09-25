@@ -837,10 +837,10 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
     // 2. ORGANIC ART NOUVEAU BRANCHING (B)
     // Continuous spatial bifurcation along natural botanical parabolic tendril curves
     if (activeB > 0.05) {
-      const nodeStartU = Math.max(0.12, 0.42 - activeB * 0.28); // Node height (0.14 -> 0.35)
-      const maxBranchReach = activeB * 0.65 * domSpan;
+      const nodeStartU = Math.max(0.10, 0.38 - activeB * 0.25); // Smooth node start height
+      const maxBranchReach = activeB * 0.75 * domSpan;
       const numForks = activeB >= 0.55 ? 3 : 2; // 2-way or 3-way bifurcation
-      const forkAngle = (22 + activeB * 65) * (Math.PI / 180); // 22 deg to 87 deg flare
+      const forkAngle = (25 + activeB * 70) * (Math.PI / 180); // Smooth 25 deg to 95 deg flare
 
       for (let i = 0; i < temp.length; i += 3) {
         let x = temp[i], y = temp[i+1], z = temp[i+2];
@@ -849,10 +849,11 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
 
         if (u > nodeStartU) {
           let tBranch = (u - nodeStartU) / (1 - nodeStartU);
-          // Organic parabolic + S-curve tendril growth envelope
-          let growthEnvelope = Math.pow(tBranch, 1.25) * (1.0 + 0.35 * Math.sin(Math.PI * tBranch));
+          // C1/C2 continuous organic botanical growth envelope (smooth S-curve launch)
+          let smoothLaunch = 0.5 * (1 - Math.cos(Math.PI * tBranch));
+          let growthEnvelope = Math.pow(smoothLaunch, 1.35) * (1.0 + 0.30 * Math.sin(Math.PI * tBranch));
 
-          // Calculate spatial radial angle from central axis to group adjacent vertices organically
+          // Calculate spatial radial angle from central axis for seamless organic clustering
           let dx = x - centerX;
           let dz = z - centerZ;
           let spatialAngle = Math.atan2(dz, dx);
@@ -864,9 +865,12 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
           let spreadAngle = (forkSector - (numForks - 1) / 2.0) * forkAngle;
           let dispMagnitude = growthEnvelope * maxBranchReach;
 
-          let branchDx = dispMagnitude * Math.cos(spatialAngle + spreadAngle * 0.5);
-          let branchDz = dispMagnitude * Math.sin(spatialAngle + spreadAngle * 0.5);
-          let branchDy = dispMagnitude * 0.30 * tBranch; // Organic upward botanical reach
+          // Sinuous Art Nouveau organic wave along branch path
+          let sinuousWave = 0.25 * Math.sin(2 * Math.PI * tBranch);
+
+          let branchDx = dispMagnitude * Math.cos(spatialAngle + spreadAngle * 0.6 + sinuousWave);
+          let branchDz = dispMagnitude * Math.sin(spatialAngle + spreadAngle * 0.6 + sinuousWave);
+          let branchDy = dispMagnitude * 0.35 * tBranch; // Organic upward botanical reach
 
           temp[i] += branchDx;
           temp[i+2] += branchDz;
@@ -945,28 +949,38 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
       }
     }
 
-    // 6. GROWTH / AGGREGATION (G)
+    // 6. ORGANIC BOTANICAL GROWTH & LOGARITHMIC SPIRAL PROLIFERATION (G)
     if (activeG > 0) {
-      const N = 1 + Math.floor(4 * activeG);
-      const D = activeG * 0.48 * domSpan;
-
       for (let i = 0; i < temp.length; i += 3) {
-        let vertIdx = Math.floor(i / 3);
-        let gInstance = vertIdx % N;
-        let scaleInst = 1 + gInstance * activeG * 0.25;
-        let rotRad = (gInstance * activeG * 30) * (Math.PI / 180);
+        let x = temp[i], y = temp[i+1], z = temp[i+2];
+        let domVal = (domAxis === 'X') ? x : ((domAxis === 'Z') ? z : y);
+        let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
 
-        let x = temp[i] - centerX;
-        let z = temp[i+2] - centerZ;
+        let dx = x - centerX;
+        let dz = z - centerZ;
+        let r = Math.sqrt(dx * dx + dz * dz);
+        let theta = Math.atan2(dz, dx);
 
-        let rx = (x * Math.cos(rotRad) - z * Math.sin(rotRad)) * scaleInst;
-        let rz = (x * Math.sin(rotRad) + z * Math.cos(rotRad)) * scaleInst;
+        // Continuous spatial logarithmic spiral twist & unfurling envelope
+        let spiralTwist = activeG * 1.25 * Math.PI * Math.pow(u, 1.35);
+        let radialExpansion = 1.0 + activeG * 0.55 * Math.pow(u, 1.2) * (1.0 + 0.35 * Math.cos(3 * theta + 2.5 * Math.PI * u));
+        let verticalStretch = activeG * 0.48 * domSpan * Math.pow(u, 1.6) * (1.0 + 0.22 * Math.sin(4 * theta));
+
+        let newTheta = theta + spiralTwist;
+        let newR = r * radialExpansion;
+
+        let rx = newR * Math.cos(newTheta);
+        let rz = newR * Math.sin(newTheta);
 
         temp[i] = centerX + rx;
         temp[i+2] = centerZ + rz;
 
         if (domAxis === 'Y') {
-          temp[i+1] += gInstance * (D / Math.max(1, N)) * 0.30;
+          temp[i+1] += verticalStretch;
+        } else if (domAxis === 'X') {
+          temp[i] += verticalStretch;
+        } else {
+          temp[i+2] += verticalStretch;
         }
       }
     }
