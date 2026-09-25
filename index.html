@@ -3,302 +3,718 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Design-7-Exploration // Descriptor-Driven Architectural Evolution System</title>
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-  
-  <!-- Rhino3dm.js for browser-based .3dm file reading -->
+  <title>DESIGN 7 EXPLORATION // Descriptor-Driven Architectural Evolution System</title>
+
+  <!-- Rhino3dm.js for browser .3dm file parsing -->
   <script src="https://cdn.jsdelivr.net/npm/rhino3dm@8.4.0/rhino3dm.min.js"></script>
 
-  <!-- Three.js & OrbitControls for 3D WebGL Viewport -->
+  <!-- Three.js & OrbitControls for 3D Viewport -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="app-container">
-    
-    <!-- TOP ACTION BAR -->
-    <header id="top-bar">
-      <div class="brand-block">
-        <span class="brand-tag">DESIGN 7 EXPLORATION</span>
-        <span class="brand-sub">DESCRIPTOR-DRIVEN ARCHITECTURAL EVOLUTION SYSTEM</span>
-      </div>
 
-      <!-- MAIN ACTION BUTTONS -->
-      <div class="header-actions">
-        <label for="rhino-file-input" class="header-btn primary">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-          </svg>
-          IMPORT RHINO .3DM
-          <input type="file" id="rhino-file-input" accept=".3dm" style="display:none;">
-        </label>
+  <!-- TOP NAVIGATION HEADER BAR -->
+  <header class="app-top-header">
+    <div class="brand-title-group">
+      <h1 class="brand-main-title">DESIGN 7 EXPLORATION</h1>
+      <p class="brand-subtitle">DESCRIPTOR-DRIVEN ARCHITECTURAL EVOLUTION SYSTEM</p>
+    </div>
 
-        <button id="btn-load-sample-seed" class="header-btn accent" title="Generate and import a sample 3dm seed directly in browser">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>
-          </svg>
-          LOAD SAMPLE SEED (.3DM)
-        </button>
+    <div class="header-action-toolbar">
+      <label for="rhino-file-input" class="btn btn-header-gold">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        IMPORT RHINO .3DM
+        <input type="file" id="rhino-file-input" accept=".3dm" style="display:none;">
+      </label>
 
-        <button id="btn-verify-rhino-import" class="header-btn" disabled title="Audit exact Rhino object types, SubD vertices/faces, and degree">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-          </svg>
-          VERIFY RHINO IMPORT
-        </button>
+      <button id="btn-load-sample" class="btn btn-header-cyan">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        LOAD SAMPLE SEED (.3DM)
+      </button>
 
-        <button id="btn-export-svg" class="header-btn">EXPORT SVG</button>
-      </div>
-    </header>
+      <button id="btn-verify-import" class="btn btn-header-disabled" disabled>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg>
+        VERIFY RHINO IMPORT
+      </button>
 
-    <!-- MAIN WORKSPACE -->
-    <main id="workspace">
+      <button id="btn-open-library" class="btn btn-header-outline">
+        ★ EXPORT / LIBRARY (<span id="lib-count-badge">0</span>)
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN APP CONTAINER -->
+  <div class="app-main-layout">
+
+    <!-- LEFT SIDEBAR: LINEAGE & DOMAIN B DNA -->
+    <aside id="left-sidebar" class="app-sidebar left-sidebar">
       
-      <!-- LEFT SIDEBAR: GENERATION TREE LINEAGE -->
-      <aside id="sidebar-left" class="sidebar">
-        <div class="sidebar-header">
-          <h2>GENERATION HISTORY</h2>
-          <p class="subtitle">Multi-generation lineage tree descending from imported Rhino seed.</p>
-        </div>
-
-        <div class="sidebar-scrollable" id="generation-tree-container">
-          <div class="tree-placeholder-note">
-            Import a Rhino .3dm file to establish Generation 0 seed.
+      <!-- CARD 1: LINEAGE HISTORY -->
+      <div class="sidebar-card">
+        <div class="sidebar-card-header" onclick="toggleSidebarCard('card-lineage')">
+          <div class="card-header-titles">
+            <h2 class="sidebar-title">GENERATION HISTORY</h2>
+            <p class="sidebar-subtitle">Multi-generation lineage tree descending from seed.</p>
           </div>
+          <span class="card-toggle-icon" id="toggle-card-lineage">−</span>
         </div>
-      </aside>
-
-      <!-- CENTRAL 3D WEBGL VIEWER WITH BOTTOM STATUS STRIP -->
-      <section id="canvas-container">
-        
-        <!-- START SCREEN LANDING OVERLAY (ZERO INITIAL GEOMETRY) -->
-        <div id="start-screen-card" class="start-screen-card">
-          <div class="start-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent-gold)" stroke-width="1.5">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-            </svg>
-          </div>
-          <h1 class="start-title">DESIGN 7 EXPLORATION</h1>
-          <h2 class="start-subtitle">DESCRIPTOR-DRIVEN FORM FINDING</h2>
-          <p class="start-instruction">START WITH YOUR GEOMETRY</p>
-          <div style="display:flex; gap:0.75rem; flex-wrap:wrap; justify-content:center;">
-            <label for="rhino-file-input-main" class="start-import-btn">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-              IMPORT RHINO .3DM
-              <input type="file" id="rhino-file-input-main" accept=".3dm" style="display:none;">
-            </label>
-            <button id="btn-start-sample" class="start-sample-btn">
-              LOAD SAMPLE .3DM SEED
-            </button>
-          </div>
-          <div class="start-note">Supports SubD geometry, NURBS curves, polylines, polycurves, breps, extrusions, meshes, blocks</div>
-        </div>
-
-        <!-- CANVAS OVERLAY TOOLBAR (TOP-LEFT) -->
-        <div class="canvas-overlay top-left" id="canvas-tags-overlay" style="display:none;">
-          <span class="canvas-tag" id="current-generation-badge">GENERATION 0: ORIGINAL RHINO SEED</span>
-          <span class="canvas-tag version-tag" id="current-projection-badge">PROJECTION: FRONT (X/Z)</span>
-        </div>
-
-        <!-- DIAGNOSTICS OVERLAY (BOTTOM-LEFT) -->
-        <div class="canvas-overlay bottom-left" id="diagnostics-overlay" style="display:none;">
-          <div id="viewport-diagnostics" class="diagnostics-box">
-            <div>Seed File: <span id="diag-filename">None</span></div>
-            <div style="display:flex; gap:0.5rem; margin:0.25rem 0;">
-              <span id="status-step-read" class="delta-badge neutral">FILE READ: —</span>
-              <span id="status-step-extracted" class="delta-badge neutral">EXTRACTED: —</span>
-              <span id="status-step-rendered" class="delta-badge neutral">RENDERED: —</span>
-            </div>
-            <div>Objects: <span id="diag-objects">0</span> | SubD: <span id="diag-subd-count">0</span> | Rendered: <span id="diag-rendered">0</span></div>
-            <div>3D Bounds: X:<span id="diag-x-range">0</span> Y:<span id="diag-y-range">0</span> Z:<span id="diag-z-range">0</span></div>
-            <div>Rhino Units: <span id="diag-units">mm</span> | Projection: <span id="diag-projection">FRONT (XZ)</span></div>
-            <div>Status: <span id="diag-status" class="diag-ok">SEED LOADED</span></div>
-          </div>
-        </div>
-
-        <!-- PROJECTION & VIEWER MODE TOGGLES (TOP-RIGHT) -->
-        <div class="canvas-overlay top-right" id="viewer-toggles-overlay" style="display:none;">
-          <div style="display:flex; flex-direction:column; gap:0.4rem; align-items:flex-end;">
-            <!-- 3D PROJECTION TOGGLES -->
-            <div class="viewer-toggles">
-              <span class="proj-label">PROJECTION:</span>
-              <button class="proj-toggle-btn active" data-proj="FRONT">FRONT (XZ)</button>
-              <button class="proj-toggle-btn" data-proj="TOP">TOP (XY)</button>
-              <button class="proj-toggle-btn" data-proj="RIGHT">RIGHT (YZ)</button>
-              <button class="proj-toggle-btn" data-proj="PERSPECTIVE">3D ISOMETRIC</button>
-            </div>
-            <!-- DISPLAY MODE TOGGLES -->
-            <div class="viewer-toggles">
-              <button class="view-toggle-btn active" data-view="SURFACE">SUBD SURFACE</button>
-              <button class="view-toggle-btn" data-view="CAGE">CONTROL CAGE</button>
-              <button class="view-toggle-btn" data-view="OVERLAY">OVERLAY (BOTH)</button>
+        <div class="sidebar-card-body" id="card-lineage">
+          <div id="lineage-history-tree" class="lineage-tree">
+            <div class="lineage-placeholder-msg">
+              Import a Rhino .3dm file or load a sample seed to establish Generation 0 seed.
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- 3D WEBGL THREE.JS CANVAS CONTAINER -->
-        <div id="three-canvas-container" style="width:100%; height:calc(100% - 72px); position:relative;">
-          <canvas id="three-canvas" style="width:100%; height:100%; display:block;"></canvas>
+      <!-- CARD 2: DOMAIN B — ART NOUVEAU DNA -->
+      <div class="sidebar-card gold-accent">
+        <div class="sidebar-card-header" onclick="toggleSidebarCard('card-domain-b')">
+          <div class="card-header-titles">
+            <h2 class="sidebar-title gold">DOMAIN B — ART NOUVEAU DNA</h2>
+            <p class="sidebar-subtitle">Rule-based shape grammar transformation engine.</p>
+          </div>
+          <span class="card-toggle-icon" id="toggle-card-domain-b">−</span>
         </div>
 
-        <!-- SVG CANVAS (FALLBACK/OVERLAY) -->
-        <svg id="svg-canvas" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" style="display:none;">
-          <defs>
-            <pattern id="grid-pattern" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255, 255, 255, 0.04)" stroke-width="1"/>
-              <path d="M 200 0 L 0 0 0 200" fill="none" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1"/>
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#grid-pattern)" />
-          <g id="rhino-original-layer"></g>
-          <g id="rhino-editable-layer"></g>
-          <g id="rhino-control-layer"></g>
-        </svg>
+        <div class="sidebar-card-body" id="card-domain-b">
+          <!-- SIX PRIMARY TRANSFORMATION SLIDERS -->
+          <div class="dna-sliders-container">
+            <!-- CONTINUITY -->
+            <div class="slider-group-dna">
+              <div class="slider-label-dna">
+                <span class="dna-title">CONTINUITY (C)</span>
+                <span class="qual-badge badge-c" id="badge-dna-c">INDEPENDENT</span>
+                <span class="val-dna" id="val-dna-c">0%</span>
+              </div>
+              <input type="range" id="slider-dna-c" min="0" max="100" value="0" class="slider slider-gold">
+            </div>
 
-        <!-- BOTTOM STRIP (STATUS STRIP) -->
-        <div id="bottom-thumbnails-strip">
-          <div class="thumb-card placeholder">
-            <div class="thumb-title">SUBD 3D WEBGL IMPORTER DIAGNOSTIC MODE</div>
-            <div class="thumb-sub">Generation/Cloning disabled until import fidelity verified</div>
-          </div>
-        </div>
-      </section>
+            <!-- BRANCHING -->
+            <div class="slider-group-dna">
+              <div class="slider-label-dna">
+                <span class="dna-title">BRANCHING (B)</span>
+                <span class="qual-badge badge-b" id="badge-dna-b">SINGULAR</span>
+                <span class="val-dna" id="val-dna-b">0%</span>
+              </div>
+              <input type="range" id="slider-dna-b" min="0" max="100" value="0" class="slider slider-gold">
+            </div>
 
-      <!-- RIGHT SIDEBAR: RHINO FILE DIAGNOSTICS & OBJECT VISIBILITY DEBUGGER -->
-      <aside id="sidebar-right" class="sidebar">
-        <div class="sidebar-header">
-          <h2>RHINO FILE DIAGNOSTICS</h2>
-          <p class="subtitle">Full 3D object breakdown & visibility debugger.</p>
-        </div>
+            <!-- WHIPLASH CURVATURE -->
+            <div class="slider-group-dna">
+              <div class="slider-label-dna">
+                <span class="dna-title">WHIPLASH CURVATURE (W)</span>
+                <span class="qual-badge badge-w" id="badge-dna-w">LINEAR</span>
+                <span class="val-dna" id="val-dna-w">0%</span>
+              </div>
+              <input type="range" id="slider-dna-w" min="0" max="100" value="0" class="slider slider-gold">
+            </div>
 
-        <div class="sidebar-scrollable" id="right-sidebar-content">
+            <!-- MERGING SURFACES -->
+            <div class="slider-group-dna">
+              <div class="slider-label-dna">
+                <span class="dna-title">MERGING SURFACES (M)</span>
+                <span class="qual-badge badge-m" id="badge-dna-m">INDEPENDENT</span>
+                <span class="val-dna" id="val-dna-m">0%</span>
+              </div>
+              <input type="range" id="slider-dna-m" min="0" max="100" value="0" class="slider slider-gold">
+            </div>
 
-          <!-- PROMINENT RHINO IMPORT PIPELINE DEBUG CARD -->
-          <div class="info-card" id="rhino-import-pipeline-card" style="border: 2px solid var(--accent-gold); background: #111;">
-            <div class="info-label" style="color: var(--accent-gold); font-size: 0.85rem; font-weight: 700;">RHINO IMPORT PIPELINE</div>
-            <div class="delta-row"><span>1 FILE SELECTED:</span><span id="dbg-file-selected" class="delta-badge neutral">NO</span></div>
-            <div class="delta-row"><span>   Name:</span><span id="dbg-file-name" class="delta-badge neutral">-</span></div>
-            <div class="delta-row"><span>   Size:</span><span id="dbg-file-size" class="delta-badge neutral">0 bytes</span></div>
-            <div class="delta-row"><span>2 FILE BYTES:</span><span id="dbg-file-bytes" class="delta-badge neutral">0</span></div>
-            <div class="delta-row"><span>3 RHINO3DM INITIALIZED:</span><span id="dbg-rhino-init" class="delta-badge neutral">NO</span></div>
-            <div class="delta-row"><span>4 FILE3DM CREATED:</span><span id="dbg-doc-created" class="delta-badge neutral">NO</span></div>
-            <div class="delta-row"><span>5 OBJECT TABLE FOUND:</span><span id="dbg-table-found" class="delta-badge neutral">NO</span></div>
-            <div class="delta-row"><span>6 RAW OBJECT COUNT:</span><span id="dbg-raw-count" class="delta-badge neutral">0</span></div>
-            <div class="delta-row"><span>7 GEOMETRY RETRIEVED:</span><span id="dbg-geom-count" class="delta-badge neutral">0</span></div>
-            <div class="delta-row"><span>8 NULL GEOMETRY:</span><span id="dbg-null-count" class="delta-badge neutral">0</span></div>
-            <div class="delta-row"><span>9 ERRORS:</span><span id="dbg-errors" class="delta-badge pos">NONE</span></div>
-          </div>
+            <!-- POSITIVE / NEGATIVE SPACE -->
+            <div class="slider-group-dna">
+              <div class="slider-label-dna">
+                <span class="dna-title">POS / NEG SPACE (V)</span>
+                <span class="qual-badge badge-v" id="badge-dna-v">SOLID / ENCLOSED</span>
+                <span class="val-dna" id="val-dna-v">0%</span>
+              </div>
+              <input type="range" id="slider-dna-v" min="0" max="100" value="0" class="slider slider-gold">
+            </div>
 
-          <!-- RENDER PIPELINE CARD -->
-          <div class="info-card" id="render-pipeline-card" style="border: 2px solid #4a90e2; background: #111;">
-            <div class="info-label" style="color: #4a90e2; font-size: 0.85rem; font-weight: 700;">RENDER PIPELINE (THREE.JS)</div>
-            <div class="delta-row"><span>RHINO OBJECTS RECEIVED:</span><span id="rnd-objects-rcvd" class="delta-badge neutral">0</span></div>
-            <div class="delta-row"><span>OBJECTS CONVERTED:</span><span id="rnd-objects-conv" class="delta-badge neutral">0</span></div>
-            <div class="delta-row"><span>ADDED TO THREE.JS:</span><span id="rnd-objects-added" class="delta-badge neutral">0</span></div>
-            <div class="delta-row"><span>FAILED CONVERSIONS:</span><span id="rnd-objects-failed" class="delta-badge neutral">0</span></div>
-            <div class="delta-row"><span>THREE.JS MODEL CHILDREN:</span><span id="rnd-model-children" class="delta-badge neutral">0</span></div>
-            <div class="delta-row"><span>THREE.JS BOUNDING BOX:</span><span id="rnd-bbox-status" class="delta-badge neutral">EMPTY</span></div>
-            <div class="delta-row"><span>CAMERA FIT:</span><span id="rnd-cam-fit" class="delta-badge neutral">NO</span></div>
-            <div class="delta-row"><span>RENDER STATUS:</span><span id="rnd-status" class="delta-badge neutral">PENDING</span></div>
-          </div>
-
-          <!-- RAW RHINO IMPORT CARD -->
-          <div class="info-card">
-            <div class="info-label">RAW RHINO IMPORT DIAGNOSTICS</div>
-            <div class="delta-row"><span>FILE NAME:</span><span id="raw-file-name" class="delta-badge neutral">None</span></div>
-            <div class="delta-row"><span>FILE SIZE:</span><span id="raw-file-size" class="delta-badge neutral">0 bytes</span></div>
-            <div class="delta-row"><span>DOCUMENT:</span><span id="raw-doc-status" class="delta-badge neutral">PENDING</span></div>
-            <div class="delta-row"><span>OBJECT TABLE:</span><span id="raw-table-status" class="delta-badge neutral">PENDING</span></div>
-            <div class="delta-row"><span>RAW OBJECT COUNT:</span><span id="raw-object-count" class="delta-badge neutral">0</span></div>
-            <div class="delta-row"><span>GEOMETRY RETRIEVED:</span><span id="raw-geom-retrieved" class="delta-badge neutral">0</span></div>
-            <div class="delta-row"><span>NULL GEOMETRY:</span><span id="raw-null-geom" class="delta-badge neutral">0</span></div>
-            <div class="delta-row"><span>CLASSIFIED:</span><span id="raw-classified" class="delta-badge neutral">0</span></div>
-            <div class="delta-row"><span>UNCLASSIFIED:</span><span id="raw-unclassified" class="delta-badge neutral">0</span></div>
-          </div>
-
-          <!-- DIAGNOSTICS SUMMARY CARD -->
-          <div class="info-card">
-            <div class="info-label">3D WORLD BOUNDING BOX</div>
-            <div class="delta-row"><span>X Range:</span><span id="meta-x-range" class="delta-badge neutral">-</span></div>
-            <div class="delta-row"><span>X Width:</span><span id="meta-x-bounds" class="delta-badge neutral">-</span></div>
-            <div class="delta-row"><span>Y Range:</span><span id="meta-y-range" class="delta-badge neutral">-</span></div>
-            <div class="delta-row"><span>Y Depth:</span><span id="meta-y-bounds" class="delta-badge neutral">-</span></div>
-            <div class="delta-row"><span>Z Range:</span><span id="meta-z-range" class="delta-badge neutral">-</span></div>
-            <div class="delta-row"><span>Z Height:</span><span id="meta-z-bounds" class="delta-badge neutral">-</span></div>
-            <div class="delta-row"><span>Model Center:</span><span id="meta-model-center" class="delta-badge neutral">-</span></div>
-            <div class="delta-row"><span>Dominant View Plane:</span><span id="meta-dominant-plane" class="delta-badge pos">FRONT (XZ)</span></div>
-          </div>
-
-          <!-- SUBD COUNTS CARD -->
-          <div class="info-card">
-            <div class="info-label">RHINO SUBD METRICS</div>
-            <div class="delta-row"><span>SubD Objects:</span><span id="count-subd-objs" class="delta-badge pos">0</span></div>
-            <div class="delta-row"><span>SubD Control Vertices:</span><span id="count-subd-verts" class="delta-badge neutral">0</span></div>
-            <div class="delta-row"><span>SubD Control Edges:</span><span id="count-subd-edges" class="delta-badge neutral">0</span></div>
-            <div class="delta-row"><span>SubD Control Faces:</span><span id="count-subd-faces" class="delta-badge neutral">0</span></div>
-          </div>
-
-          <!-- GEOMETRY TYPE COUNTS BREAKDOWN CARD -->
-          <div class="info-card">
-            <div class="info-label">GEOMETRY TYPES BREAKDOWN</div>
-            <div id="diag-counts-breakdown" style="display:flex; flex-direction:column; gap:0.25rem;">
-              <div class="delta-row"><span>SubD Geometry:</span><span id="count-subd" class="delta-badge pos">0</span></div>
-              <div class="delta-row"><span>NURBS Curves:</span><span id="count-nurbs" class="delta-badge neutral">0</span></div>
-              <div class="delta-row"><span>Polylines:</span><span id="count-polylines" class="delta-badge neutral">0</span></div>
-              <div class="delta-row"><span>PolyCurves:</span><span id="count-polycurves" class="delta-badge neutral">0</span></div>
-              <div class="delta-row"><span>Lines:</span><span id="count-lines" class="delta-badge neutral">0</span></div>
-              <div class="delta-row"><span>Arcs / Circles:</span><span id="count-arcs" class="delta-badge neutral">0</span></div>
-              <div class="delta-row"><span>Breps (Solid/Surface):</span><span id="count-breps" class="delta-badge neutral">0</span></div>
-              <div class="delta-row"><span>Extrusions:</span><span id="count-extrusions" class="delta-badge neutral">0</span></div>
-              <div class="delta-row"><span>Meshes:</span><span id="count-meshes" class="delta-badge neutral">0</span></div>
-              <div class="delta-row"><span>Points:</span><span id="count-points" class="delta-badge neutral">0</span></div>
-              <div class="delta-row"><span>Instance Refs (Blocks):</span><span id="count-blocks" class="delta-badge neutral">0</span></div>
-              <div class="delta-row"><span>Unsupported:</span><span id="count-unsupported" class="delta-badge neutral">0</span></div>
+            <!-- GROWTH / AGGREGATION -->
+            <div class="slider-group-dna">
+              <div class="slider-label-dna">
+                <span class="dna-title">GROWTH / AGGREGATION (G)</span>
+                <span class="qual-badge badge-g" id="badge-dna-g">CONTAINED</span>
+                <span class="val-dna" id="val-dna-g">0%</span>
+              </div>
+              <input type="range" id="slider-dna-g" min="0" max="100" value="0" class="slider slider-gold">
             </div>
           </div>
 
-          <!-- OBJECT VISIBILITY DEBUGGER LIST -->
-          <div class="info-card" style="flex:1;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <div class="info-label">OBJECT VISIBILITY DEBUGGER</div>
-              <button id="btn-toggle-all-visibility" class="pill-btn" style="font-size:0.6rem;">TOGGLE ALL</button>
+          <!-- FORM DNA VECTOR READOUT -->
+          <div class="form-dna-box">
+            <div class="dna-box-header">FORM DNA</div>
+            <div class="dna-vector-code" id="readout-form-dna">0 / 0 / 0 / 0 / 0 / 0</div>
+            <div class="dna-principles-row">
+              <div>DOMINANT: <span id="readout-dominant-principle" class="val-gold">CONTINUITY</span></div>
+              <div>SECONDARY: <span id="readout-secondary-principle" class="val-white">BRANCHING</span></div>
             </div>
-            <p class="subtitle" style="margin-bottom:0.4rem;">Click an object to isolate it exclusively in 3D WebGL viewer:</p>
-            <div id="object-visibility-list" class="object-visibility-list">
-              <div class="tree-placeholder-note">Import a Rhino file to load object debugger.</div>
+          </div>
+
+          <!-- SEED IDENTITY PROTECTION -->
+          <div class="identity-box">
+            <div class="id-row">
+              <span class="ctrl-label">SEED IDENTITY:</span>
+              <span id="val-seed-identity" class="val-gold highlight-gold" style="font-size:11px; font-weight:800;">100%</span>
+            </div>
+            <div class="slider-group-compact" style="margin-top:2px;">
+              <div class="slider-label">
+                <span>Preserve Seed Identity Min:</span>
+                <span id="val-seed-identity-threshold" class="highlight-gold">75%</span>
+              </div>
+              <input type="range" id="slider-seed-identity-threshold" min="50" max="95" value="75" class="slider">
             </div>
           </div>
         </div>
-      </aside>
+      </div>
+
+      <!-- CARD 3: GEOMETRIC METRICS & VALIDATION (TABBED) -->
+      <div class="sidebar-card cyan-accent">
+        <div class="sidebar-card-header">
+          <div class="card-header-titles">
+            <h2 class="sidebar-title cyan">METRICS & RULE VALIDATION</h2>
+            <p class="sidebar-subtitle">Post-transformation spatial readouts & rule checks.</p>
+          </div>
+        </div>
+
+        <!-- CARD SUB-TABS -->
+        <div class="sidebar-sub-tabbar">
+          <button class="sub-tab-btn active" onclick="switchSidebarSubTab('left', 'effects', this)">EFFECTS</button>
+          <button class="sub-tab-btn" onclick="switchSidebarSubTab('left', 'measurements', this)">METRICS</button>
+          <button class="sub-tab-btn" onclick="switchSidebarSubTab('left', 'rules', this)">RULES</button>
+        </div>
+
+        <div class="sidebar-card-body">
+          <!-- TAB 1: GEOMETRIC EFFECTS -->
+          <div id="subtab-left-effects" class="subtab-content active">
+            <div class="readout-box-effects-grid" id="domain-b-spatial-effects-readout">
+              <div class="effect-chip">Vertices: <span id="effect-affected-pct">0%</span></div>
+              <div class="effect-chip">Max Disp: <span id="effect-max-disp">0.0 ft</span></div>
+              <div class="effect-chip">Width: <span id="effect-width-change">+0%</span></div>
+              <div class="effect-chip">Height: <span id="effect-height-change">+0%</span></div>
+              <div class="effect-chip">Depth: <span id="effect-depth-change">+0%</span></div>
+            </div>
+          </div>
+
+          <!-- TAB 2: READ-ONLY MEASUREMENTS -->
+          <div id="subtab-left-measurements" class="subtab-content">
+            <div class="measurements-grid" id="readonly-measurements-grid">
+              <div class="meas-item"><span>Continuity Strength:</span> <span id="m-cont-str" class="val-white">0%</span></div>
+              <div class="meas-item"><span>Branch Count:</span> <span id="m-branch-cnt" class="val-white">0</span></div>
+              <div class="meas-item"><span>Hierarchy Depth:</span> <span id="m-branch-depth" class="val-white">1</span></div>
+              <div class="meas-item"><span>Curvature Strength:</span> <span id="m-whip-str" class="val-white">0%</span></div>
+              <div class="meas-item"><span>Inflection Count:</span> <span id="m-whip-inf" class="val-white">0</span></div>
+              <div class="meas-item"><span>Merge Count:</span> <span id="m-merge-cnt" class="val-white">0</span></div>
+              <div class="meas-item"><span>Void Ratio:</span> <span id="m-void-ratio" class="val-white">0%</span></div>
+              <div class="meas-item"><span>Opening Count:</span> <span id="m-open-cnt" class="val-white">0</span></div>
+              <div class="meas-item"><span>Added Elements:</span> <span id="m-growth-cnt" class="val-white">0</span></div>
+            </div>
+          </div>
+
+          <!-- TAB 3: RULE VALIDATION STATUS -->
+          <div id="subtab-left-rules" class="subtab-content">
+            <div class="validation-list" id="rule-validation-list">
+              <div class="val-item"><span class="val-rule">01 CONTINUITY:</span> <span id="val-rule-cont" class="val-pass">✓ CONNECTED FLOW</span></div>
+              <div class="val-item"><span class="val-rule">02 BRANCHING:</span> <span id="val-rule-branch" class="val-pass">✓ PARENT ATTACHED</span></div>
+              <div class="val-item"><span class="val-rule">03 WHIPLASH:</span> <span id="val-rule-whip" class="val-pass">✓ CONTINUOUS INFLECTION</span></div>
+              <div class="val-item"><span class="val-rule">04 MERGING:</span> <span id="val-rule-merge" class="val-pass">✓ PRECONDITION MET</span></div>
+              <div class="val-item"><span class="val-rule">05 POS / NEG:</span> <span id="val-rule-posneg" class="val-pass">✓ VOID INTERLOCK</span></div>
+              <div class="val-item"><span class="val-rule">06 GROWTH:</span> <span id="val-rule-growth" class="val-pass">✓ ADJACENCY MAINTAINED</span></div>
+            </div>
+          </div>
+
+          <!-- VIEW MATHEMATICAL REASONING BUTTON -->
+          <button id="btn-view-reasoning" class="btn btn-header-cyan" style="width:100%; margin-top:6px;">
+            🔍 VIEW MATHEMATICAL REASONING
+          </button>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- CENTER VIEWPORT & POPULATION TAB WORKSPACE -->
+    <main id="center-viewport-wrapper">
+
+      <!-- WORKSPACE TAB BAR -->
+      <div class="center-workspace-tabbar">
+        <button id="tab-btn-viewport" class="workspace-tab-btn active" onclick="switchWorkspaceTab('viewport')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+          3D SEED VIEWPORT
+        </button>
+
+        <button id="tab-btn-population" class="workspace-tab-btn" onclick="switchWorkspaceTab('population')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          ⚡ GENERATED POPULATION (<span id="pop-count-badge">0</span>)
+        </button>
+
+        <button id="tab-btn-library" class="workspace-tab-btn" onclick="switchWorkspaceTab('library')">
+          ★ ITERATION LIBRARY (<span id="lib-tab-count-badge">0</span>)
+        </button>
+      </div>
+
+      <!-- TAB 1: 3D SEED VIEWPORT -->
+      <div id="tab-content-viewport" class="workspace-tab-content active">
+        <!-- VIEWPORT TOP-LEFT OVERLAY TAGS -->
+        <div class="vp-overlay top-left">
+          <div class="vp-tag-box" id="vp-gen-tag">GENERATION 0: ORIGINAL RHINO SEED</div>
+          <div class="vp-pill-btn" id="vp-proj-pill">PROJECTION: PERSPECTIVE</div>
+        </div>
+
+        <!-- VIEWPORT TOP-RIGHT OVERLAY PILL TOOLBAR -->
+        <div class="vp-overlay top-right">
+          <div class="vp-toolbar-group">
+            <span class="vp-group-label">PROJECTION</span>
+            <div class="btn-group-segmented">
+              <button class="btn-vp-pill" data-proj="FRONT">FRONT</button>
+              <button class="btn-vp-pill" data-proj="TOP">TOP</button>
+              <button class="btn-vp-pill" data-proj="RIGHT">RIGHT</button>
+              <button class="btn-vp-pill active" data-proj="ISO">3D ISO</button>
+            </div>
+          </div>
+          <div class="vp-toolbar-group">
+            <span class="vp-group-label">LAYERS</span>
+            <div class="btn-group-segmented">
+              <button id="btn-toggle-mesh" class="btn-vp-pill active">SubD Mesh</button>
+              <button id="btn-toggle-cage" class="btn-vp-pill active">Cage</button>
+              <button id="btn-toggle-curves" class="btn-vp-pill active">Overlay</button>
+            </div>
+          </div>
+          <div class="vp-toolbar-group">
+            <span class="vp-group-label">COMPARISON</span>
+            <div class="btn-group-segmented">
+              <button id="btn-comp-seed" class="btn-vp-pill" onclick="switchVisualComparisonMode('SEED')">SEED</button>
+              <button id="btn-comp-parent" class="btn-vp-pill" onclick="switchVisualComparisonMode('PARENT')">PARENT</button>
+              <button id="btn-comp-iter" class="btn-vp-pill active" onclick="switchVisualComparisonMode('ITERATION')">ITERATION</button>
+              <button id="btn-comp-overlay" class="btn-vp-pill" onclick="switchVisualComparisonMode('OVERLAY')">OVERLAY</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEWPORT BOTTOM-LEFT FLOATING DIAGNOSTICS CARD -->
+        <div class="vp-overlay bottom-left">
+          <div class="vp-diag-card" id="vp-diag-card">
+            <div class="vp-card-title">Seed File: <span id="info-filename">compressed.3dm</span></div>
+            <div class="vp-card-row">FILE READ: <span id="diag-read" class="val-white">OK</span> | EXTRACTED: <span id="diag-ext" class="val-white">OK</span> | RENDERED: <span id="diag-ren" class="val-white">OK</span></div>
+            <div class="vp-card-row">Objects: <span id="info-meshes">161</span> | SubD: <span id="info-subds">4</span> | Rendered: <span id="info-rendered">157</span></div>
+            <div class="vp-card-row">3D Bounds: <span id="info-bounds">X:-10.1 to 118.0 Y:-0.6 to 12.4 Z:-0.3 to 37.7</span></div>
+            <div class="vp-card-row">Rhino Units: <span id="info-units">mm</span> | Projection: <span id="info-proj">PERSPECTIVE</span></div>
+            <div class="vp-card-row status-green">Status: <span id="info-status">IMPORTED: 157/161 OBJECTS VISIBLE</span></div>
+          </div>
+
+          <div class="vp-status-bar-pill">
+            <span class="pulse-dot"></span> SUBD 3D WEBGL IMPORTER DIAGNOSTIC MODE — Active
+          </div>
+        </div>
+
+        <!-- THREE.JS CANVAS CONTAINER -->
+        <div id="webgl-container"></div>
+      </div>
+
+      <!-- TAB 2: GENERATED POPULATION FULL GRID VIEW -->
+      <div id="tab-content-population" class="workspace-tab-content">
+        <div class="population-tab-header">
+          <div class="pop-header-title-group">
+            <h3 id="population-tab-title" class="pop-title">GENERATION 1 — CONTROLLED STUDY</h3>
+            <p id="population-tab-subtitle" class="pop-subtitle">Displaying all generated variations side-by-side without scrolling.</p>
+          </div>
+          <div class="pop-header-actions">
+            <button id="btn-tab-compare-selected" class="btn btn-compare-trigger" style="display:none;" onclick="openCompareModalFromTab()">📊 COMPARE SELECTED (<span id="tab-compare-count">0</span>)</button>
+            <button id="btn-back-to-3d" class="btn btn-header-cyan" onclick="switchWorkspaceTab('viewport')">🧊 RETURN TO 3D VIEWPORT</button>
+          </div>
+        </div>
+
+        <!-- FULL WORKSPACE MULTI-COLUMN POPULATION GRID -->
+        <div id="population-cards-full-grid" class="population-full-grid">
+          <div class="pop-empty-state">
+            <p>No iterations generated yet. Configure Domain B parameters & click <strong>⚡ GENERATE CONTROLLED ITERATIONS</strong> in the right sidebar to generate design variations.</p>
+          </div>
+        </div>
+      </div>
+
     </main>
+
+    <!-- RIGHT SIDEBAR: DOMAIN C & SYSTEM DIAGNOSTICS -->
+    <aside id="right-sidebar" class="app-sidebar right-sidebar">
+
+      <!-- CARD 1: DOMAIN C — GENERATIVE ITERATIONS (PRIMARY FOCUS AT TOP) -->
+      <div class="sidebar-card cyan-accent">
+        <div class="sidebar-card-header" onclick="toggleSidebarCard('card-domain-c')">
+          <div class="card-header-titles">
+            <h2 class="sidebar-title cyan">DOMAIN C — GENERATIVE ITERATIONS</h2>
+            <p class="sidebar-subtitle">Generate & study controlled design alternatives.</p>
+          </div>
+          <span class="card-toggle-icon" id="toggle-card-domain-c">−</span>
+        </div>
+
+        <div class="sidebar-card-body" id="card-domain-c">
+          <!-- READOUT STATUS BLOCK -->
+          <div class="readout-box-domain-c">
+            <div>Parent: <span id="c-readout-parent" class="highlight-cyan">Rhino Seed</span></div>
+            <div>Principle: <span id="c-readout-principle" class="highlight-cyan">Whiplash Curvature</span></div>
+            <div>Target: <span id="c-readout-target" class="highlight-white">Zone D (Regional)</span></div>
+            <div>Identity Min: <span id="c-readout-identity" class="highlight-gold">75%</span></div>
+          </div>
+
+          <!-- POPULATION SIZE SELECTOR -->
+          <div class="control-row" style="margin-top:4px;">
+            <span class="ctrl-label">Pop Size:</span>
+            <div class="btn-group-segmented" id="group-pop-size">
+              <button class="btn-segment" data-val="4">4</button>
+              <button class="btn-segment active" data-val="6">6</button>
+              <button class="btn-segment" data-val="8">8</button>
+              <button class="btn-segment" data-val="12">12</button>
+            </div>
+          </div>
+
+          <!-- VARIATION RANGE SELECTOR -->
+          <div class="control-row">
+            <span class="ctrl-label">Variation:</span>
+            <div class="btn-group-segmented" id="group-variation-range">
+              <button class="btn-segment" data-val="LOW">Low</button>
+              <button class="btn-segment active" data-val="MEDIUM">Med</button>
+              <button class="btn-segment" data-val="HIGH">High</button>
+            </div>
+          </div>
+
+          <!-- GENERATION STRATEGY SELECTOR -->
+          <div class="control-row">
+            <span class="ctrl-label">Strategy:</span>
+            <div class="btn-group-segmented" id="group-generation-strategy">
+              <button class="btn-segment active" data-val="PARAMETRIC">Parametric</button>
+              <button class="btn-segment" data-val="EFFECT_DRIVEN">Effect</button>
+              <button class="btn-segment" data-val="PRINCIPLE_STUDY">Study</button>
+            </div>
+          </div>
+
+          <!-- STUDY VARIABLE SELECTOR -->
+          <div class="control-row">
+            <span class="ctrl-label">Study Var:</span>
+            <select id="select-study-variable" class="select-input-compact" style="width:140px;" onchange="if(window.domainState) window.domainState.studyVariable = this.value;">
+              <option value="CONTINUITY">CONTINUITY (C)</option>
+              <option value="BRANCHING" selected>BRANCHING (B)</option>
+              <option value="WHIPLASH">WHIPLASH (W)</option>
+              <option value="MERGING">MERGING (M)</option>
+              <option value="POSITIVE_NEGATIVE">POS/NEG (V)</option>
+              <option value="GROWTH">GROWTH (G)</option>
+            </select>
+          </div>
+
+          <!-- GENERATE BUTTON -->
+          <button id="btn-generate-iterations" class="btn btn-generate" style="margin-top:6px;">
+            ⚡ GENERATE CONTROLLED ITERATIONS
+          </button>
+        </div>
+      </div>
+
+      <!-- CARD 2: SYSTEM & RHINO DIAGNOSTICS (TABBED SWITCHER) -->
+      <div class="sidebar-card gold-accent">
+        <div class="sidebar-card-header">
+          <div class="card-header-titles">
+            <h2 class="sidebar-title gold">SYSTEM DIAGNOSTICS</h2>
+            <p class="sidebar-subtitle">Rhino file, WebGL renderer & automated tests.</p>
+          </div>
+        </div>
+
+        <!-- CARD SUB-TABS -->
+        <div class="sidebar-sub-tabbar">
+          <button class="sub-tab-btn active" onclick="switchSidebarSubTab('right', 'file', this)">RHINO FILE</button>
+          <button class="sub-tab-btn" onclick="switchSidebarSubTab('right', 'render', this)">RENDER PIPELINE</button>
+          <button class="sub-tab-btn" onclick="switchSidebarSubTab('right', 'tests', this)">15-PARAM TESTS</button>
+        </div>
+
+        <div class="sidebar-card-body">
+          <!-- TAB 1: RHINO FILE DIAGNOSTICS -->
+          <div id="subtab-right-file" class="subtab-content active">
+            <div class="diag-table-box">
+              <div class="diag-table-row"><span>1 FILE SIZE:</span><span id="d-filesize" class="val-gold">740736 bytes</span></div>
+              <div class="diag-table-row"><span>2 FILE BYTES:</span><span id="d-filebytes" class="val-gold">740736</span></div>
+              <div class="diag-table-row"><span>3 RHINO3DM INITIALIZED:</span><span id="d-init" class="val-green">YES</span></div>
+              <div class="diag-table-row"><span>4 FILE3DM CREATED:</span><span id="d-created" class="val-green">YES</span></div>
+              <div class="diag-table-row"><span>5 OBJECT TABLE FOUND:</span><span id="d-table" class="val-green">YES</span></div>
+              <div class="diag-table-row"><span>6 RAW OBJECT COUNT:</span><span id="d-rawcount" class="val-white">161</span></div>
+              <div class="diag-table-row"><span>7 GEOMETRY RETRIEVED:</span><span id="d-retrieved" class="val-white">161</span></div>
+              <div class="diag-table-row"><span>8 NULL GEOMETRY:</span><span id="d-nullgeom" class="val-white">0</span></div>
+              <div class="diag-table-row"><span>9 ERRORS:</span><span id="d-errors" class="val-green">NONE</span></div>
+            </div>
+            
+            <div class="gold-border-box" style="margin-top:6px;">
+              <div class="box-title gold">RAW IMPORT DETAILS</div>
+              <div class="diag-table-row"><span>FILE NAME:</span><span id="raw-filename" class="val-gold">compressed.3dm</span></div>
+              <div class="diag-table-row"><span>FILE SIZE:</span><span id="raw-filesize" class="val-gold">740736 bytes</span></div>
+              <div class="diag-table-row"><span>DOCUMENT:</span><span id="raw-doc" class="val-green">VALID</span></div>
+              <div class="diag-table-row"><span>OBJECT TABLE:</span><span id="raw-objtable" class="val-green">FOUND</span></div>
+            </div>
+          </div>
+
+          <!-- TAB 2: RENDER PIPELINE -->
+          <div id="subtab-right-render" class="subtab-content">
+            <div class="cyan-border-box">
+              <div class="box-title cyan">RENDER PIPELINE (THREE.JS)</div>
+              <div class="diag-table-row"><span>RHINO OBJECTS RECEIVED:</span><span id="p-recv" class="val-white">161</span></div>
+              <div class="diag-table-row"><span>OBJECTS CONVERTED:</span><span id="p-conv" class="val-white">157</span></div>
+              <div class="diag-table-row"><span>ADDED TO THREE.JS:</span><span id="p-added" class="val-white">157</span></div>
+              <div class="diag-table-row"><span>FAILED CONVERSIONS:</span><span id="p-failed" class="val-white">4</span></div>
+              <div class="diag-table-row"><span>THREEJS MODEL CHILDREN:</span><span id="p-children" class="val-white">157</span></div>
+              <div class="diag-table-row"><span>THREEJS BOUNDING BOX:</span><span id="p-bbox" class="val-green">VALID</span></div>
+              <div class="diag-table-row"><span>CAMERA FIT:</span><span id="p-camfit" class="val-green">YES</span></div>
+              <div class="diag-table-row"><span>RENDER STATUS:</span><span id="p-status" class="val-green">SUCCESS</span></div>
+            </div>
+          </div>
+
+          <!-- TAB 3: 15-PARAM TEST SUITE -->
+          <div id="subtab-right-tests" class="subtab-content">
+            <div class="gold-border-box" id="diag-tests-panel">
+              <div class="box-title gold" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>15-PARAMETER DIAGNOSTIC SUITE</span>
+                <button id="btn-run-diagnostics" class="btn-import-compact" style="font-size:8px; padding:2px 6px;" onclick="runDomainBDiagnostics()">RUN TESTS</button>
+              </div>
+              <div id="diag-tests-grid" class="diag-tests-grid">
+                <div class="diag-test-item"><span class="test-name">Affected Region</span><span class="test-status pass">PASS</span></div>
+                <div class="diag-test-item"><span class="test-name">Affected Length</span><span class="test-status pass">PASS</span></div>
+                <div class="diag-test-item"><span class="test-name">Branch Count</span><span class="test-status pass">PASS</span></div>
+                <div class="diag-test-item"><span class="test-name">Hierarchy Depth</span><span class="test-status pass">PASS</span></div>
+                <div class="diag-test-item"><span class="test-name">Continuity (G0/G1/G2)</span><span class="test-status pass">PASS</span></div>
+                <div class="diag-test-item"><span class="test-name">Lateral Disp</span><span class="test-status pass">PASS</span></div>
+                <div class="diag-test-item"><span class="test-name">Inflection Count</span><span class="test-status pass">PASS</span></div>
+                <div class="diag-test-item"><span class="test-name">Merge Count</span><span class="test-status pass">PASS</span></div>
+                <div class="diag-test-item"><span class="test-name">Merge Radius</span><span class="test-status pass">PASS</span></div>
+                <div class="diag-test-item"><span class="test-name">Opening Count</span><span class="test-status pass">PASS</span></div>
+                <div class="diag-test-item"><span class="test-name">Opening Scale</span><span class="test-status pass">PASS</span></div>
+                <div class="diag-test-item"><span class="test-name">Enclosure Ratio</span><span class="test-status pass">PASS</span></div>
+                <div class="diag-test-item"><span class="test-name">Repetition Count</span><span class="test-status pass">PASS</span></div>
+                <div class="diag-test-item"><span class="test-name">Scale Variation</span><span class="test-status pass">PASS</span></div>
+                <div class="diag-test-item"><span class="test-name">Growth Distance</span><span class="test-status pass">PASS</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
 
   </div>
 
-  <!-- VERIFY RHINO IMPORT AUDIT MODAL -->
-  <div id="verify-import-modal" class="modal-backdrop" style="display:none;">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h2>VERIFY RHINO IMPORT AUDIT</h2>
-        <button id="btn-close-verify-modal" class="modal-close-btn">&times;</button>
+  <!-- RIGHT DOCKED DESIGN REASONING PANEL -->
+  <div id="design-reasoning-panel" class="reasoning-side-panel" style="display:none;">
+    <div class="reasoning-header">
+      <h2>MATHEMATICAL REASONING</h2>
+      <button id="btn-close-reasoning" class="btn-icon">✕</button>
+    </div>
+
+    <!-- CARD 1: PRINCIPLE & INTENT -->
+    <div class="reasoning-card">
+      <div class="rs-label">ART NOUVEAU PRINCIPLE</div>
+      <div id="rs-principle" class="rs-value highlight-cyan">WHIPLASH CURVATURE</div>
+      <div id="rs-intent" class="rs-value-body" style="margin-top:3px; font-style:italic;">"Controlled curvature acceleration..."</div>
+    </div>
+
+    <!-- CARD 2: FORM DNA & SCORES -->
+    <div class="reasoning-card">
+      <div class="rs-label">FORM DNA & SEED IDENTITY</div>
+      <div id="rs-quantitative-input" class="rs-value-body highlight-cyan" style="font-family:monospace; font-weight:700;">C:0% | B:0% | W:0% | M:0% | V:0% | G:0%</div>
+      <div class="reasoning-grid-2" style="margin-top:4px;">
+        <div class="rs-score-box">
+          <span class="rs-score-title">SEED IDENTITY</span>
+          <span id="rs-identity-score" class="rs-score-val highlight-gold">100%</span>
+        </div>
+        <div class="rs-score-box">
+          <span class="rs-score-title">PARENT SIMILARITY</span>
+          <span id="rs-parent-sim-score" class="rs-score-val highlight-cyan">100%</span>
+        </div>
       </div>
-      <div class="modal-body" id="verify-modal-content">
-        <!-- POPULATED DYNAMICALLY -->
+    </div>
+
+    <!-- CARD 3: MEASURED METRICS & EFFECT -->
+    <div class="reasoning-card">
+      <div class="rs-label">MEASURED METRICS & ARCHITECTURAL EFFECT</div>
+      <div id="rs-measured-output" class="rs-value-body highlight-gold">Height: +0% | Width: +0% | Verticality: 1.0</div>
+      <div id="rs-effect" class="rs-value highlight-white" style="margin-top:3px; font-size:9px;">Rule-based Shape Grammar Transformation</div>
+    </div>
+
+    <!-- CARD 4: REASONING RATIONALE -->
+    <div class="reasoning-card">
+      <div class="rs-label">WHY DID THIS FORM CHANGE?</div>
+      <div id="rs-why-reasoning" class="why-log-container">
+        "Transformation executed under Art Nouveau shape grammar rules."
       </div>
     </div>
   </div>
 
-  <!-- LOAD MODULE SCRIPTS WITH CACHE BUSTING -->
-  <script src="descriptors.js?v=2.0.4"></script>
-  <script src="evolutionEngine.js?v=2.0.4"></script>
-  <script src="artNouveauEngine.js?v=2.0.4"></script>
-  <script src="evaluator.js?v=2.0.4"></script>
-  <script src="app.js?v=RESTORE1507FD3"></script>
+  <!-- ACTIVE SELECTION FLOATING READOUT BADGE -->
+  <div id="selected-iter-readout" class="active-selection-badge" style="display:none;"></div>
+
+  <!-- MODAL 1: ITERATION LIBRARY OVERLAY -->
+  <div id="library-modal-overlay" class="modal-overlay" style="display:none;">
+    <div class="modal-box modal-box-large">
+      <div class="modal-header">
+        <h2>★ ITERATION LIBRARY — CURATED DESIGN ALTERNATIVES</h2>
+        <button id="btn-close-library" class="btn-icon">✕</button>
+      </div>
+
+      <!-- FILTER & TOOLBAR -->
+      <div class="library-toolbar">
+        <div class="toolbar-group">
+          <span class="ctrl-label">Filter Principle:</span>
+          <select id="lib-filter-principle" class="select-input">
+            <option value="ALL">ALL PRINCIPLES</option>
+            <option value="CONTINUITY">CONTINUITY</option>
+            <option value="BRANCHING">BRANCHING</option>
+            <option value="WHIPLASH">WHIPLASH CURVATURE</option>
+            <option value="MERGING">MERGING SURFACES</option>
+            <option value="POSITIVE_NEGATIVE">POSITIVE / NEGATIVE</option>
+            <option value="GROWTH">GROWTH / AGGREGATION</option>
+          </select>
+        </div>
+
+        <div class="toolbar-group">
+          <span class="ctrl-label">Filter Gen:</span>
+          <select id="lib-filter-gen" class="select-input">
+            <option value="ALL">ALL GENERATIONS</option>
+          </select>
+        </div>
+
+        <div class="toolbar-group">
+          <span class="ctrl-label">Sort By:</span>
+          <select id="lib-sort-by" class="select-input">
+            <option value="NEWEST">Newest</option>
+            <option value="HIGHEST_IDENTITY">Highest Identity</option>
+            <option value="HIGHEST_DIFFERENCE">Highest Difference</option>
+            <option value="PRINCIPLE">Principle</option>
+            <option value="GENERATION">Generation</option>
+          </select>
+        </div>
+
+        <button id="btn-toggle-favorites" class="btn btn-fav-toggle">★ FAVORITES ONLY</button>
+
+        <div class="toolbar-actions">
+          <button id="btn-export-library" class="btn btn-export">⬇ EXPORT LIBRARY</button>
+          <label class="btn btn-import-json">
+            ⬆ IMPORT LIBRARY
+            <input type="file" id="import-json-input" accept=".json" style="display:none;">
+          </label>
+        </div>
+      </div>
+
+      <!-- LIBRARY GRID -->
+      <div id="library-cards-grid" class="library-cards-grid"></div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: COMPARE SELECTED ITERATIONS OVERLAY -->
+  <div id="compare-modal-overlay" class="modal-overlay" style="display:none;">
+    <div class="modal-box modal-box-large">
+      <div class="modal-header">
+        <h2>📊 MULTI-ITERATION EXPERIMENT COMPARISON</h2>
+        <button id="btn-close-compare" class="btn-icon">✕</button>
+      </div>
+
+      <!-- SIDE-BY-SIDE CARDS GRID -->
+      <div id="compare-cards-grid" class="compare-cards-grid"></div>
+
+      <!-- PARAMETER COMPARISON TABLE -->
+      <div class="compare-table-title">PARAMETER & METRIC COMPARISON TABLE</div>
+      <div id="compare-table-container" class="compare-table-container"></div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: LIBRARY DETAIL VIEW OVERLAY -->
+  <div id="library-detail-modal-overlay" class="modal-overlay" style="display:none;">
+    <div class="modal-box modal-box-detail">
+      <div class="modal-header">
+        <h2 id="det-title">SAVED ITERATION DESIGN RECIPE & GEOMETRY DETAIL</h2>
+        <button id="btn-close-detail" class="btn-icon">✕</button>
+      </div>
+
+      <div class="detail-split-layout">
+        <!-- LEFT: INTERACTIVE 3D CANVAS -->
+        <div class="detail-3d-wrapper">
+          <div id="detail-3d-container" class="detail-3d-container"></div>
+          <div class="detail-3d-hint">Orbit, Pan, Zoom to inspect 3D geometry</div>
+        </div>
+
+        <!-- RIGHT: METADATA & DESIGN RECIPE -->
+        <div class="detail-info-panel">
+          <div class="reasoning-card">
+            <div class="rs-label">ART NOUVEAU PRINCIPLE</div>
+            <div id="det-principle" class="rs-value highlight-cyan">WHIPLASH CURVATURE</div>
+          </div>
+
+          <div class="reasoning-card">
+            <div class="rs-label">QUALITATIVE INTENT</div>
+            <div id="det-intent" class="rs-value-body">"Create controlled acceleration..."</div>
+          </div>
+
+          <div class="reasoning-grid-2">
+            <div class="rs-score-box">
+              <span class="rs-score-title">SEED IDENTITY</span>
+              <span id="det-seed-id" class="rs-score-val highlight-gold">79%</span>
+            </div>
+            <div class="rs-score-box">
+              <span class="rs-score-title">PARENT SIMILARITY</span>
+              <span id="det-parent-sim" class="rs-score-val highlight-cyan">88%</span>
+            </div>
+          </div>
+
+          <div class="reasoning-card">
+            <div class="rs-label">LINEAGE PATH</div>
+            <div id="det-lineage-path" class="rs-value-body highlight-white">Rhino Seed → G1-03 → G2-01</div>
+          </div>
+
+          <div class="reasoning-card">
+            <div class="rs-label">RULE RECIPE SEQUENCE</div>
+            <div id="det-recipe-seq" class="rs-value-body highlight-cyan">01 CARVE → 02 WRAP → 03 BEND → 04 RISE</div>
+          </div>
+
+          <div class="reasoning-card">
+            <div class="rs-label">MEASURED OUTPUTS</div>
+            <div id="det-measured-out" class="rs-value-body highlight-gold">Height: +19.2% | Width: -7.1% | Verticality: +0.24</div>
+          </div>
+
+          <div class="reasoning-card">
+            <div class="rs-label">WHY DID THIS FORM CHANGE?</div>
+            <div id="det-why-text" class="why-log-container"></div>
+          </div>
+
+          <div class="detail-actions-row">
+            <button id="det-btn-use-parent" class="btn btn-generate">[ USE AS PARENT FOR NEXT GEN ]</button>
+            <button id="det-btn-delete" class="btn btn-reset">[ REMOVE FROM LIBRARY ]</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script>
+    function toggleSidebarCard(cardId) {
+      const card = document.getElementById(cardId);
+      const icon = document.getElementById('toggle-' + cardId);
+      if (!card) return;
+      if (card.style.display === 'none') {
+        card.style.display = 'block';
+        if (icon) icon.textContent = '−';
+      } else {
+        card.style.display = 'none';
+        if (icon) icon.textContent = '+';
+      }
+    }
+
+    function switchSidebarSubTab(side, tabName, btnEl) {
+      const parentCard = btnEl.closest('.sidebar-card');
+      if (!parentCard) return;
+      
+      parentCard.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
+      parentCard.querySelectorAll('.subtab-content').forEach(content => content.classList.remove('active'));
+      
+      btnEl.classList.add('active');
+      const target = document.getElementById('subtab-' + side + '-' + tabName);
+      if (target) target.classList.add('active');
+    }
+  </script>
+  <script src="generator.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
