@@ -381,8 +381,9 @@ function createSampleRhinoSeed() {
   meshGroup.add(mesh);
 
   originalMeshes.push({
+    mesh: mesh,
     threeMesh: mesh,
-    originalPositions: positions.slice()
+    originalPositions: new Float32Array(positions)
   });
 
   computeModelBounds();
@@ -665,7 +666,7 @@ function buildThreeMesh(meshGeom) {
   mesh.receiveShadow = true;
   meshGroup.add(mesh);
 
-  originalMeshes.push({ mesh, originalPositions: positions });
+  originalMeshes.push({ mesh: mesh, threeMesh: mesh, originalPositions: new Float32Array(positions) });
 }
 
 function buildThreeCurve(curveGeom) {
@@ -694,7 +695,7 @@ function buildThreeCurve(curveGeom) {
     const line = new THREE.Line(geometry, material);
     curveGroup.add(line);
 
-    originalCurves.push({ line, originalPositions: posArray });
+    originalCurves.push({ line: line, originalPositions: new Float32Array(posArray) });
   }
 }
 
@@ -945,7 +946,7 @@ function processAndRenderSubDMesh(subdGeom, subdIndex) {
   mesh.visible = true;
 
   meshGroup.add(mesh);
-  originalMeshes.push({ mesh, originalPositions: positions });
+  originalMeshes.push({ mesh: mesh, threeMesh: mesh, originalPositions: new Float32Array(positions) });
 
   const msg = `SubD ${subdIndex} | vertices: ${vertCount} | faces: ${faceCount} | triangles: ${triFaceCount} | THREE.Mesh added: YES`;
   console.log(msg);
@@ -1013,7 +1014,12 @@ function buildSubDCageOverlay(subdGeom) {
       const cagePoints = new THREE.Points(pointGeom, pointMat);
       cageGroup.add(cagePoints);
 
-      originalCages.push({ cageLines, cagePoints, originalLinePositions: origLinePos, originalPtPositions: origPtPos });
+      originalCages.push({
+        cageLines,
+        cagePoints,
+        originalLinePositions: new Float32Array(origLinePos),
+        originalPtPositions: new Float32Array(origPtPos)
+      });
     }
   } catch (e) {}
 }
@@ -1525,63 +1531,90 @@ window.switchVisualComparisonMode = switchVisualComparisonMode;
 function renderIterationGeometry(recipeOrDna) {
   const compMode = activeVisualCompMode;
 
+  // Check if recipeOrDna is zero DNA [0,0,0,0,0,0]
+  let isZeroDna = false;
+  if (Array.isArray(recipeOrDna) && recipeOrDna.length === 6) {
+    if (recipeOrDna.every(val => typeof val === 'number' && Math.abs(val) < 1e-5)) {
+      isZeroDna = true;
+    }
+  }
+
   // Deform Meshes
   originalMeshes.forEach(item => {
-    const attr = item.mesh.geometry.attributes.position;
+    const mesh = item.mesh || item.threeMesh;
+    if (!mesh || !mesh.geometry || !mesh.geometry.attributes.position) return;
+
+    const attr = mesh.geometry.attributes.position;
     let defPos;
 
-    if (compMode === 'SEED') {
+    if (compMode === 'SEED' || isZeroDna) {
       defPos = item.originalPositions;
     } else {
       defPos = executeRecipeDeformation(item.originalPositions, recipeOrDna, modelBounds);
     }
 
-    for (let i = 0; i < defPos.length; i++) {
-      attr.array[i] = defPos[i];
+    if (defPos && defPos.length > 0) {
+      for (let i = 0; i < defPos.length; i++) {
+        attr.array[i] = defPos[i];
+      }
+      attr.needsUpdate = true;
+      if (mesh.geometry.computeVertexNormals) {
+        mesh.geometry.computeVertexNormals();
+      }
     }
-    attr.needsUpdate = true;
-    item.mesh.geometry.computeVertexNormals();
 
     // Adjust visual style for overlay comparison mode
     if (compMode === 'OVERLAY') {
-      if (item.mesh.material) item.mesh.material.wireframe = true;
+      if (mesh.material) mesh.material.wireframe = true;
     } else {
-      if (item.mesh.material) item.mesh.material.wireframe = false;
+      if (mesh.material) mesh.material.wireframe = false;
     }
   });
 
   // Deform Curves
   originalCurves.forEach(item => {
+    if (!item.line || !item.line.geometry || !item.line.geometry.attributes.position) return;
+
     const attr = item.line.geometry.attributes.position;
     let defPos;
 
-    if (compMode === 'SEED') {
+    if (compMode === 'SEED' || isZeroDna) {
       defPos = item.originalPositions;
     } else {
       defPos = executeRecipeDeformation(item.originalPositions, recipeOrDna, modelBounds);
     }
 
-    for (let i = 0; i < defPos.length; i++) {
-      attr.array[i] = defPos[i];
+    if (defPos && defPos.length > 0) {
+      for (let i = 0; i < defPos.length; i++) {
+        attr.array[i] = defPos[i];
+      }
+      attr.needsUpdate = true;
     }
-    attr.needsUpdate = true;
   });
 
   // Deform SubD Cages
   originalCages.forEach(item => {
-    const lineAttr = item.cageLines.geometry.attributes.position;
-    let defLinePos = compMode === 'SEED' ? item.originalLinePositions : executeRecipeDeformation(item.originalLinePositions, recipeOrDna, modelBounds);
-    for (let i = 0; i < defLinePos.length; i++) {
-      lineAttr.array[i] = defLinePos[i];
+    if (item.cageLines && item.cageLines.geometry && item.cageLines.geometry.attributes.position) {
+      const lineAttr = item.cageLines.geometry.attributes.position;
+      let defLinePos = (compMode === 'SEED' || isZeroDna) ? item.originalLinePositions : executeRecipeDeformation(item.originalLinePositions, recipeOrDna, modelBounds);
+      if (defLinePos && defLinePos.length > 0) {
+        for (let i = 0; i < defLinePos.length; i++) {
+          lineAttr.array[i] = defLinePos[i];
+        }
+        lineAttr.needsUpdate = true;
+      }
     }
-    lineAttr.needsUpdate = true;
 
-    const ptAttr = item.cagePoints.geometry.attributes.position;
-    let defPtPos = compMode === 'SEED' ? item.originalPtPositions : executeRecipeDeformation(item.originalPtPositions, recipeOrDna, modelBounds);
-    for (let i = 0; i < defPtPos.length; i++) {
-      ptAttr.array[i] = defPtPos[i];
+    if (item.cagePoints && item.cagePoints.geometry && item.cagePoints.geometry.attributes.position) {
+      const ptAttr = item.cagePoints.geometry.attributes.position;
+      let defPtPos = (compMode === 'SEED' || isZeroDna) ? item.originalPtPositions : executeRecipeDeformation(item.originalPtPositions, recipeOrDna, modelBounds);
+      if (defPtPos && defPtPos.length > 0) {
+        for (let i = 0; i < defPtPos.length; i++) {
+          ptAttr.array[i] = defPtPos[i];
+        }
+        ptAttr.needsUpdate = true;
+      }
     }
-    ptAttr.needsUpdate = true;
   });
 }
 
@@ -1598,63 +1631,19 @@ function applyArtNouveauTransformations() {
  * clears active refinement proposals, resets seed identity, and refits the camera.
  */
 function restoreOriginalImportedGeometry() {
-  // 1. Restore all original positions for meshes
-  originalMeshes.forEach(item => {
-    if (item.mesh && item.mesh.geometry && item.originalPositions) {
-      const attr = item.mesh.geometry.attributes.position;
-      for (let i = 0; i < item.originalPositions.length; i++) {
-        attr.array[i] = item.originalPositions[i];
-      }
-      attr.needsUpdate = true;
-      if (item.mesh.geometry.computeVertexNormals) {
-        item.mesh.geometry.computeVertexNormals();
-      }
-      if (item.mesh.material) {
-        item.mesh.material.wireframe = false;
-      }
-    }
-  });
+  // Sync global comparison modes
+  activeVisualCompMode = 'SEED';
 
-  // 2. Restore all original positions for curves
-  originalCurves.forEach(item => {
-    if (item.line && item.line.geometry && item.originalPositions) {
-      const attr = item.line.geometry.attributes.position;
-      for (let i = 0; i < item.originalPositions.length; i++) {
-        attr.array[i] = item.originalPositions[i];
-      }
-      attr.needsUpdate = true;
-    }
-  });
-
-  // 3. Restore all original positions for SubD cages
-  originalCages.forEach(item => {
-    if (item.cageLines && item.cageLines.geometry && item.originalLinePositions) {
-      const lineAttr = item.cageLines.geometry.attributes.position;
-      for (let i = 0; i < item.originalLinePositions.length; i++) {
-        lineAttr.array[i] = item.originalLinePositions[i];
-      }
-      lineAttr.needsUpdate = true;
-    }
-    if (item.cagePoints && item.cagePoints.geometry && item.originalPtPositions) {
-      const ptAttr = item.cagePoints.geometry.attributes.position;
-      for (let i = 0; i < item.originalPtPositions.length; i++) {
-        ptAttr.array[i] = item.originalPtPositions[i];
-      }
-      ptAttr.needsUpdate = true;
-    }
-  });
-
-  // 4. Reset Domain B DNA & state in window.domainState if present
   if (window.domainState) {
+    window.domainState.visualComparisonMode = 'SEED';
     window.domainState.dna = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
     window.domainState.activeRefinementProposal = null;
     window.domainState.designerChanges = { C: 0, B: 0, W: 0, M: 0, V: 0, G: 0 };
     window.domainState.selectedParentId = 'RHINO-SEED';
     window.domainState.selectedParentGenome = null;
-    window.domainState.visualComparisonMode = 'SEED';
   }
 
-  // 5. Update manual DNA sliders & readouts in UI
+  // 1. Restore 6 primary manual DNA sliders and readouts in UI
   const sliderIds = ['slider-dna-c', 'slider-dna-b', 'slider-dna-w', 'slider-dna-m', 'slider-dna-v', 'slider-dna-g'];
   const valIds = ['val-dna-c', 'val-dna-b', 'val-dna-w', 'val-dna-m', 'val-dna-v', 'val-dna-g'];
   
@@ -1667,13 +1656,30 @@ function restoreOriginalImportedGeometry() {
     if (el) el.textContent = '0%';
   });
 
-  // 6. Reset visual comparison mode buttons to SEED active
+  // 2. Restore secondary branch sliders in UI if present
+  const branchCountEl = document.getElementById('slider-branch-count');
+  if (branchCountEl) branchCountEl.value = 2;
+  const branchPosEl = document.getElementById('slider-branch-pos');
+  if (branchPosEl) branchPosEl.value = 50;
+  const branchHAngleEl = document.getElementById('slider-branch-h-angle');
+  if (branchHAngleEl) branchHAngleEl.value = 0;
+  const branchVAngleEl = document.getElementById('slider-branch-v-angle');
+  if (branchVAngleEl) branchVAngleEl.value = 0;
+  const branchLengthEl = document.getElementById('slider-branch-length');
+  if (branchLengthEl) branchLengthEl.value = 100;
+  const branchWidthEl = document.getElementById('slider-branch-width');
+  if (branchWidthEl) branchWidthEl.value = 100;
+
+  // 3. Render pristine un-deformed geometry in viewport
+  renderIterationGeometry([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+
+  // 4. Reset visual comparison mode buttons
   const compButtons = document.querySelectorAll('#btn-comp-seed, #btn-comp-parent, #btn-comp-iter, #btn-comp-overlay');
   compButtons.forEach(b => b.classList.remove('active'));
   const btnSeed = document.getElementById('btn-comp-seed');
   if (btnSeed) btnSeed.classList.add('active');
 
-  // 7. Hide refinement banner and active iteration readout badges
+  // 5. Hide refinement banner and active iteration readout badges
   const refBanner = document.getElementById('designer-refinement-banner');
   if (refBanner) refBanner.style.display = 'none';
 
@@ -1686,7 +1692,7 @@ function restoreOriginalImportedGeometry() {
   const reasoningPanel = document.getElementById('design-reasoning-panel');
   if (reasoningPanel) reasoningPanel.style.display = 'none';
 
-  // 8. Reset Viewport overlay tag
+  // 6. Reset Viewport overlay tag
   const vpTag = document.getElementById('vp-gen-tag');
   if (vpTag) {
     vpTag.innerText = 'GENERATION 0: ORIGINAL RHINO SEED';
@@ -1694,16 +1700,21 @@ function restoreOriginalImportedGeometry() {
     vpTag.style.color = '#00f2fe';
   }
 
-  // 9. Reset Seed Identity indicator
-  const seedIdVal = document.getElementById('seed-identity-val');
+  // 7. Reset Seed Identity indicator
+  const seedIdVal = document.getElementById('val-seed-identity');
   if (seedIdVal) seedIdVal.innerText = '100.0%';
   const seedIdFill = document.getElementById('seed-identity-fill');
   if (seedIdFill) seedIdFill.style.width = '100%';
 
-  // 10. Deselect outcome cards if outcome gallery exists
+  // 8. Deselect outcome cards if outcome gallery exists
   document.querySelectorAll('.pop-iter-card, .outcome-card').forEach(c => c.classList.remove('selected'));
 
-  // 11. Refit camera around original geometry
+  // 9. Update DNA UI readouts
+  if (window.updateDnaUIAndViewport) {
+    window.updateDnaUIAndViewport();
+  }
+
+  // 10. Refit camera around original geometry
   fitCamera();
 
   console.log('[RESTORE] Successfully returned website geometry to the original imported Rhino seed.');
