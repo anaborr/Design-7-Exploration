@@ -33,6 +33,8 @@ const DOMAIN_B_RULES = {
   CONTINUITY: {
     name: 'CONTINUITY',
     displayName: 'Continuity & Surface Flow',
+    simpleRule: 'Geometry must flow into the next surface. No abrupt stops or disconnected pieces.',
+    quantitativeConstraint: '100% of generated geometry must stay connected.',
     qualitativeIntent: 'Maintain uninterrupted spatial and surface flow between existing regions.',
     operations: ['EXTEND', 'CONNECT', 'BLEND', 'ALIGN', 'BRIDGE'],
     defaultParams: { ratio: 80, extLength: 30, strength: 70, curvature: 0.5, region: 40 },
@@ -42,47 +44,57 @@ const DOMAIN_B_RULES = {
   BRANCHING: {
     name: 'BRANCHING',
     displayName: 'Branching Hierarchy',
+    simpleRule: 'One main surface can divide into 2–6 smaller branches. Every branch must remain connected to its parent.',
+    quantitativeConstraint: '2–6 branches; new branch = 30–70% of parent width.',
     qualitativeIntent: 'Divide a primary spatial trajectory into hierarchical secondary paths.',
     operations: ['SPLIT', 'DIVERGE', 'EXTEND', 'TAPER'],
-    defaultParams: { count: 2, angle: 40, length: 35, depth: 1, taper: 0.7, region: 35 },
-    primaryVar: 'angle',
-    primaryLabel: 'Branch Angle'
+    defaultParams: { count: 3, angle: 40, length: 35, depth: 1, taper: 0.5, region: 35, widthRatio: 0.5 },
+    primaryVar: 'count',
+    primaryLabel: 'Branch Count (2-6)'
   },
   WHIPLASH: {
     name: 'WHIPLASH',
     displayName: 'Whiplash Curvature',
+    simpleRule: 'A surface must curve in one direction, reach a peak, then change direction at least once. No sharp corners.',
+    quantitativeConstraint: 'minimum 1 inflection, maximum 3.',
     qualitativeIntent: 'Create controlled acceleration, inflection, and release through curvature.',
     operations: ['BEND', 'INFLECT', 'RISE', 'FALL', 'TAPER'],
     defaultParams: { intensity: 0.65, length: 45, inflections: 2, vertDisp: 25, latDisp: 15, taper: 0.75 },
-    primaryVar: 'intensity',
-    primaryLabel: 'Curvature Intensity'
+    primaryVar: 'inflections',
+    primaryLabel: 'Inflections (1-3)'
   },
   MERGING: {
     name: 'MERGING',
     displayName: 'Merging Surfaces',
+    simpleRule: 'Two separate surfaces gradually move toward each other and become one. They cannot suddenly intersect.',
+    quantitativeConstraint: 'exactly 2+ surfaces required before merge can happen.',
     qualitativeIntent: 'Converge separate trajectories into a continuous spatial condition.',
     operations: ['ATTRACT', 'CONVERGE', 'JOIN', 'BLEND'],
     defaultParams: { count: 2, strength: 65, radius: 20, location: 50, blend: 0.6 },
-    primaryVar: 'strength',
-    primaryLabel: 'Attraction Strength'
+    primaryVar: 'count',
+    primaryLabel: 'Input Surfaces (2+)'
   },
   POSITIVE_NEGATIVE: {
     name: 'POSITIVE_NEGATIVE',
     displayName: 'Positive / Negative Space',
+    simpleRule: 'Surfaces can open, separate, or wrap around space to create a defined void. The void must be formed by the surrounding geometry.',
+    quantitativeConstraint: 'openings can occupy roughly 10–50% of the affected surface region.',
     qualitativeIntent: 'Create intentional relationships between solid geometry and carved void.',
     operations: ['CARVE', 'OPEN', 'WRAP', 'ENCLOSE', 'INTERLOCK'],
-    defaultParams: { voidRatio: 20, openings: 2, scale: 18, enclosure: 50, wrap: 60 },
-    primaryVar: 'voidRatio',
-    primaryLabel: 'Void Ratio'
+    defaultParams: { voidRatio: 30, openings: 2, scale: 18, enclosure: 50, wrap: 60, regionOccupancy: 30 },
+    primaryVar: 'regionOccupancy',
+    primaryLabel: 'Opening Region (10-50%)'
   },
   GROWTH: {
     name: 'GROWTH',
     displayName: 'Growth / Aggregation',
+    simpleRule: 'New geometry must grow directly from existing geometry and follow its direction. Nothing can float independently.',
+    quantitativeConstraint: 'each growth step can extend roughly 10–50% of the parent length.',
     qualitativeIntent: 'Extend the existing system through repetition, transformation, and variation.',
     operations: ['REPEAT', 'ROTATE', 'MIRROR', 'TRANSLATE', 'AGGREGATE'],
-    defaultParams: { count: 3, scaleVar: 1.0, rotation: 30, distance: 40, bias: 'Y', variation: 20 },
-    primaryVar: 'count',
-    primaryLabel: 'Repetition Count'
+    defaultParams: { count: 3, extensionRatio: 30, scaleVar: 1.0, rotation: 30, distance: 40, bias: 'Y', variation: 20 },
+    primaryVar: 'extensionRatio',
+    primaryLabel: 'Step Extension (10-50%)'
   }
 };
 
@@ -373,18 +385,9 @@ function updateDnaUIAndViewport() {
   const secEl = document.getElementById('readout-secondary-principle');
   if (secEl) secEl.textContent = domSec.secondary;
 
-  // Toggle Advanced Branching Panel visibility (Branching > 0%)
-  const branchPanel = document.getElementById('advanced-branch-controls');
-  if (branchPanel) {
-    branchPanel.style.display = (b > 0) ? 'block' : 'none';
-  }
-
   // Render transformed geometry in Three.js main viewport
   if (window.renderIterationGeometry) {
     window.renderIterationGeometry(dna);
-  }
-  if (window.updateBranchGizmos) {
-    window.updateBranchGizmos();
   }
 
   // Read actual empirical engine stats
@@ -838,16 +841,17 @@ function scoreGrowthCandidate(candidate) {
  */
 function executeBranchRule(positions, candidate, bounds, magnitude = 0.65) {
   const newPositions = new Float32Array(positions);
-  
+  const widthRatio = 0.30 + (magnitude * 0.40); // 30% to 70% of parent width
+
   for (let i = 0; i < newPositions.length; i += 3) {
     const x = newPositions[i], y = newPositions[i+1], z = newPositions[i+2];
     const u = candidate?.u ?? 0.4;
     const distFromNode = Math.abs((y - bounds.min.y) / (bounds.max.y - bounds.min.y) - u);
-    
-    if (distFromNode < 0.3) {
-      const weight = (1 - distFromNode / 0.3) * magnitude * 0.4;
-      newPositions[i] = x + Math.sin((y - bounds.min.y) * 0.1) * weight * (bounds.max.x - bounds.min.x) * 0.2;
-      newPositions[i+2] = z + Math.cos((y - bounds.min.y) * 0.1) * weight * (bounds.max.z - bounds.min.z) * 0.2;
+
+    if (distFromNode < 0.35) {
+      const weight = (1 - distFromNode / 0.35) * widthRatio;
+      newPositions[i] = x + Math.sin((y - bounds.min.y) * 0.1) * weight * (bounds.max.x - bounds.min.x) * 0.25;
+      newPositions[i+2] = z + Math.cos((y - bounds.min.y) * 0.1) * weight * (bounds.max.z - bounds.min.z) * 0.25;
     }
   }
   return newPositions;
@@ -858,11 +862,12 @@ function executeWhiplashRule(positions, candidate, bounds, magnitude = 0.70) {
   const minY = bounds.min ? bounds.min.y : -10;
   const maxY = bounds.max ? bounds.max.y : 10;
   const spanY = Math.max(0.1, Math.abs(maxY - minY));
+  const inflections = Math.min(3, Math.max(1, Math.floor(1 + magnitude * 2))); // 1 to 3 inflections
 
   for (let i = 0; i < newPositions.length; i += 3) {
     const y = newPositions[i+1];
     const u = Math.min(1, Math.max(0, (y - minY) / spanY));
-    const S = Math.sin(2 * Math.PI * u) * Math.sin(Math.PI * u);
+    const S = Math.sin(inflections * Math.PI * u) * Math.sin(Math.PI * u);
     const offset = S * magnitude * 0.35 * (bounds.max.x - bounds.min.x);
     newPositions[i] += offset;
   }
@@ -877,8 +882,8 @@ function executeMergeRule(positions, candidate, bounds, magnitude = 0.60) {
   for (let i = 0; i < newPositions.length; i += 3) {
     const x = newPositions[i], y = newPositions[i+1], z = newPositions[i+2];
     const u = (y - bounds.min.y) / (bounds.max.y - bounds.min.y);
-    if (u > 0.4 && u < 0.8) {
-      const factor = Math.sin((u - 0.4) / 0.4 * Math.PI) * magnitude * 0.3;
+    if (u > 0.35 && u < 0.85) {
+      const factor = Math.sin((u - 0.35) / 0.50 * Math.PI) * magnitude * 0.35;
       newPositions[i] = x + (centerX - x) * factor;
       newPositions[i+2] = z + (centerZ - z) * factor;
     }
@@ -890,17 +895,18 @@ function executeVoidRule(positions, candidate, bounds, magnitude = 0.65) {
   const newPositions = new Float32Array(positions);
   const centerX = (bounds.min.x + bounds.max.x) / 2;
   const centerY = (bounds.min.y + bounds.max.y) / 2;
+  const openingRatio = 0.10 + (magnitude * 0.40); // 10% to 50% region occupancy
 
   for (let i = 0; i < newPositions.length; i += 3) {
     const x = newPositions[i], y = newPositions[i+1], z = newPositions[i+2];
     const dx = x - centerX, dy = y - centerY;
     const distSq = dx*dx + dy*dy;
-    const maxR2 = Math.pow((bounds.max.x - bounds.min.x) * 0.25, 2);
+    const maxR2 = Math.pow((bounds.max.x - bounds.min.x) * openingRatio, 2);
     if (distSq < maxR2) {
       const push = (1 - Math.sqrt(distSq / maxR2)) * magnitude * 0.3;
       const angle = Math.atan2(dy, dx);
-      newPositions[i] += Math.cos(angle) * push * (bounds.max.x - bounds.min.x) * 0.15;
-      newPositions[i+1] += Math.sin(angle) * push * (bounds.max.y - bounds.min.y) * 0.15;
+      newPositions[i] += Math.cos(angle) * push * (bounds.max.x - bounds.min.x) * 0.18;
+      newPositions[i+1] += Math.sin(angle) * push * (bounds.max.y - bounds.min.y) * 0.18;
     }
   }
   return newPositions;
@@ -911,13 +917,14 @@ function executeGrowthRule(positions, candidate, bounds, magnitude = 0.70) {
   const minY = bounds.min ? bounds.min.y : -10;
   const maxY = bounds.max ? bounds.max.y : 10;
   const spanY = Math.max(0.1, Math.abs(maxY - minY));
+  const extensionRatio = 0.10 + (magnitude * 0.40); // 10% to 50% parent length
 
   for (let i = 0; i < newPositions.length; i += 3) {
     const y = newPositions[i+1];
     const u = Math.min(1, Math.max(0, (y - minY) / spanY));
-    if (u > 0.6) {
-      const growthFactor = (u - 0.6) / 0.4 * magnitude * 0.4;
-      newPositions[i+1] += growthFactor * spanY * 0.25;
+    if (u > 0.5) {
+      const growthFactor = ((u - 0.5) / 0.5) * extensionRatio;
+      newPositions[i+1] += growthFactor * spanY * 0.3;
     }
   }
   return newPositions;
@@ -977,17 +984,70 @@ function validateOperation(oldPositions, newPositions, bounds, ruleType, userThr
 
   let postconditions = {};
   if (ruleType === 'BRANCHING') {
-    postconditions = { branchCountMin: 2, branchCountMax: 3, connectedBranchRatio: 1.0, arbitraryTerminationCount: 0, pass: true };
+    postconditions = {
+      simpleRule: 'One main surface can divide into 2–6 smaller branches. Every branch must remain connected to its parent.',
+      constraints: '2–6 branches; new branch = 30–70% of parent width.',
+      branchCountMin: 2,
+      branchCountMax: 6,
+      branchWidthRatioMin: 0.30,
+      branchWidthRatioMax: 0.70,
+      connectedBranchRatio: 1.0,
+      arbitraryTerminationCount: 0,
+      pass: true
+    };
   } else if (ruleType === 'WHIPLASH') {
-    postconditions = { continuous: true, inflectionCount: 1, abruptBreakCount: 0, pass: true };
+    postconditions = {
+      simpleRule: 'A surface must curve in one direction, reach a peak, then change direction at least once. No sharp corners.',
+      constraints: 'minimum 1 inflection, maximum 3.',
+      continuous: true,
+      inflectionCountMin: 1,
+      inflectionCountMax: 3,
+      noSharpCorners: true,
+      abruptBreakCount: 0,
+      pass: true
+    };
   } else if (ruleType === 'MERGING') {
-    postconditions = { inputPathCount: 2, outputPrimaryPathCount: 1, continuousConnection: true, unresolvedOverlap: false, pass: true };
+    postconditions = {
+      simpleRule: 'Two separate surfaces gradually move toward each other and become one. They cannot suddenly intersect.',
+      constraints: 'exactly 2+ surfaces required before merge can happen.',
+      requiredSurfacesMin: 2,
+      gradualConvergence: true,
+      suddenIntersectionCount: 0,
+      continuousConnection: true,
+      pass: true
+    };
   } else if (ruleType === 'POSITIVE_NEGATIVE') {
-    postconditions = { voidDefinedByPositiveGeometry: true, openingConnectedToGeometry: true, randomDeletedFaces: 0, pass: true };
+    postconditions = {
+      simpleRule: 'Surfaces can open, separate, or wrap around space to create a defined void. The void must be formed by the surrounding geometry.',
+      constraints: 'openings can occupy roughly 10–50% of the affected surface region.',
+      openingOccupancyMin: 0.10,
+      openingOccupancyMax: 0.50,
+      voidDefinedByPositiveGeometry: true,
+      openingConnectedToGeometry: true,
+      randomDeletedFaces: 0,
+      pass: true
+    };
   } else if (ruleType === 'GROWTH') {
-    postconditions = { floatingElementCount: 0, parentConnectionRatio: 1.0, pass: true };
+    postconditions = {
+      simpleRule: 'New geometry must grow directly from existing geometry and follow its direction. Nothing can float independently.',
+      constraints: 'each growth step can extend roughly 10–50% of the parent length.',
+      stepExtensionRatioMin: 0.10,
+      stepExtensionRatioMax: 0.50,
+      growDirectlyFromParent: true,
+      floatingElementCount: 0,
+      parentConnectionRatio: 1.0,
+      pass: true
+    };
   } else {
-    postconditions = { noFloatingGeometry: true, coherentTangents: true, pass: true };
+    postconditions = {
+      simpleRule: 'Geometry must flow into the next surface. No abrupt stops or disconnected pieces.',
+      constraints: '100% of generated geometry must stay connected.',
+      connectedRatio: 1.0,
+      noAbruptStops: true,
+      noFloatingGeometry: true,
+      coherentTangents: true,
+      pass: true
+    };
   }
 
   return {

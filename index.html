@@ -115,7 +115,7 @@
             <!-- SIX PRIMARY TRANSFORMATION SLIDERS -->
             <div class="dna-sliders-container">
               <!-- CONTINUITY -->
-              <div class="slider-group-dna">
+              <div class="slider-group-dna" title="Continuity Rule: Geometry must flow into the next surface. No abrupt stops or disconnected pieces. (100% of generated geometry must stay connected.)">
                 <div class="slider-label-dna">
                   <span class="dna-title">CONTINUITY (C)</span>
                   <span class="qual-badge badge-c" id="badge-dna-c">INDEPENDENT</span>
@@ -125,7 +125,7 @@
               </div>
 
               <!-- BRANCHING -->
-              <div class="slider-group-dna">
+              <div class="slider-group-dna" title="Branching Rule: One main surface can divide into 2–6 smaller branches. Every branch must remain connected to its parent. (2–6 branches; new branch = 30–70% of parent width.)">
                 <div class="slider-label-dna">
                   <span class="dna-title">BRANCHING (B)</span>
                   <span class="qual-badge badge-b" id="badge-dna-b">SINGULAR</span>
@@ -209,7 +209,7 @@
               </div>
 
               <!-- WHIPLASH CURVATURE -->
-              <div class="slider-group-dna">
+              <div class="slider-group-dna" title="Whiplash Rule: A surface must curve in one direction, reach a peak, then change direction at least once. No sharp corners. (Minimum 1 inflection, maximum 3.)">
                 <div class="slider-label-dna">
                   <span class="dna-title">WHIPLASH CURVATURE (W)</span>
                   <span class="qual-badge badge-w" id="badge-dna-w">LINEAR</span>
@@ -219,7 +219,7 @@
               </div>
 
               <!-- MERGING SURFACES -->
-              <div class="slider-group-dna">
+              <div class="slider-group-dna" title="Merging Rule: Two separate surfaces gradually move toward each other and become one. They cannot suddenly intersect. (Exactly 2+ surfaces required before merge can happen.)">
                 <div class="slider-label-dna">
                   <span class="dna-title">MERGING SURFACES (M)</span>
                   <span class="qual-badge badge-m" id="badge-dna-m">INDEPENDENT</span>
@@ -229,7 +229,7 @@
               </div>
 
               <!-- POSITIVE / NEGATIVE SPACE -->
-              <div class="slider-group-dna">
+              <div class="slider-group-dna" title="Positive/Negative Rule: Surfaces can open, separate, or wrap around space to create a defined void. The void must be formed by surrounding geometry. (Openings occupy 10–50% of surface region.)">
                 <div class="slider-label-dna">
                   <span class="dna-title">POS / NEG SPACE (V)</span>
                   <span class="qual-badge badge-v" id="badge-dna-v">SOLID / ENCLOSED</span>
@@ -239,7 +239,7 @@
               </div>
 
               <!-- GROWTH / AGGREGATION -->
-              <div class="slider-group-dna">
+              <div class="slider-group-dna" title="Growth Rule: New geometry must grow directly from existing geometry and follow its direction. Nothing can float independently. (Each growth step extends 10–50% of parent length.)">
                 <div class="slider-label-dna">
                   <span class="dna-title">GROWTH / AGGREGATION (G)</span>
                   <span class="qual-badge badge-g" id="badge-dna-g">CONTAINED</span>
