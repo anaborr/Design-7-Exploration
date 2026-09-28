@@ -543,9 +543,7 @@ function parseRhinoObjects(doc, filename) {
   // Print diagnostic report to console
   console.log('====================================');
   console.log('SUBD CONVERSION DIAGNOSTIC REPORT:');
-  const diagStrings = subdDiagnostics.map(d =>
-    `SUBD ${d.index}: vertices ${d.vertices} | faces ${d.faces} | rendered ${d.rendered ? 'YES' : 'NO'}`
-  );
+  const diagStrings = subdDiagnostics.map(d => d.logStr);
   diagStrings.forEach(s => console.log(s));
   console.log('====================================');
 
@@ -594,38 +592,53 @@ function parseRhinoObjects(doc, filename) {
 }
 
 function buildThreeMesh(meshGeom) {
-  const verts = meshGeom.vertices();
-  const faces = meshGeom.faces();
+  const verts = meshGeom.vertices ? (typeof meshGeom.vertices === 'function' ? meshGeom.vertices() : meshGeom.vertices) : null;
+  const faces = meshGeom.faces ? (typeof meshGeom.faces === 'function' ? meshGeom.faces() : meshGeom.faces) : null;
 
-  const positions = [];
+  if (!verts || !faces) return;
 
-  for (let f = 0; f < faces.count; f++) {
+  const vertCount = typeof verts.count === 'number' ? verts.count : (verts.length || 0);
+  const faceCount = typeof faces.count === 'number' ? faces.count : (faces.length || 0);
+
+  if (vertCount === 0 || faceCount === 0) return;
+
+  const positions = new Float32Array(vertCount * 3);
+  for (let v = 0; v < vertCount; v++) {
+    const pt = verts.get(v);
+    const coords = getVertexCoords(pt);
+    const p3js = rhinoPointToThree(coords.x, coords.y, coords.z);
+
+    positions[v * 3]     = isNaN(p3js.x) ? 0 : p3js.x;
+    positions[v * 3 + 1] = isNaN(p3js.y) ? 0 : p3js.y;
+    positions[v * 3 + 2] = isNaN(p3js.z) ? 0 : p3js.z;
+  }
+
+  const indices = [];
+  for (let f = 0; f < faceCount; f++) {
     const face = faces.get(f);
-    const p1 = rhinoPointToThree(verts.get(face[0])[0], verts.get(face[0])[1], verts.get(face[0])[2]);
-    const p2 = rhinoPointToThree(verts.get(face[1])[0], verts.get(face[1])[1], verts.get(face[1])[2]);
-    const p3 = rhinoPointToThree(verts.get(face[2])[0], verts.get(face[2])[1], verts.get(face[2])[2]);
+    const fIdx = getFaceIndices(face);
+    if (!fIdx) continue;
 
-    positions.push(p1.x, p1.y, p1.z);
-    positions.push(p2.x, p2.y, p2.z);
-    positions.push(p3.x, p3.y, p3.z);
+    const { a, b, c, d } = fIdx;
 
-    if (faces.isQuad(face)) {
-      const p4 = rhinoPointToThree(verts.get(face[3])[0], verts.get(face[3])[1], verts.get(face[3])[2]);
-      positions.push(p1.x, p1.y, p1.z);
-      positions.push(p3.x, p3.y, p3.z);
-      positions.push(p4.x, p4.y, p4.z);
+    if (!isNaN(a) && !isNaN(b) && !isNaN(c) && a < vertCount && b < vertCount && c < vertCount) {
+      indices.push(a, b, c);
+    }
+
+    if (d !== c && d !== a && !isNaN(d) && d < vertCount) {
+      indices.push(a, c, d);
     }
   }
 
-  const posArray = new Float32Array(positions);
+  if (indices.length === 0) return;
+
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(posArray.slice(), 3));
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
   geometry.computeVertexNormals();
 
-  const material = new THREE.MeshStandardMaterial({
+  const material = new THREE.MeshBasicMaterial({
     color: 0x888888,
-    roughness: 0.5,
-    metalness: 0.1,
     side: THREE.DoubleSide,
     wireframe: false
   });
@@ -633,7 +646,7 @@ function buildThreeMesh(meshGeom) {
   const mesh = new THREE.Mesh(geometry, material);
   meshGroup.add(mesh);
 
-  originalMeshes.push({ mesh, originalPositions: posArray });
+  originalMeshes.push({ mesh, originalPositions: positions });
 }
 
 function buildThreeCurve(curveGeom) {
@@ -646,7 +659,8 @@ function buildThreeCurve(curveGeom) {
     try {
       const pt = curveGeom.pointAt ? curveGeom.pointAt(t) : null;
       if (pt) {
-        const p3 = rhinoPointToThree(pt[0], pt[1], pt[2]);
+        const coords = getVertexCoords(pt);
+        const p3 = rhinoPointToThree(coords.x, coords.y, coords.z);
         positions.push(p3.x, p3.y, p3.z);
       }
     } catch (e) {}
@@ -665,110 +679,194 @@ function buildThreeCurve(curveGeom) {
   }
 }
 
-function convertSubDToPolygonMesh(subdGeom) {
-  if (!subdGeom) return null;
-  let mesh = null;
+function getVertexCoords(pt) {
+  if (!pt) return { x: 0, y: 0, z: 0 };
+  let x = undefined, y = undefined, z = undefined;
+  if (typeof pt.x === 'number') { x = pt.x; y = pt.y; z = pt.z; }
+  else if (typeof pt[0] === 'number') { x = pt[0]; y = pt[1]; z = pt[2]; }
+  return {
+    x: x !== undefined && !isNaN(x) ? x : 0,
+    y: y !== undefined && !isNaN(y) ? y : 0,
+    z: z !== undefined && !isNaN(z) ? z : 0
+  };
+}
 
+function getFaceIndices(face) {
+  if (!face) return null;
+  let a = undefined, b = undefined, c = undefined, d = undefined;
+  if (typeof face.a === 'number') { a = face.a; b = face.b; c = face.c; d = face.d; }
+  else if (typeof face[0] === 'number') { a = face[0]; b = face[1]; c = face[2]; d = face[3]; }
+  if (a === undefined || b === undefined || c === undefined) return null;
+  if (d === undefined) d = c;
+  return { a, b, c, d };
+}
+
+function getValidVertexCount(meshObj) {
+  if (!meshObj) return 0;
   try {
-    if (window.rhino && window.rhino.Mesh && typeof window.rhino.Mesh.createFromSubDControlNet === 'function') {
-      mesh = window.rhino.Mesh.createFromSubDControlNet(subdGeom);
+    if (typeof meshObj.vertices === 'function') {
+      const v = meshObj.vertices();
+      return typeof v.count === 'number' ? v.count : (v.length || 0);
+    } else if (meshObj.vertices) {
+      return typeof meshObj.vertices.count === 'number' ? meshObj.vertices.count : (meshObj.vertices.length || 0);
+    }
+  } catch (e) {}
+  return 0;
+}
+
+function getValidFaceCount(meshObj) {
+  if (!meshObj) return 0;
+  try {
+    if (typeof meshObj.faces === 'function') {
+      const f = meshObj.faces();
+      return typeof f.count === 'number' ? f.count : (f.length || 0);
+    } else if (meshObj.faces) {
+      return typeof meshObj.faces.count === 'number' ? meshObj.faces.count : (meshObj.faces.length || 0);
+    }
+  } catch (e) {}
+  return 0;
+}
+
+function convertSubDToPolygonMesh(subdGeom) {
+  if (!subdGeom) return { mesh: null, method: 'NONE' };
+  let mesh = null;
+  let method = 'NONE';
+
+  // 1. Try rhino.Mesh.createFromSubD(subdGeom) - smooth limit surface polygon mesh
+  try {
+    if (window.rhino && window.rhino.Mesh && typeof window.rhino.Mesh.createFromSubD === 'function') {
+      const candidate = window.rhino.Mesh.createFromSubD(subdGeom);
+      if (candidate && getValidVertexCount(candidate) > 0 && getValidFaceCount(candidate) > 0) {
+        mesh = candidate;
+        method = 'rhino.Mesh.createFromSubD';
+      }
     }
   } catch (e) {}
 
-  if (!mesh) {
-    try {
-      if (window.rhino && window.rhino.Mesh && typeof window.rhino.Mesh.createFromSubD === 'function') {
-        mesh = window.rhino.Mesh.createFromSubD(subdGeom);
-      }
-    } catch (e) {}
-  }
-
+  // 2. Try subdGeom.toMesh()
   if (!mesh) {
     try {
       if (typeof subdGeom.toMesh === 'function') {
-        mesh = subdGeom.toMesh();
+        const candidate = subdGeom.toMesh();
+        if (candidate && getValidVertexCount(candidate) > 0 && getValidFaceCount(candidate) > 0) {
+          mesh = candidate;
+          method = 'subdGeom.toMesh';
+        }
       }
     } catch (e) {}
   }
 
-  if (!mesh && subdGeom.vertices && subdGeom.faces) {
-    mesh = subdGeom;
+  // 3. Try subdGeom.toBrep() -> Brep to Mesh
+  if (!mesh) {
+    try {
+      if (typeof subdGeom.toBrep === 'function' && window.rhino && window.rhino.Mesh && typeof window.rhino.Mesh.createFromBrep === 'function') {
+        const brep = subdGeom.toBrep();
+        if (brep) {
+          const meshes = window.rhino.Mesh.createFromBrep(brep);
+          if (meshes && (meshes.count > 0 || (typeof meshes.length === 'number' && meshes.length > 0))) {
+            const candidate = typeof meshes.get === 'function' ? meshes.get(0) : meshes[0];
+            if (candidate && getValidVertexCount(candidate) > 0 && getValidFaceCount(candidate) > 0) {
+              mesh = candidate;
+              method = 'subdGeom.toBrep -> Mesh.createFromBrep';
+            }
+          }
+        }
+      }
+    } catch (e) {}
   }
 
-  return mesh;
+  // 4. Fallback to rhino.Mesh.createFromSubDControlNet(subdGeom) if polygon surface conversion fails
+  if (!mesh) {
+    try {
+      if (window.rhino && window.rhino.Mesh && typeof window.rhino.Mesh.createFromSubDControlNet === 'function') {
+        const candidate = window.rhino.Mesh.createFromSubDControlNet(subdGeom);
+        if (candidate && getValidVertexCount(candidate) > 0 && getValidFaceCount(candidate) > 0) {
+          mesh = candidate;
+          method = 'rhino.Mesh.createFromSubDControlNet';
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 5. Direct SubD geometry fallback if it already exposes vertices and faces
+  if (!mesh && subdGeom.vertices && subdGeom.faces && getValidVertexCount(subdGeom) > 0 && getValidFaceCount(subdGeom) > 0) {
+    mesh = subdGeom;
+    method = 'Direct SubD Geometry';
+  }
+
+  return { mesh, method };
 }
 
 function processAndRenderSubDMesh(subdGeom, subdIndex) {
-  if (!subdGeom) {
-    return { index: subdIndex, vertices: 0, faces: 0, rendered: false };
+  const converted = convertSubDToPolygonMesh(subdGeom);
+  const targetMesh = converted.mesh;
+  const method = converted.method;
+
+  if (!targetMesh) {
+    const msg = `SubD ${subdIndex}: conversion method = NONE | vertices = 0 | faces = 0 | THREE.Mesh added = NO`;
+    console.log(msg);
+    return { index: subdIndex, method: 'NONE', vertices: 0, faces: 0, rendered: false, logStr: msg };
   }
 
-  const targetMesh = convertSubDToPolygonMesh(subdGeom);
-  if (!targetMesh) {
-    return { index: subdIndex, vertices: 0, faces: 0, rendered: false };
+  const vertCount = getValidVertexCount(targetMesh);
+  const faceCount = getValidFaceCount(targetMesh);
+
+  if (vertCount === 0 || faceCount === 0) {
+    const msg = `SubD ${subdIndex}: conversion method = ${method} | vertices = ${vertCount} | faces = ${faceCount} | THREE.Mesh added = NO`;
+    console.log(msg);
+    return { index: subdIndex, method, vertices: vertCount, faces: faceCount, rendered: false, logStr: msg };
   }
 
   let verts = null;
   let faces = null;
 
   try {
-    if (typeof targetMesh.vertices === 'function') verts = targetMesh.vertices();
-    else if (targetMesh.vertices) verts = targetMesh.vertices;
-  } catch (e) {}
-
-  try {
-    if (typeof targetMesh.faces === 'function') faces = targetMesh.faces();
-    else if (targetMesh.faces) faces = targetMesh.faces;
+    verts = typeof targetMesh.vertices === 'function' ? targetMesh.vertices() : targetMesh.vertices;
+    faces = typeof targetMesh.faces === 'function' ? targetMesh.faces() : targetMesh.faces;
   } catch (e) {}
 
   if (!verts || !faces) {
-    return { index: subdIndex, vertices: 0, faces: 0, rendered: false };
-  }
-
-  const vertCount = typeof verts.count === 'number' ? verts.count : (verts.length || 0);
-  const faceCount = typeof faces.count === 'number' ? faces.count : (faces.length || 0);
-
-  if (vertCount === 0 || faceCount === 0) {
-    return { index: subdIndex, vertices: 0, faces: 0, rendered: false };
+    const msg = `SubD ${subdIndex}: conversion method = ${method} | vertices = 0 | faces = 0 | THREE.Mesh added = NO`;
+    console.log(msg);
+    return { index: subdIndex, method, vertices: 0, faces: 0, rendered: false, logStr: msg };
   }
 
   const positions = new Float32Array(vertCount * 3);
   for (let v = 0; v < vertCount; v++) {
     const pt = verts.get(v);
-    if (!pt) continue;
-    const px = pt[0] !== undefined ? pt[0] : (pt.x || 0);
-    const py = pt[1] !== undefined ? pt[1] : (pt.y || 0);
-    const pz = pt[2] !== undefined ? pt[2] : (pt.z || 0);
+    const coords = getVertexCoords(pt);
+    const p3js = rhinoPointToThree(coords.x, coords.y, coords.z);
 
-    const p3js = rhinoPointToThree(px, py, pz);
-    positions[v * 3]     = p3js.x;
-    positions[v * 3 + 1] = p3js.y;
-    positions[v * 3 + 2] = p3js.z;
+    positions[v * 3]     = isNaN(p3js.x) ? 0 : p3js.x;
+    positions[v * 3 + 1] = isNaN(p3js.y) ? 0 : p3js.y;
+    positions[v * 3 + 2] = isNaN(p3js.z) ? 0 : p3js.z;
   }
 
   const indices = [];
-  let validFaces = 0;
+  let triFaceCount = 0;
 
   for (let f = 0; f < faceCount; f++) {
     const face = faces.get(f);
-    if (!face || face.length < 3) continue;
+    const fIdx = getFaceIndices(face);
+    if (!fIdx) continue;
 
-    const a = face[0];
-    const b = face[1];
-    const c = face[2];
-    const d = face[3] !== undefined ? face[3] : c;
+    const { a, b, c, d } = fIdx;
 
-    indices.push(a, b, c);
-    validFaces++;
+    if (!isNaN(a) && !isNaN(b) && !isNaN(c) && a < vertCount && b < vertCount && c < vertCount) {
+      indices.push(a, b, c);
+      triFaceCount++;
+    }
 
-    if (d !== c && d !== a) {
+    if (d !== c && d !== a && !isNaN(d) && d < vertCount) {
       indices.push(a, c, d);
-      validFaces++;
+      triFaceCount++;
     }
   }
 
-  if (indices.length === 0) {
-    return { index: subdIndex, vertices: 0, faces: 0, rendered: false };
+  if (indices.length === 0 || triFaceCount === 0) {
+    const msg = `SubD ${subdIndex}: conversion method = ${method} | vertices = ${vertCount} | faces = 0 | THREE.Mesh added = NO`;
+    console.log(msg);
+    return { index: subdIndex, method, vertices: vertCount, faces: 0, rendered: false, logStr: msg };
   }
 
   const geometry = new THREE.BufferGeometry();
@@ -776,54 +874,66 @@ function processAndRenderSubDMesh(subdGeom, subdIndex) {
   geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
   geometry.computeVertexNormals();
 
-  const material = new THREE.MeshStandardMaterial({
-    color: 0x888888,
-    roughness: 0.5,
-    metalness: 0.1,
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xdddddd,
     side: THREE.DoubleSide,
     wireframe: false
   });
 
   const mesh = new THREE.Mesh(geometry, material);
+  mesh.name = `SubDMesh_${subdIndex}`;
+  mesh.visible = true;
+
   meshGroup.add(mesh);
   originalMeshes.push({ mesh, originalPositions: positions });
 
+  const msg = `SubD ${subdIndex}: conversion method = ${method} | vertices = ${vertCount} | faces = ${triFaceCount} | THREE.Mesh added = YES`;
+  console.log(msg);
+
   return {
     index: subdIndex,
+    method,
     vertices: vertCount,
-    faces: validFaces,
-    rendered: true
+    faces: triFaceCount,
+    rendered: true,
+    logStr: msg
   };
 }
 
 function buildSubDCageOverlay(subdGeom) {
   try {
     let cageMesh = null;
-    if (rhino.Mesh.createFromSubDControlNet) {
-      cageMesh = rhino.Mesh.createFromSubDControlNet(subdGeom, false);
+    if (window.rhino && window.rhino.Mesh && window.rhino.Mesh.createFromSubDControlNet) {
+      cageMesh = window.rhino.Mesh.createFromSubDControlNet(subdGeom, false);
     }
     if (!cageMesh && subdGeom.vertices) cageMesh = subdGeom;
 
     if (cageMesh && cageMesh.vertices && cageMesh.faces) {
-      const verts = cageMesh.vertices();
-      const faces = cageMesh.faces();
+      const verts = typeof cageMesh.vertices === 'function' ? cageMesh.vertices() : cageMesh.vertices;
+      const faces = typeof cageMesh.faces === 'function' ? cageMesh.faces() : cageMesh.faces;
+
+      const vertCount = typeof verts.count === 'number' ? verts.count : (verts.length || 0);
+      const faceCount = typeof faces.count === 'number' ? faces.count : (faces.length || 0);
 
       const linePositions = [];
       const pointPositions = [];
 
-      for (let f = 0; f < faces.count; f++) {
+      for (let f = 0; f < faceCount; f++) {
         const face = faces.get(f);
-        const p1 = rhinoPointToThree(verts.get(face[0])[0], verts.get(face[0])[1], verts.get(face[0])[2]);
-        const p2 = rhinoPointToThree(verts.get(face[1])[0], verts.get(face[1])[1], verts.get(face[1])[2]);
-        const p3 = rhinoPointToThree(verts.get(face[2])[0], verts.get(face[2])[1], verts.get(face[2])[2]);
+        const fIdx = getFaceIndices(face);
+        if (!fIdx) continue;
+
+        const p1 = rhinoPointToThree(getVertexCoords(verts.get(fIdx.a)).x, getVertexCoords(verts.get(fIdx.a)).y, getVertexCoords(verts.get(fIdx.a)).z);
+        const p2 = rhinoPointToThree(getVertexCoords(verts.get(fIdx.b)).x, getVertexCoords(verts.get(fIdx.b)).y, getVertexCoords(verts.get(fIdx.b)).z);
+        const p3 = rhinoPointToThree(getVertexCoords(verts.get(fIdx.c)).x, getVertexCoords(verts.get(fIdx.c)).y, getVertexCoords(verts.get(fIdx.c)).z);
 
         linePositions.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
         linePositions.push(p2.x, p2.y, p2.z, p3.x, p3.y, p3.z);
         linePositions.push(p3.x, p3.y, p3.z, p1.x, p1.y, p1.z);
       }
 
-      for (let v = 0; v < verts.count; v++) {
-        const pt = rhinoPointToThree(verts.get(v)[0], verts.get(v)[1], verts.get(v)[2]);
+      for (let v = 0; v < vertCount; v++) {
+        const pt = rhinoPointToThree(getVertexCoords(verts.get(v)).x, getVertexCoords(verts.get(v)).y, getVertexCoords(verts.get(v)).z);
         pointPositions.push(pt.x, pt.y, pt.z);
       }
 
