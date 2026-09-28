@@ -743,6 +743,22 @@ function convertSubDToPolygonMesh(subdGeom) {
     }
   } catch (e) {}
 
+  // 1b. Try rhino.Mesh.createFromSubD with density arguments (0 to 4)
+  if (!mesh) {
+    for (let d = 0; d <= 4; d++) {
+      try {
+        if (window.rhino && window.rhino.Mesh && typeof window.rhino.Mesh.createFromSubD === 'function') {
+          const candidate = window.rhino.Mesh.createFromSubD(subdGeom, d);
+          if (candidate && getValidVertexCount(candidate) > 0 && getValidFaceCount(candidate) > 0) {
+            mesh = candidate;
+            method = `rhino.Mesh.createFromSubD(density=${d})`;
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+  }
+
   // 2. Try subdGeom.toMesh()
   if (!mesh) {
     try {
@@ -754,6 +770,22 @@ function convertSubDToPolygonMesh(subdGeom) {
         }
       }
     } catch (e) {}
+  }
+
+  // 2b. Try subdGeom.toMesh(density)
+  if (!mesh) {
+    for (let d = 0; d <= 4; d++) {
+      try {
+        if (typeof subdGeom.toMesh === 'function') {
+          const candidate = subdGeom.toMesh(d);
+          if (candidate && getValidVertexCount(candidate) > 0 && getValidFaceCount(candidate) > 0) {
+            mesh = candidate;
+            method = `subdGeom.toMesh(density=${d})`;
+            break;
+          }
+        }
+      } catch (e) {}
+    }
   }
 
   // 3. Try subdGeom.toBrep() -> Brep to Mesh
@@ -803,18 +835,18 @@ function processAndRenderSubDMesh(subdGeom, subdIndex) {
   const method = converted.method;
 
   if (!targetMesh) {
-    const msg = `SubD ${subdIndex}: conversion method = NONE | vertices = 0 | faces = 0 | THREE.Mesh added = NO`;
+    const msg = `SubD ${subdIndex} | vertices: 0 | faces: 0 | triangles: 0 | THREE.Mesh added: NO`;
     console.log(msg);
-    return { index: subdIndex, method: 'NONE', vertices: 0, faces: 0, rendered: false, logStr: msg };
+    return { index: subdIndex, method: 'NONE', vertices: 0, faces: 0, triangles: 0, rendered: false, logStr: msg };
   }
 
   const vertCount = getValidVertexCount(targetMesh);
   const faceCount = getValidFaceCount(targetMesh);
 
   if (vertCount === 0 || faceCount === 0) {
-    const msg = `SubD ${subdIndex}: conversion method = ${method} | vertices = ${vertCount} | faces = ${faceCount} | THREE.Mesh added = NO`;
+    const msg = `SubD ${subdIndex} | vertices: ${vertCount} | faces: ${faceCount} | triangles: 0 | THREE.Mesh added: NO`;
     console.log(msg);
-    return { index: subdIndex, method, vertices: vertCount, faces: faceCount, rendered: false, logStr: msg };
+    return { index: subdIndex, method, vertices: vertCount, faces: faceCount, triangles: 0, rendered: false, logStr: msg };
   }
 
   let verts = null;
@@ -826,9 +858,9 @@ function processAndRenderSubDMesh(subdGeom, subdIndex) {
   } catch (e) {}
 
   if (!verts || !faces) {
-    const msg = `SubD ${subdIndex}: conversion method = ${method} | vertices = 0 | faces = 0 | THREE.Mesh added = NO`;
+    const msg = `SubD ${subdIndex} | vertices: 0 | faces: 0 | triangles: 0 | THREE.Mesh added: NO`;
     console.log(msg);
-    return { index: subdIndex, method, vertices: 0, faces: 0, rendered: false, logStr: msg };
+    return { index: subdIndex, method, vertices: 0, faces: 0, triangles: 0, rendered: false, logStr: msg };
   }
 
   const positions = new Float32Array(vertCount * 3);
@@ -864,19 +896,23 @@ function processAndRenderSubDMesh(subdGeom, subdIndex) {
   }
 
   if (indices.length === 0 || triFaceCount === 0) {
-    const msg = `SubD ${subdIndex}: conversion method = ${method} | vertices = ${vertCount} | faces = 0 | THREE.Mesh added = NO`;
+    const msg = `SubD ${subdIndex} | vertices: ${vertCount} | faces: ${faceCount} | triangles: 0 | THREE.Mesh added: NO`;
     console.log(msg);
-    return { index: subdIndex, method, vertices: vertCount, faces: 0, rendered: false, logStr: msg };
+    return { index: subdIndex, method, vertices: vertCount, faces: faceCount, triangles: 0, rendered: false, logStr: msg };
   }
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
   geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
 
   const material = new THREE.MeshBasicMaterial({
     color: 0xdddddd,
     side: THREE.DoubleSide,
+    transparent: false,
+    opacity: 1.0,
     wireframe: false
   });
 
@@ -887,14 +923,15 @@ function processAndRenderSubDMesh(subdGeom, subdIndex) {
   meshGroup.add(mesh);
   originalMeshes.push({ mesh, originalPositions: positions });
 
-  const msg = `SubD ${subdIndex}: conversion method = ${method} | vertices = ${vertCount} | faces = ${triFaceCount} | THREE.Mesh added = YES`;
+  const msg = `SubD ${subdIndex} | vertices: ${vertCount} | faces: ${faceCount} | triangles: ${triFaceCount} | THREE.Mesh added: YES`;
   console.log(msg);
 
   return {
     index: subdIndex,
     method,
     vertices: vertCount,
-    faces: triFaceCount,
+    faces: faceCount,
+    triangles: triFaceCount,
     rendered: true,
     logStr: msg
   };
