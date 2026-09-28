@@ -514,6 +514,7 @@ function parseRhinoObjects(doc, filename) {
   let meshCount = 0;
   let subdCount = 0;
   let curveCount = 0;
+  const subdDiagnostics = [];
 
   for (let i = 0; i < objects.count; i++) {
     const obj = objects.get(i);
@@ -532,9 +533,37 @@ function parseRhinoObjects(doc, filename) {
       subdCount++;
       subdObjectsInMemory.push(geom);
       buildSubDCageOverlay(geom);
-      buildSubDMeshGeometry(geom);
+
+      // Process & render actual SubD polygon mesh faces
+      const res = processAndRenderSubDMesh(geom, subdCount);
+      subdDiagnostics.push(res);
     }
   }
+
+  // Print diagnostic report to console
+  console.log('====================================');
+  console.log('SUBD CONVERSION DIAGNOSTIC REPORT:');
+  const diagStrings = subdDiagnostics.map(d =>
+    `SUBD ${d.index}: vertices ${d.vertices} | faces ${d.faces} | rendered ${d.rendered ? 'YES' : 'NO'}`
+  );
+  diagStrings.forEach(s => console.log(s));
+  console.log('====================================');
+
+  // Update UI diagnostic card
+  const subdDiagBox = document.getElementById('subd-diag-rows');
+  if (subdDiagBox) {
+    subdDiagBox.innerHTML = diagStrings.length > 0 ? diagStrings.join('\n') : 'No SubDs detected in file.';
+  }
+
+  const pConv = document.getElementById('p-conv');
+  const pAdded = document.getElementById('p-added');
+  const pFailed = document.getElementById('p-failed');
+  const successfulSubDs = subdDiagnostics.filter(d => d.rendered).length;
+  const failedSubDs = subdDiagnostics.filter(d => !d.rendered).length;
+
+  if (pConv) pConv.textContent = meshCount + successfulSubDs;
+  if (pAdded) pAdded.textContent = meshCount + successfulSubDs;
+  if (pFailed) pFailed.textContent = failedSubDs;
 
   computeModelBounds();
   resetTransformations();
@@ -557,7 +586,7 @@ function parseRhinoObjects(doc, filename) {
   }
 
   document.getElementById('info-filename').textContent = filename;
-  document.getElementById('info-meshes').textContent = meshCount;
+  document.getElementById('info-meshes').textContent = meshCount + successfulSubDs;
   document.getElementById('info-subds').textContent = subdCount;
   document.getElementById('info-curves').textContent = curveCount;
 
@@ -636,36 +665,135 @@ function buildThreeCurve(curveGeom) {
   }
 }
 
-function buildSubDMeshGeometry(subdGeom) {
-  if (!subdGeom) return;
-  let meshGeom = null;
+function convertSubDToPolygonMesh(subdGeom) {
+  if (!subdGeom) return null;
+  let mesh = null;
 
   try {
-    if (typeof subdGeom.toMesh === 'function') {
-      meshGeom = subdGeom.toMesh();
+    if (window.rhino && window.rhino.Mesh && typeof window.rhino.Mesh.createFromSubDControlNet === 'function') {
+      mesh = window.rhino.Mesh.createFromSubDControlNet(subdGeom);
     }
   } catch (e) {}
 
-  if (!meshGeom && window.rhino && window.rhino.Mesh) {
+  if (!mesh) {
     try {
-      if (typeof window.rhino.Mesh.createFromSubD === 'function') {
-        meshGeom = window.rhino.Mesh.createFromSubD(subdGeom);
+      if (window.rhino && window.rhino.Mesh && typeof window.rhino.Mesh.createFromSubD === 'function') {
+        mesh = window.rhino.Mesh.createFromSubD(subdGeom);
       }
     } catch (e) {}
   }
 
-  if (!meshGeom && window.rhino && window.rhino.Mesh) {
+  if (!mesh) {
     try {
-      if (typeof window.rhino.Mesh.createFromSubDControlNet === 'function') {
-        meshGeom = window.rhino.Mesh.createFromSubDControlNet(subdGeom, false);
+      if (typeof subdGeom.toMesh === 'function') {
+        mesh = subdGeom.toMesh();
       }
     } catch (e) {}
   }
 
-  const targetGeom = meshGeom || (subdGeom.vertices && subdGeom.faces ? subdGeom : null);
-  if (targetGeom) {
-    buildThreeMesh(targetGeom);
+  if (!mesh && subdGeom.vertices && subdGeom.faces) {
+    mesh = subdGeom;
   }
+
+  return mesh;
+}
+
+function processAndRenderSubDMesh(subdGeom, subdIndex) {
+  if (!subdGeom) {
+    return { index: subdIndex, vertices: 0, faces: 0, rendered: false };
+  }
+
+  const targetMesh = convertSubDToPolygonMesh(subdGeom);
+  if (!targetMesh) {
+    return { index: subdIndex, vertices: 0, faces: 0, rendered: false };
+  }
+
+  let verts = null;
+  let faces = null;
+
+  try {
+    if (typeof targetMesh.vertices === 'function') verts = targetMesh.vertices();
+    else if (targetMesh.vertices) verts = targetMesh.vertices;
+  } catch (e) {}
+
+  try {
+    if (typeof targetMesh.faces === 'function') faces = targetMesh.faces();
+    else if (targetMesh.faces) faces = targetMesh.faces;
+  } catch (e) {}
+
+  if (!verts || !faces) {
+    return { index: subdIndex, vertices: 0, faces: 0, rendered: false };
+  }
+
+  const vertCount = typeof verts.count === 'number' ? verts.count : (verts.length || 0);
+  const faceCount = typeof faces.count === 'number' ? faces.count : (faces.length || 0);
+
+  if (vertCount === 0 || faceCount === 0) {
+    return { index: subdIndex, vertices: 0, faces: 0, rendered: false };
+  }
+
+  const positions = new Float32Array(vertCount * 3);
+  for (let v = 0; v < vertCount; v++) {
+    const pt = verts.get(v);
+    if (!pt) continue;
+    const px = pt[0] !== undefined ? pt[0] : (pt.x || 0);
+    const py = pt[1] !== undefined ? pt[1] : (pt.y || 0);
+    const pz = pt[2] !== undefined ? pt[2] : (pt.z || 0);
+
+    const p3js = rhinoPointToThree(px, py, pz);
+    positions[v * 3]     = p3js.x;
+    positions[v * 3 + 1] = p3js.y;
+    positions[v * 3 + 2] = p3js.z;
+  }
+
+  const indices = [];
+  let validFaces = 0;
+
+  for (let f = 0; f < faceCount; f++) {
+    const face = faces.get(f);
+    if (!face || face.length < 3) continue;
+
+    const a = face[0];
+    const b = face[1];
+    const c = face[2];
+    const d = face[3] !== undefined ? face[3] : c;
+
+    indices.push(a, b, c);
+    validFaces++;
+
+    if (d !== c && d !== a) {
+      indices.push(a, c, d);
+      validFaces++;
+    }
+  }
+
+  if (indices.length === 0) {
+    return { index: subdIndex, vertices: 0, faces: 0, rendered: false };
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
+  geometry.computeVertexNormals();
+
+  const material = new THREE.MeshStandardMaterial({
+    color: 0x888888,
+    roughness: 0.5,
+    metalness: 0.1,
+    side: THREE.DoubleSide,
+    wireframe: false
+  });
+
+  const mesh = new THREE.Mesh(geometry, material);
+  meshGroup.add(mesh);
+  originalMeshes.push({ mesh, originalPositions: positions });
+
+  return {
+    index: subdIndex,
+    vertices: vertCount,
+    faces: validFaces,
+    rendered: true
+  };
 }
 
 function buildSubDCageOverlay(subdGeom) {

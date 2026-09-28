@@ -379,6 +379,9 @@ function buildFallbackDisplayMesh(subdGeom, label) {
       try { meshGeom = rhino.Mesh.createFromSubD(subdGeom); } catch (e) {}
     }
     if (!meshGeom && rhino.Mesh && typeof rhino.Mesh.createFromSubDControlNet === 'function') {
+      try { meshGeom = rhino.Mesh.createFromSubDControlNet(subdGeom); } catch (e) {}
+    }
+    if (!meshGeom && rhino.Mesh && typeof rhino.Mesh.createFromSubDControlNet === 'function') {
       try { meshGeom = rhino.Mesh.createFromSubDControlNet(subdGeom, false); } catch (e) {}
     }
     const target = meshGeom || (subdGeom.vertices && subdGeom.faces ? subdGeom : null);
