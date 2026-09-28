@@ -16,6 +16,7 @@ let threeControls = null;
 let meshGroup = new THREE.Group();
 let curveGroup = new THREE.Group();
 let cageGroup = new THREE.Group();
+let addedGeometryGroup = new THREE.Group();
 
 // Memory Store for Original Imported Geometry & Bounds
 let originalMeshes = [];
@@ -156,6 +157,7 @@ function initThreeJS() {
   threeScene.add(meshGroup);
   threeScene.add(curveGroup);
   threeScene.add(cageGroup);
+  threeScene.add(addedGeometryGroup);
 
   // Window Resize
   function handleResize() {
@@ -616,9 +618,12 @@ function restoreOriginalImportedGeometry() {
           ptAttr.array[i] = item.originalPtPositions[i];
         }
         ptAttr.needsUpdate = true;
-      }
     }
   });
+
+  if (addedGeometryGroup) {
+    addedGeometryGroup.clear();
+  }
 
   // 8. Update DNA UI and stats
   if (window.updateDnaUIAndViewport) {
@@ -1766,6 +1771,10 @@ function renderIterationGeometry(recipeOrDna, explicitMode) {
   if (meshGroup) meshGroup.visible = true;
   if (curveGroup) curveGroup.visible = true;
   if (cageGroup) cageGroup.visible = true;
+  if (addedGeometryGroup) {
+    addedGeometryGroup.visible = true;
+    addedGeometryGroup.clear(); // Clear previously generated new geometry
+  }
 
   // Deform or Restore SubD / Standard Meshes
   originalMeshes.forEach(item => {
@@ -1803,6 +1812,93 @@ function renderIterationGeometry(recipeOrDna, explicitMode) {
       }
     }
   });
+
+  // Generate NEW geometry based on DNA values to complement original geometry
+  if (!isSeedDna && addedGeometryGroup && Array.isArray(recipeOrDna)) {
+    const c = recipeOrDna[0] || 0;
+    const b = recipeOrDna[1] || 0;
+    const w = recipeOrDna[2] || 0;
+    const m = recipeOrDna[3] || 0;
+    const v = recipeOrDna[4] || 0;
+    const g = recipeOrDna[5] || 0;
+    
+    const mat = new THREE.MeshStandardMaterial({ 
+      color: 0xdfb15b, 
+      metalness: 0.7, 
+      roughness: 0.2, 
+      wireframe: (compMode === 'OVERLAY') 
+    });
+
+    const boxSize = Math.max((modelBounds.maxX - modelBounds.minX), (modelBounds.maxY - modelBounds.minY), (modelBounds.maxZ - modelBounds.minZ));
+    const rad = boxSize * 0.05; // Base radius scale
+    
+    // BRANCHING (b): Sprout new branching tubes outwards
+    if (b > 0.05) {
+      const branches = Math.floor(b * 5) + 1;
+      for (let i = 0; i < branches; i++) {
+        const hAngle = (i / branches) * Math.PI * 2;
+        const curve = new THREE.CatmullRomCurve3([
+          new THREE.Vector3(modelBounds.centerX, modelBounds.centerY, modelBounds.centerZ),
+          new THREE.Vector3(
+            modelBounds.centerX + Math.cos(hAngle) * boxSize * 0.5 * b, 
+            modelBounds.maxY + (Math.random() * boxSize * 0.3) * b, 
+            modelBounds.centerZ + Math.sin(hAngle) * boxSize * 0.5 * b
+          ),
+          new THREE.Vector3(
+            modelBounds.centerX + Math.cos(hAngle) * boxSize * b, 
+            modelBounds.maxY + (Math.random() * boxSize * 0.6) * b, 
+            modelBounds.centerZ + Math.sin(hAngle) * boxSize * b
+          )
+        ]);
+        const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 20, rad * b, 8, false), mat);
+        addedGeometryGroup.add(tube);
+      }
+    }
+
+    // WHIPLASH (w): Create looping elegant ribbons
+    if (w > 0.05) {
+      const loops = Math.floor(w * 3) + 1;
+      for (let i = 0; i < loops; i++) {
+        const curve2 = new THREE.CatmullRomCurve3([
+          new THREE.Vector3(modelBounds.minX, modelBounds.minY, modelBounds.minZ),
+          new THREE.Vector3(modelBounds.maxX * 1.5 * w, modelBounds.maxY * Math.random(), modelBounds.centerZ),
+          new THREE.Vector3(modelBounds.centerX, modelBounds.maxY * 1.2 * w, modelBounds.maxZ * 1.5 * w),
+          new THREE.Vector3(modelBounds.minX * 1.2 * w, modelBounds.centerY, modelBounds.minZ * 1.2 * w)
+        ]);
+        const ribbon = new THREE.Mesh(new THREE.TubeGeometry(curve2, 30, rad * 0.5 * w, 4, true), mat);
+        addedGeometryGroup.add(ribbon);
+      }
+    }
+
+    // GROWTH (g): Add aggregating cubic/organic modules extending upward
+    if (g > 0.05) {
+      const segments = Math.floor(g * 12);
+      let currentY = modelBounds.maxY;
+      for(let i=0; i<segments; i++) {
+        const s = rad * 2 * (1 - (i/segments)*0.3);
+        const geom = (i % 2 === 0) ? new THREE.BoxGeometry(s, s, s) : new THREE.SphereGeometry(s*0.6, 16, 16);
+        const blob = new THREE.Mesh(geom, mat);
+        blob.position.set(
+          modelBounds.centerX + Math.sin(i*0.8) * boxSize * 0.2 * g,
+          currentY + s * 0.5,
+          modelBounds.centerZ + Math.cos(i*0.8) * boxSize * 0.2 * g
+        );
+        currentY += s * 0.8; // overlap slightly
+        addedGeometryGroup.add(blob);
+      }
+    }
+    
+    // MERGING (m): Create bridges between bounding box extremities
+    if (m > 0.05) {
+      const curve3 = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(modelBounds.minX, modelBounds.centerY, modelBounds.centerZ),
+        new THREE.Vector3(modelBounds.centerX, modelBounds.maxY + (boxSize * 0.2 * m), modelBounds.centerZ),
+        new THREE.Vector3(modelBounds.maxX, modelBounds.centerY, modelBounds.centerZ)
+      ]);
+      const bridge = new THREE.Mesh(new THREE.TubeGeometry(curve3, 20, rad * 1.5 * m, 12, false), mat);
+      addedGeometryGroup.add(bridge);
+    }
+  }
 
   // Deform or Restore Curves
   originalCurves.forEach(item => {
