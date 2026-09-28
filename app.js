@@ -373,6 +373,10 @@ function createSampleRhinoSeed() {
 
   computeModelBounds();
 
+  if (window.analyzeSeedIdentity) {
+    window.analyzeSeedIdentity(modelBounds, positions);
+  }
+
   const filenameEl = document.getElementById('info-filename');
   if (filenameEl) filenameEl.textContent = 'compressed.3dm';
   const meshesEl = document.getElementById('info-meshes');

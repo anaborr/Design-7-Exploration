@@ -17,27 +17,33 @@ try {
         }
         $filePath = Join-Path $path ($localPath.TrimStart('/').Replace('/', '\'))
         
-        if (Test-Path $filePath -PathType Leaf) {
-            $ext = [System.IO.Path]::GetExtension($filePath).ToLower()
-            $mime = switch ($ext) {
-                ".html" { "text/html; charset=utf-8" }
-                ".css"  { "text/css; charset=utf-8" }
-                ".js"   { "application/javascript; charset=utf-8" }
-                ".json" { "application/json" }
-                ".png"  { "image/png" }
-                ".svg"  { "image/svg+xml" }
-                default { "application/octet-stream" }
+        try {
+            if (Test-Path $filePath -PathType Leaf) {
+                $ext = [System.IO.Path]::GetExtension($filePath).ToLower()
+                $mime = switch ($ext) {
+                    ".html" { "text/html; charset=utf-8" }
+                    ".css"  { "text/css; charset=utf-8" }
+                    ".js"   { "application/javascript; charset=utf-8" }
+                    ".json" { "application/json" }
+                    ".png"  { "image/png" }
+                    ".svg"  { "image/svg+xml" }
+                    default { "application/octet-stream" }
+                }
+                $bytes = [System.IO.File]::ReadAllBytes($filePath)
+                $response.ContentType = $mime
+                $response.ContentLength64 = $bytes.Length
+                $response.OutputStream.Write($bytes, 0, $bytes.Length)
+                $response.OutputStream.Close()
+            } else {
+                $response.StatusCode = 404
+                $errBytes = [System.Text.Encoding]::UTF8.GetBytes("Not Found")
+                $response.ContentLength64 = $errBytes.Length
+                $response.OutputStream.Write($errBytes, 0, $errBytes.Length)
+                $response.OutputStream.Close()
             }
-            $bytes = [System.IO.File]::ReadAllBytes($filePath)
-            $response.ContentType = $mime
-            $response.ContentLength64 = $bytes.Length
-            $response.OutputStream.Write($bytes, 0, $bytes.Length)
-        } else {
-            $response.StatusCode = 404
-            $errBytes = [System.Text.Encoding]::UTF8.GetBytes("Not Found")
-            $response.OutputStream.Write($errBytes, 0, $errBytes.Length)
+        } catch {
+            # Catch single request errors so server loop doesn't crash
         }
-        $response.Close()
     }
 } finally {
     $listener.Stop()
