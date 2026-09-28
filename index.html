@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DESIGN 7 EXPLORATION // Descriptor-Driven Architectural Evolution System</title>
 
-  <!-- Google Fonts: Inter & Space Mono -->
+  <!-- Google Fonts: Michroma (Fallback for Magistral) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Michroma&display=swap" rel="stylesheet">
 
   <!-- Rhino3dm.js for browser .3dm file parsing -->
   <script src="https://cdn.jsdelivr.net/npm/rhino3dm@8.4.0/rhino3dm.min.js"></script>
@@ -86,180 +86,177 @@
           </div>
 
           <div class="sidebar-card-body">
-            <!-- START MODE SELECTOR -->
-            <div class="control-row" style="margin-bottom:8px;">
-              <span class="ctrl-label">START MODE:</span>
-              <div class="btn-group-segmented" id="group-start-mode">
-                <button id="btn-mode-auto" class="btn-segment active" onclick="setStartMode('AUTO')">⚡ AUTO GENERATE</button>
-                <button id="btn-mode-manual" class="btn-segment" onclick="setStartMode('MANUAL')">MANUAL</button>
-              </div>
-            </div>
+            <!-- GENERATION MODES DROPDOWN -->
+            <details open style="margin-bottom: 12px; border: 1px solid #444; padding: 10px; background: transparent; cursor: pointer;">
+              <summary style="font-weight: 500; opacity: 0.9; outline: none;">GENERATION MODES</summary>
+              <div style="margin-top: 10px; cursor: default;">
+                <div class="control-row" style="margin-bottom:8px;">
+                  <span class="ctrl-label">START MODE:</span>
+                  <div class="btn-group-segmented" id="group-start-mode">
+                    <button id="btn-mode-auto" class="btn-segment active" onclick="setStartMode('AUTO')">AUTO</button>
+                    <button id="btn-mode-manual" class="btn-segment" onclick="setStartMode('MANUAL')">MANUAL</button>
+                  </div>
+                </div>
 
-            <!-- PRIMARY STARTING ACTION BUTTON -->
-            <div id="auto-generate-primary-block" style="margin-bottom:10px;">
-              <button id="btn-auto-generate-rules" class="btn btn-header-gold" style="width:100%; padding:10px 12px; font-size:11px; font-weight:800; justify-content:center; text-transform:uppercase; letter-spacing:1px; background:#b0b0b0; color:#000000; border:1px solid #b0b0b0;" onclick="generateFromArtNouveauRules()">
-                ⚡ GENERATE FROM ART NOUVEAU RULES
-              </button>
-              <div style="font-family:'Space Mono', monospace; font-size:8px; color:#888888; text-align:center; margin-top:4px; letter-spacing:0.5px;">
-                SYSTEM GENERATION: Rules → Outcomes → Select → Refine
-              </div>
-            </div>
+                <div id="program-generate-block" style="margin-bottom:10px; padding: 10px; border: 1px solid #444; background: transparent;">
+                  <div class="control-row" style="margin-bottom:8px; display: block;">
+                    <span class="ctrl-label" style="color: #cccccc; margin-bottom:4px; display:block;">PROGRAM TARGET:</span>
+                    <select id="select-art-nouveau-program" style="width: 100%; background: #111; color: #b0b0b0; border: 1px solid #444; padding: 6px;">
+                      <option value="WORKSPACE">WORKSPACE</option>
+                      <option value="GATHERING">GATHERING SPACE</option>
+                      <option value="LOBBY">LOBBY</option>
+                      <option value="MEETING">MEETING SPACE</option>
+                      <option value="CIRCULATION">CIRCULATION</option>
+                    </select>
+                  </div>
+                  <button id="btn-generate-program-iteration" class="btn btn-header-gold" style="width:100%; padding:10px 12px; justify-content:center; background:#cccccc; color:#000000; border:1px solid #cccccc;" onclick="generateProgramIteration()">
+                    Generate Program
+                  </button>
+                </div>
 
-            <!-- RESTORE ORIGINAL SEED GEOMETRY BUTTON -->
-            <div style="margin-bottom:12px;">
-              <button id="btn-sidebar-restore-original" class="btn btn-header-cyan" style="width:100%; padding:8px 10px; font-size:10px; font-weight:700; justify-content:center; text-transform:uppercase; border-color:#00f2fe; color:#00f2fe;" onclick="restoreOriginalImportedGeometry()">
-                ↺ RESTORE ORIGINAL GEOMETRY
-              </button>
-            </div>
+                <div id="auto-generate-primary-block" style="margin-bottom:10px;">
+                  <button id="btn-auto-generate-rules" class="btn btn-header-gold" style="width:100%; padding:10px 12px; justify-content:center; background:#b0b0b0; color:#000000; border:1px solid #b0b0b0;" onclick="generateFromArtNouveauRules()">
+                    Auto Generate
+                  </button>
+                </div>
+
+                <div style="margin-bottom:12px;">
+                  <button id="btn-sidebar-restore-original" class="btn btn-header-cyan" style="width:100%; padding:8px 10px; justify-content:center; border-color:#dddddd; color:#dddddd;" onclick="restoreOriginalImportedGeometry()">
+                    Restore Geometry
+                  </button>
+                </div>
+              </div>
+            </details>
 
             <!-- DESIGNER REFINEMENT MODE STATUS BANNER -->
-            <div id="designer-refinement-banner" class="gold-border-box" style="display:none; margin-bottom:10px; background:#111111;">
-              <div style="font-size:9px; font-weight:800; color:#b0b0b0; display:flex; justify-content:space-between; align-items:center;">
+            <div id="designer-refinement-banner" style="display:none; margin-bottom:10px; background:#111111; padding: 8px; border: 1px solid #444;">
+              <div style="font-weight:500; color:#b0b0b0; display:flex; justify-content:space-between; align-items:center;">
                 <span>MODE: DESIGNER REFINEMENT</span>
-                <span id="refinement-parent-tag" style="color:#94a3b8; font-size:8px;">PARENT: AUTO-02</span>
+                <span id="refinement-parent-tag" style="color:#94a3b8;">PARENT: AUTO-02</span>
               </div>
-              <div style="font-size:8px; color:#888888; margin-top:2px;">Adjusting sliders updates proposal live.</div>
-              <button id="btn-reset-to-auto" class="btn-header-outline" style="margin-top:6px; font-size:8.5px; padding:3px 6px; width:100%; justify-content:center;" onclick="resetToAutoProposal()">
-                ↺ RESET TO AUTO PROPOSAL
+              <button id="btn-reset-to-auto" class="btn-header-outline" style="margin-top:6px; padding:3px 6px; width:100%; justify-content:center;" onclick="resetToAutoProposal()">
+                Reset to Auto
               </button>
             </div>
 
-            <!-- SIX PRIMARY TRANSFORMATION SLIDERS -->
-            <div class="dna-sliders-container">
-              <!-- CONTINUITY -->
-              <div class="slider-group-dna" title="Continuity Rule: Geometry must flow into the next surface. No abrupt stops or disconnected pieces. (100% of generated geometry must stay connected.)">
-                <div class="slider-label-dna">
-                  <span class="dna-title">CONTINUITY (C)</span>
-                  <span class="qual-badge badge-c" id="badge-dna-c">INDEPENDENT</span>
-                  <span class="val-dna" id="val-dna-c">0%</span>
+            <!-- MANUAL SHAPE SLIDERS DROPDOWN -->
+            <details style="margin-bottom: 12px; border: 1px solid #444; padding: 10px; background: transparent; cursor: pointer;">
+              <summary style="font-weight: 500; opacity: 0.9; outline: none;">MANUAL SHAPE SLIDERS</summary>
+              <div style="margin-top: 10px; cursor: default;" class="dna-sliders-container">
+                <!-- CONTINUITY -->
+                <div class="slider-group-dna">
+                  <div class="slider-label-dna">
+                    <span class="dna-title">CONTINUITY (C)</span>
+                    <span class="val-dna" id="val-dna-c">0%</span>
+                  </div>
+                  <input type="range" id="slider-dna-c" min="0" max="100" value="0" class="slider slider-gold">
                 </div>
-                <input type="range" id="slider-dna-c" min="0" max="100" value="0" class="slider slider-gold">
-              </div>
 
-              <!-- BRANCHING -->
-              <div class="slider-group-dna" title="Branching Rule: One main surface can divide into 2–6 smaller branches. Every branch must remain connected to its parent. (2–6 branches; new branch = 30–70% of parent width.)">
-                <div class="slider-label-dna">
-                  <span class="dna-title">BRANCHING (B)</span>
-                  <span class="qual-badge badge-b" id="badge-dna-b">SINGULAR</span>
-                  <span class="val-dna" id="val-dna-b">0%</span>
+                <!-- BRANCHING -->
+                <div class="slider-group-dna">
+                  <div class="slider-label-dna">
+                    <span class="dna-title">BRANCHING (B)</span>
+                    <span class="val-dna" id="val-dna-b">0%</span>
+                  </div>
+                  <input type="range" id="slider-dna-b" min="0" max="100" value="0" class="slider slider-gold">
                 </div>
-                <input type="range" id="slider-dna-b" min="0" max="100" value="0" class="slider slider-gold">
-              </div>
 
-              <!-- ADVANCED BRANCH CONTROLS -->
-              <div id="advanced-branch-controls" class="advanced-branch-panel">
+                <!-- WHIPLASH -->
+                <div class="slider-group-dna">
+                  <div class="slider-label-dna">
+                    <span class="dna-title">WHIPLASH (W)</span>
+                    <span class="val-dna" id="val-dna-w">0%</span>
+                  </div>
+                  <input type="range" id="slider-dna-w" min="0" max="100" value="0" class="slider slider-gold">
+                </div>
+
+                <!-- MERGING -->
+                <div class="slider-group-dna">
+                  <div class="slider-label-dna">
+                    <span class="dna-title">MERGING (M)</span>
+                    <span class="val-dna" id="val-dna-m">0%</span>
+                  </div>
+                  <input type="range" id="slider-dna-m" min="0" max="100" value="0" class="slider slider-gold">
+                </div>
+
+                <!-- POS/NEG SPACE -->
+                <div class="slider-group-dna">
+                  <div class="slider-label-dna">
+                    <span class="dna-title">POS / NEG SPACE (V)</span>
+                    <span class="val-dna" id="val-dna-v">0%</span>
+                  </div>
+                  <input type="range" id="slider-dna-v" min="0" max="100" value="0" class="slider slider-gold">
+                </div>
+
+                <!-- GROWTH -->
+                <div class="slider-group-dna">
+                  <div class="slider-label-dna">
+                    <span class="dna-title">GROWTH (G)</span>
+                    <span class="val-dna" id="val-dna-g">0%</span>
+                  </div>
+                  <input type="range" id="slider-dna-g" min="0" max="100" value="0" class="slider slider-gold">
+                </div>
+              </div>
+            </details>
+
+            <!-- ADVANCED BRANCH CONTROLS DROPDOWN -->
+            <details style="margin-bottom: 12px; border: 1px solid #444; padding: 10px; background: transparent; cursor: pointer;">
+              <summary style="font-weight: 500; opacity: 0.9; outline: none;">ADVANCED BRANCH CONTROLS</summary>
+              <div style="margin-top: 10px; cursor: default;" id="advanced-branch-controls" class="advanced-branch-panel">
                 <div class="abc-title-row">
-                  <span>ADVANCED BRANCH CONTROLS</span>
-                  <span id="branch-selected-tag" style="color: #00ffff; font-weight: 600; text-transform: none; font-size: 9.5px;">Branch 1 Selected</span>
+                  <span id="branch-selected-tag" style="color: #cccccc;">Branch 1 Selected</span>
                 </div>
-
-                <!-- BRANCH COUNT -->
                 <div class="abc-row">
                   <div class="abc-row-header">
                     <span>BRANCH COUNT</span>
                     <span id="val-branch-count" class="abc-row-val">2</span>
                   </div>
                   <input type="range" id="slider-branch-count" min="2" max="6" value="2" step="1" class="slider slider-gold">
-                  <div style="font-size: 8px; color: #777; margin-top: 2px;">2 = Original limbs | 3–6 = Add connected surface branches</div>
                 </div>
-
-                <!-- BRANCH SELECTOR -->
                 <div class="abc-row">
-                  <div class="abc-row-header">
-                    <span>SELECT BRANCH TO EDIT</span>
-                  </div>
+                  <div class="abc-row-header"><span>SELECT BRANCH</span></div>
                   <div id="branch-select-buttons" class="branch-pick-container">
                     <button class="btn-branch-pick active" data-branch="0">Branch 1</button>
                     <button class="btn-branch-pick" data-branch="1">Branch 2</button>
                   </div>
                 </div>
-
-                <!-- POSITION ALONG FORM -->
                 <div class="abc-row">
                   <div class="abc-row-header">
-                    <span>POSITION ALONG FORM</span>
+                    <span>POSITION</span>
                     <span id="val-branch-pos" class="abc-row-val">50%</span>
                   </div>
                   <input type="range" id="slider-branch-pos" min="0" max="100" value="50" class="slider slider-gold">
                 </div>
-
-                <!-- HORIZONTAL ANGLE -->
                 <div class="abc-row">
                   <div class="abc-row-header">
-                    <span>HORIZONTAL ANGLE</span>
+                    <span>H-ANGLE</span>
                     <span id="val-branch-h-angle" class="abc-row-val">0°</span>
                   </div>
                   <input type="range" id="slider-branch-h-angle" min="-90" max="90" value="0" class="slider slider-gold">
                 </div>
-
-                <!-- VERTICAL ANGLE -->
                 <div class="abc-row">
                   <div class="abc-row-header">
-                    <span>VERTICAL ANGLE</span>
+                    <span>V-ANGLE</span>
                     <span id="val-branch-v-angle" class="abc-row-val">0°</span>
                   </div>
                   <input type="range" id="slider-branch-v-angle" min="-60" max="60" value="0" class="slider slider-gold">
                 </div>
-
-                <!-- BRANCH LENGTH -->
                 <div class="abc-row">
                   <div class="abc-row-header">
-                    <span>BRANCH LENGTH</span>
+                    <span>LENGTH</span>
                     <span id="val-branch-length" class="abc-row-val">100%</span>
                   </div>
                   <input type="range" id="slider-branch-length" min="25" max="200" value="100" class="slider slider-gold">
                 </div>
-
-                <!-- BRANCH WIDTH -->
                 <div class="abc-row">
                   <div class="abc-row-header">
-                    <span>BRANCH WIDTH</span>
+                    <span>WIDTH</span>
                     <span id="val-branch-width" class="abc-row-val">100%</span>
                   </div>
                   <input type="range" id="slider-branch-width" min="25" max="150" value="100" class="slider slider-gold">
                 </div>
               </div>
-
-              <!-- WHIPLASH CURVATURE -->
-              <div class="slider-group-dna" title="Whiplash Rule: A surface must curve in one direction, reach a peak, then change direction at least once. No sharp corners. (Minimum 1 inflection, maximum 3.)">
-                <div class="slider-label-dna">
-                  <span class="dna-title">WHIPLASH CURVATURE (W)</span>
-                  <span class="qual-badge badge-w" id="badge-dna-w">LINEAR</span>
-                  <span class="val-dna" id="val-dna-w">0%</span>
-                </div>
-                <input type="range" id="slider-dna-w" min="0" max="100" value="0" class="slider slider-gold">
-              </div>
-
-              <!-- MERGING SURFACES -->
-              <div class="slider-group-dna" title="Merging Rule: Two separate surfaces gradually move toward each other and become one. They cannot suddenly intersect. (Exactly 2+ surfaces required before merge can happen.)">
-                <div class="slider-label-dna">
-                  <span class="dna-title">MERGING SURFACES (M)</span>
-                  <span class="qual-badge badge-m" id="badge-dna-m">INDEPENDENT</span>
-                  <span class="val-dna" id="val-dna-m">0%</span>
-                </div>
-                <input type="range" id="slider-dna-m" min="0" max="100" value="0" class="slider slider-gold">
-              </div>
-
-              <!-- POSITIVE / NEGATIVE SPACE -->
-              <div class="slider-group-dna" title="Positive/Negative Rule: Surfaces can open, separate, or wrap around space to create a defined void. The void must be formed by surrounding geometry. (Openings occupy 10–50% of surface region.)">
-                <div class="slider-label-dna">
-                  <span class="dna-title">POS / NEG SPACE (V)</span>
-                  <span class="qual-badge badge-v" id="badge-dna-v">SOLID / ENCLOSED</span>
-                  <span class="val-dna" id="val-dna-v">0%</span>
-                </div>
-                <input type="range" id="slider-dna-v" min="0" max="100" value="0" class="slider slider-gold">
-              </div>
-
-              <!-- GROWTH / AGGREGATION -->
-              <div class="slider-group-dna" title="Growth Rule: New geometry must grow directly from existing geometry and follow its direction. Nothing can float independently. (Each growth step extends 10–50% of parent length.)">
-                <div class="slider-label-dna">
-                  <span class="dna-title">GROWTH / AGGREGATION (G)</span>
-                  <span class="qual-badge badge-g" id="badge-dna-g">CONTAINED</span>
-                  <span class="val-dna" id="val-dna-g">0%</span>
-                </div>
-                <input type="range" id="slider-dna-g" min="0" max="100" value="0" class="slider slider-gold">
-              </div>
-            </div>
+            </details>
 
             <!-- FORM DNA VECTOR READOUT -->
             <div class="form-dna-box">
