@@ -48,8 +48,22 @@ const transformParams = {
 
 // Helper: Provide active baseline positions safely
 function getOriginalMeshPositionsSafely() {
-  if (originalMeshes.length > 0 && originalMeshes[0].originalPositions) {
-    return originalMeshes[0].originalPositions;
+  if (originalMeshes.length > 0) {
+    let totalLen = 0;
+    originalMeshes.forEach(m => {
+      if (m.originalPositions) totalLen += m.originalPositions.length;
+    });
+    if (totalLen > 0) {
+      const combined = new Float32Array(totalLen);
+      let offset = 0;
+      originalMeshes.forEach(m => {
+        if (m.originalPositions) {
+          combined.set(m.originalPositions, offset);
+          offset += m.originalPositions.length;
+        }
+      });
+      return combined;
+    }
   }
   if (originalCages.length > 0 && originalCages[0].originalPtPositions) {
     return originalCages[0].originalPtPositions;
@@ -318,45 +332,6 @@ function setCameraProjection(mode) {
   threeControls.update();
 }
 
-let surfaceDisplayMode = 'SHADED_EDGES'; // 'SHADED' | 'SHADED_EDGES' | 'WIREFRAME'
-
-function setSurfaceDisplayMode(mode) {
-  surfaceDisplayMode = mode;
-
-  const btnShaded = document.getElementById('btn-disp-shaded');
-  const btnShadedEdges = document.getElementById('btn-disp-shaded-edges');
-  const btnWireframe = document.getElementById('btn-disp-wireframe');
-
-  if (btnShaded) btnShaded.classList.toggle('active', mode === 'SHADED');
-  if (btnShadedEdges) btnShadedEdges.classList.toggle('active', mode === 'SHADED_EDGES');
-  if (btnWireframe) btnWireframe.classList.toggle('active', mode === 'WIREFRAME');
-
-  originalMeshes.forEach(item => {
-    if (!item.mesh) return;
-    if (mode === 'SHADED') {
-      item.mesh.material.wireframe = false;
-      if (item.edgesMesh) item.edgesMesh.visible = false;
-    } else if (mode === 'SHADED_EDGES') {
-      item.mesh.material.wireframe = false;
-      if (item.edgesMesh) item.edgesMesh.visible = true;
-    } else if (mode === 'WIREFRAME') {
-      item.mesh.material.wireframe = true;
-      if (item.edgesMesh) item.edgesMesh.visible = false;
-    }
-  });
-}
-window.setSurfaceDisplayMode = setSurfaceDisplayMode;
-
-function toggleGuideCurves() {
-  curveGroup.visible = !curveGroup.visible;
-  const btn = document.getElementById('btn-toggle-curves');
-  if (btn) {
-    btn.textContent = `SHOW GUIDES (${curveGroup.visible ? 'ON' : 'OFF'})`;
-    btn.classList.toggle('active', curveGroup.visible);
-  }
-}
-window.toggleGuideCurves = toggleGuideCurves;
-
 function createSampleRhinoSeed() {
   clearGroup(meshGroup);
   clearGroup(curveGroup);
@@ -401,46 +376,14 @@ function createSampleRhinoSeed() {
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
 
-  // Shaded 3D Surface Material (Double-sided Architectural Surface)
-  const material = new THREE.MeshStandardMaterial({
-    color: 0x909090,
-    roughness: 0.45,
-    metalness: 0.15,
-    side: THREE.DoubleSide,
-    wireframe: false
-  });
-
-  const mesh = new THREE.Mesh(geometry, material);
-
-  // Edge Overlay (THREE.EdgesGeometry)
-  const edgesGeom = new THREE.EdgesGeometry(geometry);
-  const edgesMat = new THREE.LineBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.85 });
-  const edgesMesh = new THREE.LineSegments(edgesGeom, edgesMat);
-  mesh.add(edgesMesh);
-
+  const wireMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true });
+  const mesh = new THREE.Mesh(geometry, wireMat);
   meshGroup.add(mesh);
 
   originalMeshes.push({
-    mesh,
-    edgesMesh,
+    threeMesh: mesh,
     originalPositions: positions.slice()
   });
-
-  // Sample Guide Curves (OFF by default)
-  const guidePoints = [];
-  for (let i = 0; i <= 60; i++) {
-    const u = i / 60;
-    guidePoints.push((u - 0.5) * 52, Math.sin(u * Math.PI * 3) * 14 + 10, (u - 0.5) * 10);
-  }
-  const guideGeom = new THREE.BufferGeometry();
-  guideGeom.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(guidePoints), 3));
-  const guideMat = new THREE.LineBasicMaterial({ color: 0xffff00 });
-  const guideLine = new THREE.Line(guideGeom, guideMat);
-  curveGroup.add(guideLine);
-  curveGroup.visible = false; // Default OFF
-  cageGroup.visible = false;  // Default OFF
-
-  originalCurves.push({ line: guideLine, originalPositions: new Float32Array(guidePoints) });
 
   computeModelBounds();
 
@@ -578,7 +521,7 @@ function loadRhinoFile(file) {
 }
 
 /**
- * 5. PARSE RHINO OBJECTS (SUBD SURFACES → 3D SURFACE MESHES)
+ * 5. PARSE RHINO OBJECTS
  */
 function parseRhinoObjects(doc, filename) {
   const objects = doc.objects();
@@ -597,47 +540,71 @@ function parseRhinoObjects(doc, filename) {
     if (typeInt === rhino.ObjectType.Mesh) {
       meshCount++;
       buildThreeMesh(geom);
-    } else if (typeInt === rhino.ObjectType.SubD) {
-      subdCount++;
-      subdObjectsInMemory.push(geom);
-
-      // Convert SubD to 3D Surface Mesh
-      let meshFromSubD = null;
-      if (rhino.Mesh.createFromSubDControlNet) {
-        meshFromSubD = rhino.Mesh.createFromSubDControlNet(geom, false);
-      } else if (geom.toTwoManifoldMesh) {
-        meshFromSubD = geom.toTwoManifoldMesh();
-      }
-      if (meshFromSubD) {
-        buildThreeMesh(meshFromSubD);
-      }
-      buildSubDCageOverlay(geom);
-    } else if (typeInt === rhino.ObjectType.Brep) {
-      brepCount++;
-      if (rhino.Mesh.createFromBrep) {
-        const brepMeshes = rhino.Mesh.createFromBrep(geom);
-        if (brepMeshes) {
-          for (let m = 0; m < brepMeshes.count; m++) {
-            buildThreeMesh(brepMeshes.get(m));
-          }
-        }
-      }
     } else if (typeInt === rhino.ObjectType.Curve) {
       curveCount++;
       buildThreeCurve(geom);
+    } else if (typeInt === rhino.ObjectType.SubD) {
+      subdCount++;
+      subdObjectsInMemory.push(geom);
+      buildSubDCageOverlay(geom);
+
+      // IMPORT SUB D SURFACES DIRECTLY INTO THREE.JS 3D SURFACE MESHES
+      let subdMesh = null;
+      if (rhino.Mesh.createFromSubDControlNet) {
+        try {
+          subdMesh = rhino.Mesh.createFromSubDControlNet(geom, false);
+        } catch(e) {}
+      }
+      if (!subdMesh && geom.toBrep) {
+        try {
+          const brep = geom.toBrep();
+          if (brep && rhino.Mesh.createFromBrep) {
+            const ms = rhino.Mesh.createFromBrep(brep);
+            if (ms && ms.count > 0) subdMesh = ms.get(0);
+          }
+        } catch(e) {}
+      }
+      if (subdMesh) {
+        meshCount++;
+        buildThreeMesh(subdMesh);
+      }
+    } else if (typeInt === rhino.ObjectType.Brep) {
+      brepCount++;
+      if (rhino.Mesh.createFromBrep) {
+        try {
+          const ms = rhino.Mesh.createFromBrep(geom);
+          if (ms && ms.count > 0) {
+            for (let m = 0; m < ms.count; m++) {
+              meshCount++;
+              buildThreeMesh(ms.get(m));
+            }
+          }
+        } catch(e) {}
+      }
+    } else if (typeInt === rhino.ObjectType.Extrusion || typeInt === rhino.ObjectType.Surface) {
+      if (geom.toBrep) {
+        try {
+          const brep = geom.toBrep();
+          if (brep && rhino.Mesh.createFromBrep) {
+            const ms = rhino.Mesh.createFromBrep(brep);
+            if (ms && ms.count > 0) {
+              for (let m = 0; m < ms.count; m++) {
+                meshCount++;
+                buildThreeMesh(ms.get(m));
+              }
+            }
+          }
+        } catch(e) {}
+      }
     }
   }
-
-  // Set default guide curves & cages to OFF as requested
-  curveGroup.visible = false;
-  cageGroup.visible = false;
 
   computeModelBounds();
   resetTransformations();
 
   // Trigger Domain A1 Seed Identity Signature Analysis
   if (window.analyzeSeedIdentity && originalMeshes.length > 0) {
-    const seedId = window.analyzeSeedIdentity(modelBounds, originalMeshes[0].originalPositions);
+    const seedId = window.analyzeSeedIdentity(modelBounds, getOriginalMeshPositionsSafely());
     if (seedId) {
       const elAxis = document.getElementById('id-axis');
       const elAspect = document.getElementById('id-aspect');
@@ -653,7 +620,7 @@ function parseRhinoObjects(doc, filename) {
   }
 
   document.getElementById('info-filename').textContent = filename;
-  document.getElementById('info-meshes').textContent = meshCount + subdCount + brepCount;
+  document.getElementById('info-meshes').textContent = meshCount;
   document.getElementById('info-subds').textContent = subdCount;
   document.getElementById('info-curves').textContent = curveCount;
 
@@ -661,9 +628,8 @@ function parseRhinoObjects(doc, filename) {
 }
 
 function buildThreeMesh(meshGeom) {
-  const verts = meshGeom.vertices ? meshGeom.vertices() : null;
-  const faces = meshGeom.faces ? meshGeom.faces() : null;
-  if (!verts || !faces) return;
+  const verts = meshGeom.vertices();
+  const faces = meshGeom.faces();
 
   const positions = [];
 
@@ -690,26 +656,18 @@ function buildThreeMesh(meshGeom) {
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(posArray.slice(), 3));
   geometry.computeVertexNormals();
 
-  // Shaded 3D Surface Material (Double-sided Architectural Surface)
   const material = new THREE.MeshStandardMaterial({
-    color: 0x909090,
-    roughness: 0.45,
-    metalness: 0.15,
+    color: 0x888888,
+    roughness: 0.5,
+    metalness: 0.1,
     side: THREE.DoubleSide,
     wireframe: false
   });
 
   const mesh = new THREE.Mesh(geometry, material);
-
-  // Edge Overlay (THREE.EdgesGeometry)
-  const edgesGeom = new THREE.EdgesGeometry(geometry);
-  const edgesMat = new THREE.LineBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.85 });
-  const edgesMesh = new THREE.LineSegments(edgesGeom, edgesMat);
-  mesh.add(edgesMesh);
-
   meshGroup.add(mesh);
 
-  originalMeshes.push({ mesh, edgesMesh, originalPositions: posArray });
+  originalMeshes.push({ mesh, originalPositions: posArray });
 }
 
 function buildThreeCurve(curveGeom) {
@@ -1299,9 +1257,8 @@ window.switchVisualComparisonMode = switchVisualComparisonMode;
 function renderIterationGeometry(recipeOrDna) {
   const compMode = activeVisualCompMode;
 
-  // Deform 3D Surface Meshes
+  // Deform Meshes
   originalMeshes.forEach(item => {
-    if (!item.mesh) return;
     const attr = item.mesh.geometry.attributes.position;
     let defPos;
 
@@ -1317,27 +1274,11 @@ function renderIterationGeometry(recipeOrDna) {
     attr.needsUpdate = true;
     item.mesh.geometry.computeVertexNormals();
 
-    // Recompute Edges Overlay Geometry
-    if (item.edgesMesh) {
-      item.edgesMesh.geometry.dispose();
-      item.edgesMesh.geometry = new THREE.EdgesGeometry(item.mesh.geometry);
-    }
-
-    // Apply active Surface Display Mode (SHADED, SHADED + EDGES, WIREFRAME)
+    // Adjust visual style for overlay comparison mode
     if (compMode === 'OVERLAY') {
-      item.mesh.material.wireframe = true;
-      if (item.edgesMesh) item.edgesMesh.visible = false;
+      if (item.mesh.material) item.mesh.material.wireframe = true;
     } else {
-      if (surfaceDisplayMode === 'SHADED') {
-        item.mesh.material.wireframe = false;
-        if (item.edgesMesh) item.edgesMesh.visible = false;
-      } else if (surfaceDisplayMode === 'SHADED_EDGES') {
-        item.mesh.material.wireframe = false;
-        if (item.edgesMesh) item.edgesMesh.visible = true;
-      } else if (surfaceDisplayMode === 'WIREFRAME') {
-        item.mesh.material.wireframe = true;
-        if (item.edgesMesh) item.edgesMesh.visible = false;
-      }
+      if (item.mesh.material) item.mesh.material.wireframe = false;
     }
   });
 

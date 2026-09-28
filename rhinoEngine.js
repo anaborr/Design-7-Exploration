@@ -208,36 +208,15 @@ function parseDocumentDualRep(doc) {
       const typeInt = geom.objectType;
 
       // ------------------------------------------------------------------------
-      // 1. SUBD OBJECT PROCESSING (RHINO SUBD SURFACES → 3D SURFACE MESHES)
+      // 1. SUBD OBJECT PROCESSING (REPRESENTATION A — DESIGN GEOMETRY / CAGE ONLY)
       // ------------------------------------------------------------------------
       if (typeInt === rhino.ObjectType.SubD) {
         subdCount++;
         const subDLabel = `SubD 0${subdCount}`;
 
-        // Convert SubD directly to 3D Surface Mesh
-        let meshGeom = null;
-        if (rhino.Mesh.createFromSubDControlNet) {
-          meshGeom = rhino.Mesh.createFromSubDControlNet(geom, false);
-        } else if (geom.toTwoManifoldMesh) {
-          meshGeom = geom.toTwoManifoldMesh();
-        }
-
-        if (meshGeom) {
-          const meshStats = parseRhinoMeshObject(meshGeom, subDLabel);
-          if (meshStats) {
-            fidelityData.meshList.push({
-              id: subDLabel,
-              guid: objId,
-              layer: layerName,
-              verts: meshStats.verts,
-              faces: meshStats.faces,
-              source: 'Rhino SubD Surface Object',
-              center: meshStats.center
-            });
-          }
-        }
-
+        // Extract SubD Control Cage (White Points + Cyan Edges)
         const cageStats = buildSubDControlCageOverlay(geom, subDLabel);
+
         fidelityData.subdList.push({
           id: subDLabel,
           guid: objId,
@@ -246,10 +225,13 @@ function parseDocumentDualRep(doc) {
           faces: cageStats ? cageStats.faces : 0,
           center: cageStats ? cageStats.center : new THREE.Vector3()
         });
+
+        // Always build SubD display surface mesh
+        buildFallbackDisplayMesh(geom, subDLabel);
       }
 
       // ------------------------------------------------------------------------
-      // 2. MESH OBJECT PROCESSING (RHINO DISPLAY MESH)
+      // 2. MESH OBJECT PROCESSING (REPRESENTATION B — RHINO DISPLAY MESH)
       // ------------------------------------------------------------------------
       else if (typeInt === rhino.ObjectType.Mesh) {
         meshCount++;
@@ -270,34 +252,7 @@ function parseDocumentDualRep(doc) {
       }
 
       // ------------------------------------------------------------------------
-      // 3. BREP OBJECT PROCESSING (RHINO BREP SURFACES)
-      // ------------------------------------------------------------------------
-      else if (typeInt === rhino.ObjectType.Brep) {
-        brepCount++;
-        if (rhino.Mesh.createFromBrep) {
-          const brepMeshes = rhino.Mesh.createFromBrep(geom);
-          if (brepMeshes) {
-            for (let m = 0; m < brepMeshes.count; m++) {
-              const brepLabel = `Brep Surface 0${m+1}`;
-              const meshStats = parseRhinoMeshObject(brepMeshes.get(m), brepLabel);
-              if (meshStats) {
-                fidelityData.meshList.push({
-                  id: brepLabel,
-                  guid: objId,
-                  layer: layerName,
-                  verts: meshStats.verts,
-                  faces: meshStats.faces,
-                  source: 'Rhino Brep Surface Object',
-                  center: meshStats.center
-                });
-              }
-            }
-          }
-        }
-      }
-
-      // ------------------------------------------------------------------------
-      // 4. CURVE OBJECT PROCESSING (GUIDE CURVES — DEFAULT OFF)
+      // 3. CURVE OBJECT PROCESSING (GUIDE CURVES)
       // ------------------------------------------------------------------------
       else if (typeInt === rhino.ObjectType.Curve) {
         curveCount++;
@@ -318,19 +273,28 @@ function parseDocumentDualRep(doc) {
 
         if (points.length >= 2) {
           const lineGeom = new THREE.BufferGeometry().setFromPoints(points);
+          // Yellow guide curves (#ffff00)
           const lineMat = new THREE.LineBasicMaterial({ color: 0xffff00, linewidth: 1 });
           const line = new THREE.Line(lineGeom, lineMat);
           curvesGroup.add(line);
 
           fidelityData.curveList.push({ id: objId, layer: layerName, pointCount: points.length });
         }
+      } else if (typeInt === rhino.ObjectType.Brep) {
+        brepCount++;
+        if (rhino.Mesh.createFromBrep) {
+          try {
+            const ms = rhino.Mesh.createFromBrep(geom);
+            if (ms && ms.count > 0) {
+              for (let m = 0; m < ms.count; m++) {
+                parseRhinoMeshObject(ms.get(m), `Brep Surface ${brepCount}-${m+1}`);
+              }
+            }
+          } catch(e) {}
+        }
       }
     }
   }
-
-  // Set default guide curves & cages to OFF
-  curvesGroup.visible = false;
-  cageGroup.visible = false;
 
   threeScene.add(rootGroup);
 
@@ -398,21 +362,14 @@ function parseRhinoMeshObject(meshGeom, label) {
 
   // Smooth Shading, Neutral Gray Surface (#888888), No Wireframe
   const material = new THREE.MeshStandardMaterial({
-    color: 0x909090,
-    roughness: 0.45,
-    metalness: 0.15,
+    color: 0x888888,
+    roughness: 0.5,
+    metalness: 0.1,
     side: THREE.DoubleSide,
     wireframe: false
   });
 
   const mesh = new THREE.Mesh(geometry, material);
-
-  // Edge Overlay (THREE.EdgesGeometry)
-  const edgesGeom = new THREE.EdgesGeometry(geometry);
-  const edgesMat = new THREE.LineBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.85 });
-  const edgesMesh = new THREE.LineSegments(edgesGeom, edgesMat);
-  mesh.add(edgesMesh);
-
   mesh.name = label;
   meshGroup.add(mesh);
 

@@ -2440,80 +2440,43 @@ function render3DMeshThumbnail(iter, canvasId) {
   const bounds = window.getModelBounds();
   if (!origPos || !bounds) return;
 
-  const userThresh = domainState.seedIdentityThreshold || 75;
-  const defPos = iter.positions || window.applyArtNouveauDNA(origPos, iter.dna, bounds, userThresh);
+  const defPos = window.applyArtNouveauDNA(origPos, iter.dna, bounds, domainState.seedIdentityThreshold);
 
   const ctx = canvas.getContext('2d');
   const w = canvas.width;
   const h = canvas.height;
 
-  // Solid dark background
   ctx.fillStyle = '#0a0a0a';
   ctx.fillRect(0, 0, w, h);
+
+  ctx.strokeStyle = '#00ffff';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
 
   const minY = bounds.min ? bounds.min.y : (bounds.minY || -10);
   const maxY = bounds.max ? bounds.max.y : (bounds.maxY || 10);
   const centerX = bounds.center ? bounds.center.x : (bounds.centerX || 0);
 
   const heightSpan = Math.max(1.0, Math.abs(maxY - minY));
-  const scale = (h * 0.70) / heightSpan;
-
-  const triangles = [];
-  const sampleStep = 3;
+  const sampleStep = 5;
 
   for (let i = 0; i < defPos.length; i += sampleStep * 9) {
-    if (i + 8 >= defPos.length) break;
+    const x1 = defPos[i];
+    const y1 = defPos[i + 1];
+    const x2 = defPos[i + 3];
+    const y2 = defPos[i + 4];
 
-    const x1 = defPos[i],   y1 = defPos[i+1], z1 = defPos[i+2];
-    const x2 = defPos[i+3], y2 = defPos[i+4], z2 = defPos[i+5];
-    const x3 = defPos[i+6], y3 = defPos[i+7], z3 = defPos[i+8];
+    if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) continue;
 
-    if (isNaN(x1) || isNaN(x2) || isNaN(x3)) continue;
+    const px1 = (w / 2) + ((x1 - centerX) / heightSpan) * (w * 0.65);
+    const py1 = h * 0.85 - ((y1 - minY) / heightSpan) * (h * 0.70);
+    const px2 = (w / 2) + ((x2 - centerX) / heightSpan) * (w * 0.65);
+    const py2 = h * 0.85 - ((y2 - minY) / heightSpan) * (h * 0.70);
 
-    // Triangle Normal calculation for 3D surface shading
-    const ux = x2 - x1, uy = y2 - y1, uz = z2 - z1;
-    const vx = x3 - x1, vy = y3 - y1, vz = z3 - z1;
-    let nx = uy * vz - uz * vy;
-    let ny = uz * vx - ux * vz;
-    let nz = ux * vy - uy * vx;
-    const nLen = Math.hypot(nx, ny, nz) || 1;
-    ny /= nLen;
-
-    const dot = Math.max(0.2, 0.35 + 0.65 * Math.abs(ny));
-    const shadeVal = Math.floor(70 + dot * 135);
-    const fillColor = `rgb(${shadeVal}, ${shadeVal}, ${shadeVal})`;
-
-    const px1 = (w / 2) + (x1 - centerX) * scale * 0.85;
-    const py1 = h * 0.85 - (y1 - minY) * scale;
-
-    const px2 = (w / 2) + (x2 - centerX) * scale * 0.85;
-    const py2 = h * 0.85 - (y2 - minY) * scale;
-
-    const px3 = (w / 2) + (x3 - centerX) * scale * 0.85;
-    const py3 = h * 0.85 - (y3 - minY) * scale;
-
-    const avgZ = (z1 + z2 + z3) / 3;
-
-    triangles.push({ p1: { x: px1, y: py1 }, p2: { x: px2, y: py2 }, p3: { x: px3, y: py3 }, avgZ, fillColor });
+    ctx.moveTo(px1, py1);
+    ctx.lineTo(px2, py2);
   }
-
-  // Sort back-to-front
-  triangles.sort((a, b) => a.avgZ - b.avgZ);
-
-  // Render 3D surface faces
-  triangles.forEach(t => {
-    ctx.fillStyle = t.fillColor;
-    ctx.strokeStyle = 'rgba(25, 25, 25, 0.35)';
-    ctx.lineWidth = 0.5;
-
-    ctx.beginPath();
-    ctx.moveTo(t.p1.x, t.p1.y);
-    ctx.lineTo(t.p2.x, t.p2.y);
-    ctx.lineTo(t.p3.x, t.p3.y);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-  });
+  ctx.stroke();
 
   ctx.fillStyle = '#ffffff';
   ctx.font = '10px monospace';
