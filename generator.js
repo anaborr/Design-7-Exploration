@@ -1592,6 +1592,10 @@ function switchVisualComparisonMode(mode) {
   let targetDna = domainState.dna;
   if (mode === 'SEED') {
     const bSeed = document.getElementById('btn-comp-seed'); if (bSeed) bSeed.classList.add('active');
+    if (window.restoreOriginalImportedGeometry) {
+      window.restoreOriginalImportedGeometry();
+      return;
+    }
     targetDna = [0, 0, 0, 0, 0, 0];
   } else if (mode === 'PARENT') {
     const bParent = document.getElementById('btn-comp-parent'); if (bParent) bParent.classList.add('active');
@@ -2126,6 +2130,12 @@ function renderLineageHistoryUI() {
 }
 
 function selectSeedParent() {
+  if (window.restoreOriginalImportedGeometry) {
+    window.restoreOriginalImportedGeometry();
+    renderLineageHistoryUI();
+    return;
+  }
+
   domainState.selectedParentId = 'RHINO-SEED';
   domainState.selectedParentGenome = null;
   domainState.dna = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0];

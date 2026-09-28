@@ -297,307 +297,6 @@ function setupUIEventListeners() {
 
   // Projection Camera Buttons
   setupProjectionButtons();
-
-  // Advanced Branch Controls & Viewport Interactions
-  setupAdvancedBranchControls();
-  initBranchViewportInteractions();
-}
-
-/**
- * ADVANCED BRANCH CONTROLS STATE & GIZMO ENGINE
- */
-window.branchState = {
-  count: 2,
-  activeBranchIndex: 0,
-  branches: [
-    { id: 0, pos: 35, hAngle: -25, vAngle: 15, length: 100, width: 100 },
-    { id: 1, pos: 65, hAngle: 25, vAngle: 20, length: 100, width: 100 },
-    { id: 2, pos: 45, hAngle: -45, vAngle: 30, length: 90, width: 90 },
-    { id: 3, pos: 55, hAngle: 45, vAngle: -15, length: 85, width: 85 },
-    { id: 4, pos: 25, hAngle: 75, vAngle: 10, length: 80, width: 80 },
-    { id: 5, pos: 75, hAngle: -75, vAngle: 25, length: 75, width: 75 }
-  ]
-};
-
-function setupAdvancedBranchControls() {
-  const panel = document.getElementById('advanced-branch-controls');
-  const sliderCount = document.getElementById('slider-branch-count');
-  const sliderPos = document.getElementById('slider-branch-pos');
-  const sliderHAngle = document.getElementById('slider-branch-h-angle');
-  const sliderVAngle = document.getElementById('slider-branch-v-angle');
-  const sliderLength = document.getElementById('slider-branch-length');
-  const sliderWidth = document.getElementById('slider-branch-width');
-
-  if (!panel || !sliderCount) return;
-
-  function updateBranchPickButtons() {
-    const container = document.getElementById('branch-select-buttons');
-    if (!container) return;
-    container.innerHTML = '';
-    const count = window.branchState.count;
-
-    for (let i = 0; i < count; i++) {
-      const btn = document.createElement('button');
-      btn.className = `btn-branch-pick ${i === window.branchState.activeBranchIndex ? 'active' : ''}`;
-      btn.dataset.branch = i;
-      btn.textContent = `Branch ${i + 1}`;
-      btn.addEventListener('click', () => {
-        window.branchState.activeBranchIndex = i;
-        syncBranchUI();
-        updateBranchGizmos();
-      });
-      container.appendChild(btn);
-    }
-  }
-
-  function syncBranchUI() {
-    const bs = window.branchState;
-    if (bs.activeBranchIndex >= bs.count) bs.activeBranchIndex = bs.count - 1;
-    const b = bs.branches[bs.activeBranchIndex] || bs.branches[0];
-
-    const valCount = document.getElementById('val-branch-count'); if (valCount) valCount.textContent = bs.count;
-    const valPos = document.getElementById('val-branch-pos'); if (valPos) valPos.textContent = `${b.pos}%`;
-    const valH = document.getElementById('val-branch-h-angle'); if (valH) valH.textContent = `${b.hAngle}°`;
-    const valV = document.getElementById('val-branch-v-angle'); if (valV) valV.textContent = `${b.vAngle}°`;
-    const valLen = document.getElementById('val-branch-length'); if (valLen) valLen.textContent = `${b.length}%`;
-    const valW = document.getElementById('val-branch-width'); if (valW) valW.textContent = `${b.width}%`;
-
-    if (sliderCount) sliderCount.value = bs.count;
-    if (sliderPos) sliderPos.value = b.pos;
-    if (sliderHAngle) sliderHAngle.value = b.hAngle;
-    if (sliderVAngle) sliderVAngle.value = b.vAngle;
-    if (sliderLength) sliderLength.value = b.length;
-    if (sliderWidth) sliderWidth.value = b.width;
-
-    const tag = document.getElementById('branch-selected-tag');
-    if (tag) tag.textContent = `Branch ${bs.activeBranchIndex + 1} Selected`;
-
-    updateBranchPickButtons();
-  }
-
-  window.syncBranchUI = syncBranchUI;
-
-  sliderCount.addEventListener('input', (e) => {
-    const val = parseInt(e.target.value);
-    window.branchState.count = val;
-    if (window.branchState.activeBranchIndex >= val) window.branchState.activeBranchIndex = val - 1;
-    syncBranchUI();
-    applyArtNouveauTransformations();
-    updateBranchGizmos();
-  });
-
-  sliderPos.addEventListener('input', (e) => {
-    const b = window.branchState.branches[window.branchState.activeBranchIndex];
-    if (b) b.pos = parseInt(e.target.value);
-    syncBranchUI();
-    applyArtNouveauTransformations();
-    updateBranchGizmos();
-  });
-
-  sliderHAngle.addEventListener('input', (e) => {
-    const b = window.branchState.branches[window.branchState.activeBranchIndex];
-    if (b) b.hAngle = parseInt(e.target.value);
-    syncBranchUI();
-    applyArtNouveauTransformations();
-    updateBranchGizmos();
-  });
-
-  sliderVAngle.addEventListener('input', (e) => {
-    const b = window.branchState.branches[window.branchState.activeBranchIndex];
-    if (b) b.vAngle = parseInt(e.target.value);
-    syncBranchUI();
-    applyArtNouveauTransformations();
-    updateBranchGizmos();
-  });
-
-  sliderLength.addEventListener('input', (e) => {
-    const b = window.branchState.branches[window.branchState.activeBranchIndex];
-    if (b) b.length = parseInt(e.target.value);
-    syncBranchUI();
-    applyArtNouveauTransformations();
-    updateBranchGizmos();
-  });
-
-  sliderWidth.addEventListener('input', (e) => {
-    const b = window.branchState.branches[window.branchState.activeBranchIndex];
-    if (b) b.width = parseInt(e.target.value);
-    syncBranchUI();
-    applyArtNouveauTransformations();
-    updateBranchGizmos();
-  });
-
-  syncBranchUI();
-}
-
-let branchGizmoGroup = null;
-let isDraggingBranchHandle = false;
-
-function updateBranchGizmos() {
-  if (!threeScene) return;
-  if (!branchGizmoGroup) {
-    branchGizmoGroup = new THREE.Group();
-    branchGizmoGroup.name = 'branchGizmoGroup';
-    threeScene.add(branchGizmoGroup);
-  }
-
-  while (branchGizmoGroup.children.length > 0) {
-    const obj = branchGizmoGroup.children[0];
-    if (obj.geometry) obj.geometry.dispose();
-    if (obj.material) {
-      if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
-      else obj.material.dispose();
-    }
-    branchGizmoGroup.remove(obj);
-  }
-
-  const bVal = (window.domainState && window.domainState.dna) ? window.domainState.dna[1] : 0;
-  if (bVal <= 0 || originalMeshes.length === 0) {
-    branchGizmoGroup.visible = false;
-    return;
-  }
-  branchGizmoGroup.visible = true;
-
-  const bs = window.branchState;
-  const bounds = modelBounds || { minY: -10, maxY: 10, centerX: 0, centerY: 0, centerZ: 0 };
-  const minY = bounds.min ? bounds.min.y : (bounds.minY || -10);
-  const maxY = bounds.max ? bounds.max.y : (bounds.maxY || 10);
-  const spanY = Math.max(1, Math.abs(maxY - minY));
-  const centerX = bounds.center ? bounds.center.x : (bounds.centerX || 0);
-  const centerZ = bounds.center ? bounds.center.z : (bounds.centerZ || 0);
-
-  for (let i = 0; i < bs.count; i++) {
-    const b = bs.branches[i] || bs.branches[0];
-    const u = b.pos / 100.0;
-    const originY = minY + u * spanY;
-    const origin = new THREE.Vector3(centerX, originY, centerZ);
-
-    const radH = (b.hAngle * Math.PI) / 180.0;
-    const radV = (b.vAngle * Math.PI) / 180.0;
-    const len = (b.length / 100.0) * (spanY * 0.35) * Math.max(0.2, bVal);
-
-    const dir = new THREE.Vector3(
-      Math.sin(radH) * Math.cos(radV),
-      Math.sin(radV),
-      Math.cos(radH) * Math.cos(radV)
-    ).normalize();
-
-    const tip = origin.clone().add(dir.clone().multiplyScalar(len));
-    const isActive = (i === bs.activeBranchIndex);
-
-    const lineGeom = new THREE.BufferGeometry().setFromPoints([origin, tip]);
-    const lineMat = new THREE.LineBasicMaterial({
-      color: isActive ? 0x00ffff : 0x0088aa,
-      linewidth: isActive ? 3 : 1.5,
-      transparent: true,
-      opacity: isActive ? 0.95 : 0.6
-    });
-    const line = new THREE.Line(lineGeom, lineMat);
-    line.userData = { branchIndex: i, isBranchGizmo: true };
-    branchGizmoGroup.add(line);
-
-    const sphereGeom = new THREE.SphereGeometry(isActive ? 0.85 : 0.55, 16, 16);
-    const sphereMat = new THREE.MeshBasicMaterial({
-      color: isActive ? 0x00ffff : 0x0088aa,
-      wireframe: false
-    });
-    const sphere = new THREE.Mesh(sphereGeom, sphereMat);
-    sphere.position.copy(tip);
-    sphere.userData = { branchIndex: i, isTipHandle: true, origin: origin, length: len };
-    branchGizmoGroup.add(sphere);
-  }
-}
-window.updateBranchGizmos = updateBranchGizmos;
-
-function initBranchViewportInteractions() {
-  const container = document.getElementById('webgl-container');
-  if (!container) return;
-
-  const raycaster = new THREE.Raycaster();
-  const mouse = new THREE.Vector2();
-
-  container.addEventListener('pointerdown', (evt) => {
-    if (!threeScene || !threeCamera || !branchGizmoGroup || !branchGizmoGroup.visible) return;
-    const rect = container.getBoundingClientRect();
-    mouse.x = ((evt.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((evt.clientY - rect.top) / rect.height) * 2 + 1;
-
-    raycaster.setFromCamera(mouse, threeCamera);
-    const intersects = raycaster.intersectObjects(branchGizmoGroup.children, true);
-
-    if (intersects.length > 0) {
-      let hit = intersects[0].object;
-      while (hit && hit.userData.branchIndex === undefined && hit.parent) {
-        hit = hit.parent;
-      }
-      if (hit && hit.userData.branchIndex !== undefined) {
-        const bIdx = hit.userData.branchIndex;
-        window.branchState.activeBranchIndex = bIdx;
-        if (window.syncBranchUI) window.syncBranchUI();
-        updateBranchGizmos();
-
-        if (hit.userData.isTipHandle) {
-          isDraggingBranchHandle = true;
-          if (threeControls) threeControls.enabled = false;
-        }
-      }
-    }
-  });
-
-  container.addEventListener('pointermove', (evt) => {
-    if (!isDraggingBranchHandle || !threeScene || !threeCamera) return;
-    const rect = container.getBoundingClientRect();
-    mouse.x = ((evt.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((evt.clientY - rect.top) / rect.height) * 2 + 1;
-
-    raycaster.setFromCamera(mouse, threeCamera);
-    const bs = window.branchState;
-    const b = bs.branches[bs.activeBranchIndex];
-    if (!b) return;
-
-    const bounds = modelBounds || { minY: -10, maxY: 10, centerX: 0, centerY: 0, centerZ: 0 };
-    const minY = bounds.min ? bounds.min.y : (bounds.minY || -10);
-    const maxY = bounds.max ? bounds.max.y : (bounds.maxY || 10);
-    const spanY = Math.max(1, Math.abs(maxY - minY));
-    const centerX = bounds.center ? bounds.center.x : (bounds.centerX || 0);
-    const centerZ = bounds.center ? bounds.center.z : (bounds.centerZ || 0);
-    const originY = minY + (b.pos / 100.0) * spanY;
-    const origin = new THREE.Vector3(centerX, originY, centerZ);
-
-    const plane = new THREE.Plane();
-    plane.setFromNormalAndCoplanarPoint(threeCamera.getWorldDirection(new THREE.Vector3()).negate(), origin);
-
-    const dragPoint = new THREE.Vector3();
-    raycaster.ray.intersectPlane(plane, dragPoint);
-
-    if (dragPoint) {
-      const vec = dragPoint.clone().sub(origin);
-      const len = vec.length();
-      const baseSpan = spanY * 0.35 * Math.max(0.2, window.domainState?.dna[1] || 1);
-      const newLengthPct = Math.round(Math.min(200, Math.max(25, (len / baseSpan) * 100)));
-
-      vec.normalize();
-      const newHAngle = Math.round(Math.min(90, Math.max(-90, Math.atan2(vec.x, vec.z) * (180 / Math.PI))));
-      const newVAngle = Math.round(Math.min(60, Math.max(-60, Math.asin(Math.min(1, Math.max(-1, vec.y))) * (180 / Math.PI))));
-
-      b.length = newLengthPct;
-      b.hAngle = newHAngle;
-      b.vAngle = newVAngle;
-
-      if (window.syncBranchUI) window.syncBranchUI();
-      applyArtNouveauTransformations();
-      updateBranchGizmos();
-    }
-  });
-
-  const stopDrag = () => {
-    if (isDraggingBranchHandle) {
-      isDraggingBranchHandle = false;
-      if (threeControls) threeControls.enabled = true;
-    }
-  };
-
-  container.addEventListener('pointerup', stopDrag);
-  container.addEventListener('pointerleave', stopDrag);
 }
 
 function setupProjectionButtons() {
@@ -1471,54 +1170,46 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
       }
     }
 
-    // 2. ORGANIC ART NOUVEAU BRANCHING (B) WITH ADVANCED DESIGNER CONTROLS
+    // 2. ORGANIC ART NOUVEAU BRANCHING (B)
     // Continuous spatial bifurcation along natural botanical parabolic tendril curves
-    if (activeB > 0.01) {
-      const bs = window.branchState || { count: 2, branches: [] };
-      const numForks = Math.min(6, Math.max(2, bs.count || 2));
+    if (activeB > 0.05) {
+      const nodeStartU = Math.max(0.10, 0.38 - activeB * 0.25); // Smooth node start height
+      const maxBranchReach = activeB * 0.75 * domSpan;
+      const numForks = activeB >= 0.55 ? 3 : 2; // 2-way or 3-way bifurcation
+      const forkAngle = (25 + activeB * 70) * (Math.PI / 180); // Smooth 25 deg to 95 deg flare
 
       for (let i = 0; i < temp.length; i += 3) {
         let x = temp[i], y = temp[i+1], z = temp[i+2];
         let domVal = (domAxis === 'X') ? x : ((domAxis === 'Z') ? z : y);
         let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
 
-        let dx = x - centerX;
-        let dz = z - centerZ;
-        let spatialAngle = Math.atan2(dz, dx);
-        let normalizedAngle = (spatialAngle + Math.PI) / (2 * Math.PI);
-        let forkSector = Math.floor(normalizedAngle * numForks) % numForks;
-
-        const bData = (bs.branches && bs.branches[forkSector]) ? bs.branches[forkSector] : {
-          pos: 35 + forkSector * 15,
-          hAngle: (forkSector - (numForks - 1) / 2) * 35,
-          vAngle: 15,
-          length: 100,
-          width: 100
-        };
-
-        const nodeStartU = Math.min(0.85, Math.max(0.05, (bData.pos / 100.0) * (0.8 - activeB * 0.2)));
-        const branchLengthMult = (bData.length / 100.0);
-        const branchWidthMult = (bData.width / 100.0);
-        const hAngleRad = (bData.hAngle * Math.PI) / 180.0;
-        const vAngleRad = (bData.vAngle * Math.PI) / 180.0;
-
         if (u > nodeStartU) {
           let tBranch = (u - nodeStartU) / (1 - nodeStartU);
+          // C1/C2 continuous organic botanical growth envelope (smooth S-curve launch)
           let smoothLaunch = 0.5 * (1 - Math.cos(Math.PI * tBranch));
           let growthEnvelope = Math.pow(smoothLaunch, 1.35) * (1.0 + 0.30 * Math.sin(Math.PI * tBranch));
 
-          let maxBranchReach = activeB * 0.75 * domSpan * branchLengthMult;
+          // Calculate spatial radial angle from central axis for seamless organic clustering
+          let dx = x - centerX;
+          let dz = z - centerZ;
+          let spatialAngle = Math.atan2(dz, dx);
+
+          // Sector allocation based on spatial angle (0.0 -> 1.0)
+          let normalizedAngle = (spatialAngle + Math.PI) / (2 * Math.PI);
+          let forkSector = Math.floor(normalizedAngle * numForks) % numForks;
+
+          let spreadAngle = (forkSector - (numForks - 1) / 2.0) * forkAngle;
           let dispMagnitude = growthEnvelope * maxBranchReach;
 
+          // Sinuous Art Nouveau organic wave along branch path
           let sinuousWave = 0.25 * Math.sin(2 * Math.PI * tBranch);
 
-          // Combined spatial direction from branch horizontal/vertical angles
-          let branchDx = dispMagnitude * Math.cos(spatialAngle + hAngleRad * 0.6 + sinuousWave) * Math.cos(vAngleRad * 0.5);
-          let branchDz = dispMagnitude * Math.sin(spatialAngle + hAngleRad * 0.6 + sinuousWave) * Math.cos(vAngleRad * 0.5);
-          let branchDy = dispMagnitude * (0.35 + Math.sin(vAngleRad) * 0.5) * tBranch;
+          let branchDx = dispMagnitude * Math.cos(spatialAngle + spreadAngle * 0.6 + sinuousWave);
+          let branchDz = dispMagnitude * Math.sin(spatialAngle + spreadAngle * 0.6 + sinuousWave);
+          let branchDy = dispMagnitude * 0.35 * tBranch; // Organic upward botanical reach
 
-          temp[i] += branchDx * branchWidthMult;
-          temp[i+2] += branchDz * branchWidthMult;
+          temp[i] += branchDx;
+          temp[i+2] += branchDz;
           if (domAxis === 'Y') {
             temp[i+1] += branchDy;
           } else if (domAxis === 'X') {
@@ -1899,6 +1590,126 @@ function applyArtNouveauTransformations() {
     renderIterationGeometry(window.domainState.dna);
   }
 }
+
+/**
+ * RESTORE ORIGINAL IMPORTED GEOMETRY
+ * Resets all Three.js vertex position buffers for meshes, curves, and cages
+ * back to their initial un-deformed state, resets Domain B DNA sliders to 0%,
+ * clears active refinement proposals, resets seed identity, and refits the camera.
+ */
+function restoreOriginalImportedGeometry() {
+  // 1. Restore all original positions for meshes
+  originalMeshes.forEach(item => {
+    if (item.mesh && item.mesh.geometry && item.originalPositions) {
+      const attr = item.mesh.geometry.attributes.position;
+      for (let i = 0; i < item.originalPositions.length; i++) {
+        attr.array[i] = item.originalPositions[i];
+      }
+      attr.needsUpdate = true;
+      if (item.mesh.geometry.computeVertexNormals) {
+        item.mesh.geometry.computeVertexNormals();
+      }
+      if (item.mesh.material) {
+        item.mesh.material.wireframe = false;
+      }
+    }
+  });
+
+  // 2. Restore all original positions for curves
+  originalCurves.forEach(item => {
+    if (item.line && item.line.geometry && item.originalPositions) {
+      const attr = item.line.geometry.attributes.position;
+      for (let i = 0; i < item.originalPositions.length; i++) {
+        attr.array[i] = item.originalPositions[i];
+      }
+      attr.needsUpdate = true;
+    }
+  });
+
+  // 3. Restore all original positions for SubD cages
+  originalCages.forEach(item => {
+    if (item.cageLines && item.cageLines.geometry && item.originalLinePositions) {
+      const lineAttr = item.cageLines.geometry.attributes.position;
+      for (let i = 0; i < item.originalLinePositions.length; i++) {
+        lineAttr.array[i] = item.originalLinePositions[i];
+      }
+      lineAttr.needsUpdate = true;
+    }
+    if (item.cagePoints && item.cagePoints.geometry && item.originalPtPositions) {
+      const ptAttr = item.cagePoints.geometry.attributes.position;
+      for (let i = 0; i < item.originalPtPositions.length; i++) {
+        ptAttr.array[i] = item.originalPtPositions[i];
+      }
+      ptAttr.needsUpdate = true;
+    }
+  });
+
+  // 4. Reset Domain B DNA & state in window.domainState if present
+  if (window.domainState) {
+    window.domainState.dna = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+    window.domainState.activeRefinementProposal = null;
+    window.domainState.designerChanges = { C: 0, B: 0, W: 0, M: 0, V: 0, G: 0 };
+    window.domainState.selectedParentId = 'RHINO-SEED';
+    window.domainState.selectedParentGenome = null;
+    window.domainState.visualComparisonMode = 'SEED';
+  }
+
+  // 5. Update manual DNA sliders & readouts in UI
+  const sliderIds = ['slider-dna-c', 'slider-dna-b', 'slider-dna-w', 'slider-dna-m', 'slider-dna-v', 'slider-dna-g'];
+  const valIds = ['val-dna-c', 'val-dna-b', 'val-dna-w', 'val-dna-m', 'val-dna-v', 'val-dna-g'];
+  
+  sliderIds.forEach((sId) => {
+    const el = document.getElementById(sId);
+    if (el) el.value = 0;
+  });
+  valIds.forEach((vId) => {
+    const el = document.getElementById(vId);
+    if (el) el.textContent = '0%';
+  });
+
+  // 6. Reset visual comparison mode buttons to SEED active
+  const compButtons = document.querySelectorAll('#btn-comp-seed, #btn-comp-parent, #btn-comp-iter, #btn-comp-overlay');
+  compButtons.forEach(b => b.classList.remove('active'));
+  const btnSeed = document.getElementById('btn-comp-seed');
+  if (btnSeed) btnSeed.classList.add('active');
+
+  // 7. Hide refinement banner and active iteration readout badges
+  const refBanner = document.getElementById('designer-refinement-banner');
+  if (refBanner) refBanner.style.display = 'none';
+
+  const designerChangesPanel = document.getElementById('designer-changes-panel');
+  if (designerChangesPanel) designerChangesPanel.style.display = 'none';
+
+  const activeReadout = document.getElementById('selected-iter-readout');
+  if (activeReadout) activeReadout.style.display = 'none';
+
+  const reasoningPanel = document.getElementById('design-reasoning-panel');
+  if (reasoningPanel) reasoningPanel.style.display = 'none';
+
+  // 8. Reset Viewport overlay tag
+  const vpTag = document.getElementById('vp-gen-tag');
+  if (vpTag) {
+    vpTag.innerText = 'GENERATION 0: ORIGINAL RHINO SEED';
+    vpTag.style.borderColor = '#00f2fe';
+    vpTag.style.color = '#00f2fe';
+  }
+
+  // 9. Reset Seed Identity indicator
+  const seedIdVal = document.getElementById('seed-identity-val');
+  if (seedIdVal) seedIdVal.innerText = '100.0%';
+  const seedIdFill = document.getElementById('seed-identity-fill');
+  if (seedIdFill) seedIdFill.style.width = '100%';
+
+  // 10. Deselect outcome cards if outcome gallery exists
+  document.querySelectorAll('.pop-iter-card, .outcome-card').forEach(c => c.classList.remove('selected'));
+
+  // 11. Refit camera around original geometry
+  fitCamera();
+
+  console.log('[RESTORE] Successfully returned website geometry to the original imported Rhino seed.');
+}
+
+window.restoreOriginalImportedGeometry = restoreOriginalImportedGeometry;
 
 function fitCamera() {
   let targetGroup = meshGroup;
