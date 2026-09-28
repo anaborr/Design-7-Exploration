@@ -318,6 +318,45 @@ function setCameraProjection(mode) {
   threeControls.update();
 }
 
+let surfaceDisplayMode = 'SHADED_EDGES'; // 'SHADED' | 'SHADED_EDGES' | 'WIREFRAME'
+
+function setSurfaceDisplayMode(mode) {
+  surfaceDisplayMode = mode;
+
+  const btnShaded = document.getElementById('btn-disp-shaded');
+  const btnShadedEdges = document.getElementById('btn-disp-shaded-edges');
+  const btnWireframe = document.getElementById('btn-disp-wireframe');
+
+  if (btnShaded) btnShaded.classList.toggle('active', mode === 'SHADED');
+  if (btnShadedEdges) btnShadedEdges.classList.toggle('active', mode === 'SHADED_EDGES');
+  if (btnWireframe) btnWireframe.classList.toggle('active', mode === 'WIREFRAME');
+
+  originalMeshes.forEach(item => {
+    if (!item.mesh) return;
+    if (mode === 'SHADED') {
+      item.mesh.material.wireframe = false;
+      if (item.edgesMesh) item.edgesMesh.visible = false;
+    } else if (mode === 'SHADED_EDGES') {
+      item.mesh.material.wireframe = false;
+      if (item.edgesMesh) item.edgesMesh.visible = true;
+    } else if (mode === 'WIREFRAME') {
+      item.mesh.material.wireframe = true;
+      if (item.edgesMesh) item.edgesMesh.visible = false;
+    }
+  });
+}
+window.setSurfaceDisplayMode = setSurfaceDisplayMode;
+
+function toggleGuideCurves() {
+  curveGroup.visible = !curveGroup.visible;
+  const btn = document.getElementById('btn-toggle-curves');
+  if (btn) {
+    btn.textContent = `SHOW GUIDES (${curveGroup.visible ? 'ON' : 'OFF'})`;
+    btn.classList.toggle('active', curveGroup.visible);
+  }
+}
+window.toggleGuideCurves = toggleGuideCurves;
+
 function createSampleRhinoSeed() {
   clearGroup(meshGroup);
   clearGroup(curveGroup);
@@ -362,14 +401,46 @@ function createSampleRhinoSeed() {
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
 
-  const wireMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true });
-  const mesh = new THREE.Mesh(geometry, wireMat);
+  // Shaded 3D Surface Material (Double-sided Architectural Surface)
+  const material = new THREE.MeshStandardMaterial({
+    color: 0x909090,
+    roughness: 0.45,
+    metalness: 0.15,
+    side: THREE.DoubleSide,
+    wireframe: false
+  });
+
+  const mesh = new THREE.Mesh(geometry, material);
+
+  // Edge Overlay (THREE.EdgesGeometry)
+  const edgesGeom = new THREE.EdgesGeometry(geometry);
+  const edgesMat = new THREE.LineBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.85 });
+  const edgesMesh = new THREE.LineSegments(edgesGeom, edgesMat);
+  mesh.add(edgesMesh);
+
   meshGroup.add(mesh);
 
   originalMeshes.push({
-    threeMesh: mesh,
+    mesh,
+    edgesMesh,
     originalPositions: positions.slice()
   });
+
+  // Sample Guide Curves (OFF by default)
+  const guidePoints = [];
+  for (let i = 0; i <= 60; i++) {
+    const u = i / 60;
+    guidePoints.push((u - 0.5) * 52, Math.sin(u * Math.PI * 3) * 14 + 10, (u - 0.5) * 10);
+  }
+  const guideGeom = new THREE.BufferGeometry();
+  guideGeom.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(guidePoints), 3));
+  const guideMat = new THREE.LineBasicMaterial({ color: 0xffff00 });
+  const guideLine = new THREE.Line(guideGeom, guideMat);
+  curveGroup.add(guideLine);
+  curveGroup.visible = false; // Default OFF
+  cageGroup.visible = false;  // Default OFF
+
+  originalCurves.push({ line: guideLine, originalPositions: new Float32Array(guidePoints) });
 
   computeModelBounds();
 
@@ -507,13 +578,14 @@ function loadRhinoFile(file) {
 }
 
 /**
- * 5. PARSE RHINO OBJECTS
+ * 5. PARSE RHINO OBJECTS (SUBD SURFACES → 3D SURFACE MESHES)
  */
 function parseRhinoObjects(doc, filename) {
   const objects = doc.objects();
   let meshCount = 0;
   let subdCount = 0;
   let curveCount = 0;
+  let brepCount = 0;
 
   for (let i = 0; i < objects.count; i++) {
     const obj = objects.get(i);
@@ -525,15 +597,40 @@ function parseRhinoObjects(doc, filename) {
     if (typeInt === rhino.ObjectType.Mesh) {
       meshCount++;
       buildThreeMesh(geom);
-    } else if (typeInt === rhino.ObjectType.Curve) {
-      curveCount++;
-      buildThreeCurve(geom);
     } else if (typeInt === rhino.ObjectType.SubD) {
       subdCount++;
       subdObjectsInMemory.push(geom);
+
+      // Convert SubD to 3D Surface Mesh
+      let meshFromSubD = null;
+      if (rhino.Mesh.createFromSubDControlNet) {
+        meshFromSubD = rhino.Mesh.createFromSubDControlNet(geom, false);
+      } else if (geom.toTwoManifoldMesh) {
+        meshFromSubD = geom.toTwoManifoldMesh();
+      }
+      if (meshFromSubD) {
+        buildThreeMesh(meshFromSubD);
+      }
       buildSubDCageOverlay(geom);
+    } else if (typeInt === rhino.ObjectType.Brep) {
+      brepCount++;
+      if (rhino.Mesh.createFromBrep) {
+        const brepMeshes = rhino.Mesh.createFromBrep(geom);
+        if (brepMeshes) {
+          for (let m = 0; m < brepMeshes.count; m++) {
+            buildThreeMesh(brepMeshes.get(m));
+          }
+        }
+      }
+    } else if (typeInt === rhino.ObjectType.Curve) {
+      curveCount++;
+      buildThreeCurve(geom);
     }
   }
+
+  // Set default guide curves & cages to OFF as requested
+  curveGroup.visible = false;
+  cageGroup.visible = false;
 
   computeModelBounds();
   resetTransformations();
@@ -556,7 +653,7 @@ function parseRhinoObjects(doc, filename) {
   }
 
   document.getElementById('info-filename').textContent = filename;
-  document.getElementById('info-meshes').textContent = meshCount;
+  document.getElementById('info-meshes').textContent = meshCount + subdCount + brepCount;
   document.getElementById('info-subds').textContent = subdCount;
   document.getElementById('info-curves').textContent = curveCount;
 
@@ -564,8 +661,9 @@ function parseRhinoObjects(doc, filename) {
 }
 
 function buildThreeMesh(meshGeom) {
-  const verts = meshGeom.vertices();
-  const faces = meshGeom.faces();
+  const verts = meshGeom.vertices ? meshGeom.vertices() : null;
+  const faces = meshGeom.faces ? meshGeom.faces() : null;
+  if (!verts || !faces) return;
 
   const positions = [];
 
@@ -592,18 +690,26 @@ function buildThreeMesh(meshGeom) {
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(posArray.slice(), 3));
   geometry.computeVertexNormals();
 
+  // Shaded 3D Surface Material (Double-sided Architectural Surface)
   const material = new THREE.MeshStandardMaterial({
-    color: 0x888888,
-    roughness: 0.5,
-    metalness: 0.1,
+    color: 0x909090,
+    roughness: 0.45,
+    metalness: 0.15,
     side: THREE.DoubleSide,
     wireframe: false
   });
 
   const mesh = new THREE.Mesh(geometry, material);
+
+  // Edge Overlay (THREE.EdgesGeometry)
+  const edgesGeom = new THREE.EdgesGeometry(geometry);
+  const edgesMat = new THREE.LineBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.85 });
+  const edgesMesh = new THREE.LineSegments(edgesGeom, edgesMat);
+  mesh.add(edgesMesh);
+
   meshGroup.add(mesh);
 
-  originalMeshes.push({ mesh, originalPositions: posArray });
+  originalMeshes.push({ mesh, edgesMesh, originalPositions: posArray });
 }
 
 function buildThreeCurve(curveGeom) {
@@ -1193,8 +1299,9 @@ window.switchVisualComparisonMode = switchVisualComparisonMode;
 function renderIterationGeometry(recipeOrDna) {
   const compMode = activeVisualCompMode;
 
-  // Deform Meshes
+  // Deform 3D Surface Meshes
   originalMeshes.forEach(item => {
+    if (!item.mesh) return;
     const attr = item.mesh.geometry.attributes.position;
     let defPos;
 
@@ -1210,11 +1317,27 @@ function renderIterationGeometry(recipeOrDna) {
     attr.needsUpdate = true;
     item.mesh.geometry.computeVertexNormals();
 
-    // Adjust visual style for overlay comparison mode
+    // Recompute Edges Overlay Geometry
+    if (item.edgesMesh) {
+      item.edgesMesh.geometry.dispose();
+      item.edgesMesh.geometry = new THREE.EdgesGeometry(item.mesh.geometry);
+    }
+
+    // Apply active Surface Display Mode (SHADED, SHADED + EDGES, WIREFRAME)
     if (compMode === 'OVERLAY') {
-      if (item.mesh.material) item.mesh.material.wireframe = true;
+      item.mesh.material.wireframe = true;
+      if (item.edgesMesh) item.edgesMesh.visible = false;
     } else {
-      if (item.mesh.material) item.mesh.material.wireframe = false;
+      if (surfaceDisplayMode === 'SHADED') {
+        item.mesh.material.wireframe = false;
+        if (item.edgesMesh) item.edgesMesh.visible = false;
+      } else if (surfaceDisplayMode === 'SHADED_EDGES') {
+        item.mesh.material.wireframe = false;
+        if (item.edgesMesh) item.edgesMesh.visible = true;
+      } else if (surfaceDisplayMode === 'WIREFRAME') {
+        item.mesh.material.wireframe = true;
+        if (item.edgesMesh) item.edgesMesh.visible = false;
+      }
     }
   });
 
