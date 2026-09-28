@@ -226,7 +226,7 @@ function parseDocumentDualRep(doc) {
           center: cageStats ? cageStats.center : new THREE.Vector3()
         });
 
-        // Always build SubD display surface mesh
+        // Build display mesh representation for SubD geometry
         buildFallbackDisplayMesh(geom, subDLabel);
       }
 
@@ -282,16 +282,6 @@ function parseDocumentDualRep(doc) {
         }
       } else if (typeInt === rhino.ObjectType.Brep) {
         brepCount++;
-        if (rhino.Mesh.createFromBrep) {
-          try {
-            const ms = rhino.Mesh.createFromBrep(geom);
-            if (ms && ms.count > 0) {
-              for (let m = 0; m < ms.count; m++) {
-                parseRhinoMeshObject(ms.get(m), `Brep Surface ${brepCount}-${m+1}`);
-              }
-            }
-          } catch(e) {}
-        }
       }
     }
   }
