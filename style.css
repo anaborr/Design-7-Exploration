@@ -254,6 +254,7 @@ body, html {
 .sidebar-main-tab-content {
   display: none;
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 2px;
 }
@@ -279,9 +280,10 @@ body, html {
   background: #000000;
   border: 1px solid #333333;
   border-radius: 4px;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
 }
 
 .sidebar-card.gold-accent {
