@@ -108,10 +108,12 @@ function initThreeJS() {
   threeCamera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000);
   threeCamera.position.set(40, 25, 50);
 
-  // WebGL Renderer
+  // WebGL Renderer with soft shadow support
   threeRenderer = new THREE.WebGLRenderer({ antialias: true });
   threeRenderer.setSize(width, height);
   threeRenderer.setPixelRatio(window.devicePixelRatio);
+  threeRenderer.shadowMap.enabled = true;
+  threeRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
   container.appendChild(threeRenderer.domElement);
 
   // Orbit Controls
@@ -122,17 +124,29 @@ function initThreeJS() {
     threeControls.target.set(0, 0, 0);
   }
 
-  // Lighting
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
-  threeScene.add(ambientLight);
+  // Lighting Setup — Rhino Shaded Mode Aesthetic
+  // Soft Hemisphere Light (Sky: pure white, Ground: soft dark charcoal/slate for AO feel)
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x2b2c36, 0.65);
+  threeScene.add(hemiLight);
 
-  const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.7);
-  dirLight1.position.set(50, 80, 50);
-  threeScene.add(dirLight1);
+  // Directional Key Light from Upper/Front-Left
+  const keyLight = new THREE.DirectionalLight(0xffffff, 0.85);
+  keyLight.position.set(-60, 100, 80);
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.width = 2048;
+  keyLight.shadow.mapSize.height = 2048;
+  keyLight.shadow.bias = -0.0001;
+  threeScene.add(keyLight);
 
-  const dirLight2 = new THREE.DirectionalLight(0x888888, 0.4);
-  dirLight2.position.set(-50, 30, -50);
-  threeScene.add(dirLight2);
+  // Directional Fill Light from Opposite Side
+  const fillLight = new THREE.DirectionalLight(0x778899, 0.35);
+  fillLight.position.set(60, -40, -60);
+  threeScene.add(fillLight);
+
+  // Overhead Soft Ambient Fill
+  const topLight = new THREE.DirectionalLight(0xffffff, 0.25);
+  topLight.position.set(0, 150, 0);
+  threeScene.add(topLight);
 
   const gridHelper = new THREE.GridHelper(200, 50, 0xdfb15b, 0x332a12);
   gridHelper.position.y = 0;
@@ -637,13 +651,18 @@ function buildThreeMesh(meshGeom) {
   geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
   geometry.computeVertexNormals();
 
-  const material = new THREE.MeshBasicMaterial({
-    color: 0x888888,
+  const material = new THREE.MeshStandardMaterial({
+    color: 0xdcdcdc,
+    roughness: 0.82,
+    metalness: 0.0,
     side: THREE.DoubleSide,
+    flatShading: false,
     wireframe: false
   });
 
   const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
   meshGroup.add(mesh);
 
   originalMeshes.push({ mesh, originalPositions: positions });
@@ -908,9 +927,12 @@ function processAndRenderSubDMesh(subdGeom, subdIndex) {
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
 
-  const material = new THREE.MeshBasicMaterial({
-    color: 0xdddddd,
+  const material = new THREE.MeshStandardMaterial({
+    color: 0xdcdcdc,
+    roughness: 0.82,
+    metalness: 0.0,
     side: THREE.DoubleSide,
+    flatShading: false,
     transparent: false,
     opacity: 1.0,
     wireframe: false
@@ -918,6 +940,8 @@ function processAndRenderSubDMesh(subdGeom, subdIndex) {
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = `SubDMesh_${subdIndex}`;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
   mesh.visible = true;
 
   meshGroup.add(mesh);
