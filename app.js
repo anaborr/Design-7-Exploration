@@ -238,6 +238,9 @@ function setupUIEventListeners() {
   bindWeightSlider('pw-posneg', 'val-pw-posneg', 'POSITIVE_NEGATIVE');
   bindWeightSlider('pw-growth', 'val-pw-growth', 'GROWTH');
 
+  // Initialize Advanced Branch Controls Panel & 3D Gizmos
+  setupAdvancedBranchControls();
+
   // DOMAIN B0: Reasoning Mode Segmented Control
   setupSegmentGroup('group-reasoning-mode', (val) => {
     domainState.reasoningMode = val;
@@ -1221,6 +1224,11 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
       }
     }
 
+    // Apply Designer-Directed Advanced Branch Controls
+    if (activeB > 0 && window.advancedBranchState) {
+      temp = applyAdvancedBranchingDeformation(temp, bounds, activeB, window.advancedBranchState);
+    }
+
     // 3. WHIPLASH CURVATURE (W)
     // A(W) = W * 0.45 * transverseDimension
     // D(t) = A(W) * sin(pi*t + W*pi*t^2)
@@ -1691,4 +1699,399 @@ function runDomainBDiagnostics() {
 window.runDomainBDiagnostics = runDomainBDiagnostics;
 window.applyArtNouveauDNA = applyArtNouveauDNA;
 window.calculateSeedIdentityScore = calculateSeedIdentityScore;
+
+/**
+ * ============================================================================
+ * ADVANCED BRANCH CONTROLS ENGINE & INTERACTIVE 3D GIZMOS
+ * ============================================================================
+ */
+window.advancedBranchState = {
+  branchCount: 2,
+  activeBranchIndex: 0,
+  branches: [
+    { id: 0, posPct: 35, hAngle: 25, vAngle: 15, lengthPct: 100, widthPct: 100 },
+    { id: 1, posPct: 65, hAngle: -25, vAngle: 20, lengthPct: 100, widthPct: 100 },
+    { id: 2, posPct: 50, hAngle: 45, vAngle: -10, lengthPct: 100, widthPct: 100 },
+    { id: 3, posPct: 20, hAngle: -45, vAngle: 30, lengthPct: 100, widthPct: 100 },
+    { id: 4, posPct: 80, hAngle: 35, vAngle: -20, lengthPct: 100, widthPct: 100 },
+    { id: 5, posPct: 40, hAngle: -60, vAngle: 10, lengthPct: 100, widthPct: 100 }
+  ]
+};
+
+let branchGizmoGroup = new THREE.Group();
+
+function applyAdvancedBranchingDeformation(positions, bounds, B, branchState) {
+  if (!positions || positions.length === 0 || !branchState || B <= 0) {
+    return new Float32Array(positions);
+  }
+
+  const out = new Float32Array(positions);
+  const count = Math.min(6, Math.max(2, branchState.branchCount || 2));
+  const branches = branchState.branches || [];
+
+  const minY = bounds.min ? bounds.min.y : (bounds.minY || -10);
+  const maxY = bounds.max ? bounds.max.y : (bounds.maxY || 10);
+  const spanY = Math.max(0.1, Math.abs(maxY - minY));
+
+  const minX = bounds.min ? bounds.min.x : (bounds.minX || -10);
+  const maxX = bounds.max ? bounds.max.x : (bounds.maxX || 10);
+  const minZ = bounds.min ? bounds.min.z : (bounds.minZ || -10);
+  const maxZ = bounds.max ? bounds.max.z : (bounds.maxZ || 10);
+  const spanX = Math.max(0.1, Math.abs(maxX - minX));
+  const spanZ = Math.max(0.1, Math.abs(maxZ - minZ));
+
+  const centerX = (minX + maxX) / 2;
+  const centerZ = (minZ + maxZ) / 2;
+
+  for (let bIdx = 0; bIdx < count; bIdx++) {
+    const branch = branches[bIdx] || { posPct: 50, hAngle: 0, vAngle: 0, lengthPct: 100, widthPct: 100 };
+
+    const uPos = Math.min(1.0, Math.max(0.0, branch.posPct / 100.0));
+    const yOrig = minY + uPos * spanY;
+
+    const radH = (branch.hAngle * Math.PI) / 180.0;
+    const radV = (branch.vAngle * Math.PI) / 180.0;
+
+    const dirX = Math.cos(radV) * Math.sin(radH);
+    const dirY = Math.sin(radV);
+    const dirZ = Math.cos(radV) * Math.cos(radH);
+
+    const branchLength = (branch.lengthPct / 100.0) * (spanY * 0.35) * (0.35 + 0.65 * B);
+    const branchRadius = (branch.widthPct / 100.0) * (Math.min(spanX, spanZ) * 0.22) * (0.5 + 0.5 * B);
+
+    const isSelected = (bIdx === branchState.activeBranchIndex);
+    const influenceFactor = isSelected ? 1.0 : 0.85;
+
+    for (let i = 0; i < out.length; i += 3) {
+      const vx = out[i];
+      const vy = out[i + 1];
+      const vz = out[i + 2];
+
+      const dy = vy - yOrig;
+      const vertDist = Math.abs(dy);
+
+      const hWindow = branchRadius * 2.5;
+      if (vertDist < hWindow) {
+        const falloffH = Math.exp(- (vertDist * vertDist) / (hWindow * hWindow));
+
+        const dx = vx - centerX;
+        const dz = vz - centerZ;
+        const radDist = Math.sqrt(dx * dx + dz * dz);
+
+        const dotDir = (dx * dirX + dz * dirZ) / (radDist + 0.001);
+        const angleAlign = Math.max(0.0, dotDir);
+
+        const dispMag = falloffH * Math.pow(angleAlign, 1.5) * branchLength * influenceFactor;
+
+        out[i]     += dirX * dispMag * 0.45;
+        out[i + 1] += dirY * dispMag * 0.35;
+        out[i + 2] += dirZ * dispMag * 0.45;
+      }
+    }
+  }
+
+  return out;
+}
+
+function updateBranchGizmos(bounds) {
+  clearGroup(branchGizmoGroup);
+  if (!window.domainState || !window.domainState.dna) return;
+  const B = window.domainState.dna[1] || 0;
+  if (B <= 0) return;
+
+  const state = window.advancedBranchState;
+  const count = Math.min(6, Math.max(2, state.branchCount || 2));
+
+  const minY = bounds.min ? bounds.min.y : (bounds.minY || -10);
+  const maxY = bounds.max ? bounds.max.y : (bounds.maxY || 10);
+  const spanY = Math.max(0.1, Math.abs(maxY - minY));
+
+  const minX = bounds.min ? bounds.min.x : (bounds.minX || -10);
+  const maxX = bounds.max ? bounds.max.x : (bounds.maxX || 10);
+  const minZ = bounds.min ? bounds.min.z : (bounds.minZ || -10);
+  const maxZ = bounds.max ? bounds.max.z : (bounds.maxZ || 10);
+
+  const centerX = (minX + maxX) / 2;
+  const centerZ = (minZ + maxZ) / 2;
+
+  for (let i = 0; i < count; i++) {
+    const branch = state.branches[i];
+    const isSelected = (i === state.activeBranchIndex);
+
+    const uPos = Math.min(1.0, Math.max(0.0, branch.posPct / 100.0));
+    const yOrig = minY + uPos * spanY;
+
+    const radH = (branch.hAngle * Math.PI) / 180.0;
+    const radV = (branch.vAngle * Math.PI) / 180.0;
+
+    const dirX = Math.cos(radV) * Math.sin(radH);
+    const dirY = Math.sin(radV);
+    const dirZ = Math.cos(radV) * Math.cos(radH);
+
+    const branchLength = (branch.lengthPct / 100.0) * (spanY * 0.35) * (0.35 + 0.65 * B);
+
+    const pOrig = rhinoPointToThree(centerX, yOrig, centerZ);
+    const pTip = rhinoPointToThree(centerX + dirX * branchLength, yOrig + dirY * branchLength, centerZ + dirZ * branchLength);
+
+    // Guide Line
+    const lineGeom = new THREE.BufferGeometry().setFromPoints([pOrig, pTip]);
+    const lineMat = new THREE.LineBasicMaterial({
+      color: isSelected ? 0x00ffff : 0x336688,
+      linewidth: isSelected ? 2 : 1
+    });
+    const line = new THREE.Line(lineGeom, lineMat);
+    branchGizmoGroup.add(line);
+
+    // Handle Sphere
+    const sphereGeom = new THREE.SphereGeometry(isSelected ? 0.6 : 0.35, 16, 16);
+    const sphereMat = new THREE.MeshStandardMaterial({
+      color: isSelected ? 0x00ffff : 0x336677,
+      emissive: isSelected ? 0x008888 : 0x000000,
+      roughness: 0.3,
+      metalness: 0.1
+    });
+    const handleMesh = new THREE.Mesh(sphereGeom, sphereMat);
+    handleMesh.position.copy(pTip);
+    handleMesh.userData = { isBranchHandle: true, branchIndex: i, origin: pOrig };
+    branchGizmoGroup.add(handleMesh);
+  }
+}
+
+function setupAdvancedBranchControls() {
+  if (threeScene && !threeScene.children.includes(branchGizmoGroup)) {
+    threeScene.add(branchGizmoGroup);
+  }
+
+  const sCount = document.getElementById('slider-branch-count');
+  const vCount = document.getElementById('val-branch-count');
+
+  const sPos = document.getElementById('slider-branch-pos');
+  const vPos = document.getElementById('val-branch-pos');
+
+  const sHangle = document.getElementById('slider-branch-hangle');
+  const vHangle = document.getElementById('val-branch-hangle');
+
+  const sVangle = document.getElementById('slider-branch-vangle');
+  const vVangle = document.getElementById('val-branch-vangle');
+
+  const sLength = document.getElementById('slider-branch-length');
+  const vLength = document.getElementById('val-branch-length');
+
+  const sWidth = document.getElementById('slider-branch-width');
+  const vWidth = document.getElementById('val-branch-width');
+
+  function updateBranchUI() {
+    const state = window.advancedBranchState;
+    const bIdx = state.activeBranchIndex;
+    const activeBranch = state.branches[bIdx] || state.branches[0];
+
+    if (vCount) vCount.textContent = state.branchCount;
+    if (sCount) sCount.value = state.branchCount;
+
+    const statusEl = document.getElementById('branch-select-status');
+    if (statusEl) statusEl.textContent = `Branch ${bIdx + 1} Selected`;
+
+    if (sPos) sPos.value = activeBranch.posPct;
+    if (vPos) vPos.textContent = `${Math.round(activeBranch.posPct)}%`;
+
+    if (sHangle) sHangle.value = activeBranch.hAngle;
+    if (vHangle) vHangle.textContent = `${Math.round(activeBranch.hAngle)}°`;
+
+    if (sVangle) sVangle.value = activeBranch.vAngle;
+    if (vVangle) vVangle.textContent = `${Math.round(activeBranch.vAngle)}°`;
+
+    if (sLength) sLength.value = activeBranch.lengthPct;
+    if (vLength) vLength.textContent = `${Math.round(activeBranch.lengthPct)}%`;
+
+    if (sWidth) sWidth.value = activeBranch.widthPct;
+    if (vWidth) vWidth.textContent = `${Math.round(activeBranch.widthPct)}%`;
+
+    renderBranchTabs();
+    updateBranchGizmos(modelBounds);
+  }
+
+  function renderBranchTabs() {
+    const tabBar = document.getElementById('branch-tab-bar');
+    if (!tabBar) return;
+    const state = window.advancedBranchState;
+    let html = '';
+    for (let i = 0; i < state.branchCount; i++) {
+      const activeCls = i === state.activeBranchIndex ? 'active' : '';
+      html += `<button class="branch-tab ${activeCls}" data-branch="${i}">Branch ${i + 1}</button>`;
+    }
+    tabBar.innerHTML = html;
+
+    const btns = tabBar.querySelectorAll('.branch-tab');
+    btns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.activeBranchIndex = parseInt(btn.getAttribute('data-branch'));
+        updateBranchUI();
+        if (window.renderIterationGeometry && window.domainState) {
+          window.renderIterationGeometry(window.domainState.dna);
+        }
+      });
+    });
+  }
+
+  if (sCount) {
+    sCount.addEventListener('input', (e) => {
+      const count = parseInt(e.target.value);
+      window.advancedBranchState.branchCount = count;
+      if (window.advancedBranchState.activeBranchIndex >= count) {
+        window.advancedBranchState.activeBranchIndex = count - 1;
+      }
+      updateBranchUI();
+      if (window.renderIterationGeometry && window.domainState) {
+        window.renderIterationGeometry(window.domainState.dna);
+      }
+    });
+  }
+
+  if (sPos) {
+    sPos.addEventListener('input', (e) => {
+      const state = window.advancedBranchState;
+      state.branches[state.activeBranchIndex].posPct = parseFloat(e.target.value);
+      updateBranchUI();
+      if (window.renderIterationGeometry && window.domainState) {
+        window.renderIterationGeometry(window.domainState.dna);
+      }
+    });
+  }
+
+  if (sHangle) {
+    sHangle.addEventListener('input', (e) => {
+      const state = window.advancedBranchState;
+      state.branches[state.activeBranchIndex].hAngle = parseFloat(e.target.value);
+      updateBranchUI();
+      if (window.renderIterationGeometry && window.domainState) {
+        window.renderIterationGeometry(window.domainState.dna);
+      }
+    });
+  }
+
+  if (sVangle) {
+    sVangle.addEventListener('input', (e) => {
+      const state = window.advancedBranchState;
+      state.branches[state.activeBranchIndex].vAngle = parseFloat(e.target.value);
+      updateBranchUI();
+      if (window.renderIterationGeometry && window.domainState) {
+        window.renderIterationGeometry(window.domainState.dna);
+      }
+    });
+  }
+
+  if (sLength) {
+    sLength.addEventListener('input', (e) => {
+      const state = window.advancedBranchState;
+      state.branches[state.activeBranchIndex].lengthPct = parseFloat(e.target.value);
+      updateBranchUI();
+      if (window.renderIterationGeometry && window.domainState) {
+        window.renderIterationGeometry(window.domainState.dna);
+      }
+    });
+  }
+
+  if (sWidth) {
+    sWidth.addEventListener('input', (e) => {
+      const state = window.advancedBranchState;
+      state.branches[state.activeBranchIndex].widthPct = parseFloat(e.target.value);
+      updateBranchUI();
+      if (window.renderIterationGeometry && window.domainState) {
+        window.renderIterationGeometry(window.domainState.dna);
+      }
+    });
+  }
+
+  window.syncAdvancedBranchUI = updateBranchUI;
+  updateBranchUI();
+  setup3DBranchHandleInteraction();
+}
+
+let isDraggingBranchHandle = false;
+let dragBranchIndex = -1;
+
+function setup3DBranchHandleInteraction() {
+  const canvas = threeRenderer ? threeRenderer.domElement : null;
+  if (!canvas) return;
+
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+
+  canvas.addEventListener('pointerdown', (e) => {
+    if (!threeCamera || !branchGizmoGroup) return;
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, threeCamera);
+    const intersects = raycaster.intersectObjects(branchGizmoGroup.children, true);
+
+    if (intersects.length > 0) {
+      const hit = intersects[0].object;
+      if (hit.userData && hit.userData.isBranchHandle !== undefined) {
+        dragBranchIndex = hit.userData.branchIndex;
+        window.advancedBranchState.activeBranchIndex = dragBranchIndex;
+        isDraggingBranchHandle = true;
+        if (threeControls) threeControls.enabled = false;
+        if (window.syncAdvancedBranchUI) window.syncAdvancedBranchUI();
+        if (window.renderIterationGeometry && window.domainState) {
+          window.renderIterationGeometry(window.domainState.dna);
+        }
+      }
+    }
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    if (!isDraggingBranchHandle || dragBranchIndex < 0 || !threeCamera) return;
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, threeCamera);
+
+    const dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1).applyQuaternion(threeCamera.quaternion), 0);
+    const planeIntersect = new THREE.Vector3();
+    raycaster.ray.intersectPlane(dragPlane, planeIntersect);
+
+    if (planeIntersect) {
+      const state = window.advancedBranchState;
+      const branch = state.branches[dragBranchIndex];
+
+      const bounds = modelBounds;
+      const minY = bounds.min ? bounds.min.y : (bounds.minY || -10);
+      const maxY = bounds.max ? bounds.max.y : (bounds.maxY || 10);
+      const spanY = Math.max(0.1, Math.abs(maxY - minY));
+
+      const dx = planeIntersect.x;
+      const dy = planeIntersect.y;
+      const dz = planeIntersect.z;
+
+      const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (len > 0.1) {
+        const vAngle = Math.min(60, Math.max(-60, Math.asin(dy / len) * (180 / Math.PI)));
+        const hAngle = Math.min(90, Math.max(-90, Math.atan2(dx, dz) * (180 / Math.PI)));
+
+        branch.hAngle = hAngle;
+        branch.vAngle = vAngle;
+        branch.lengthPct = Math.min(200, Math.max(25, (len / (spanY * 0.35)) * 100));
+
+        if (window.syncAdvancedBranchUI) window.syncAdvancedBranchUI();
+        if (window.renderIterationGeometry && window.domainState) {
+          window.renderIterationGeometry(window.domainState.dna);
+        }
+      }
+    }
+  });
+
+  const stopDrag = () => {
+    if (isDraggingBranchHandle) {
+      isDraggingBranchHandle = false;
+      dragBranchIndex = -1;
+      if (threeControls) threeControls.enabled = true;
+    }
+  };
+
+  canvas.addEventListener('pointerup', stopDrag);
+  canvas.addEventListener('pointerleave', stopDrag);
+}
 

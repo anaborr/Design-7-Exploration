@@ -360,6 +360,17 @@ function updateDnaUIAndViewport() {
   const bdgV = document.getElementById('badge-dna-v'); if (bdgV) bdgV.textContent = getQualitativeStateLabel('POSITIVE_NEGATIVE', v);
   const bdgG = document.getElementById('badge-dna-g'); if (bdgG) bdgG.textContent = getQualitativeStateLabel('GROWTH', g);
 
+  // Toggle Advanced Branch Controls Panel visibility
+  const branchPanel = document.getElementById('advanced-branch-panel');
+  if (branchPanel) {
+    if (b > 0) {
+      branchPanel.classList.remove('hidden');
+      if (window.syncAdvancedBranchUI) window.syncAdvancedBranchUI();
+    } else {
+      branchPanel.classList.add('hidden');
+    }
+  }
+
   // Update Form DNA Vector Readout
   const codeEl = document.getElementById('readout-form-dna');
   if (codeEl) {
