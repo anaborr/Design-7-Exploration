@@ -1425,34 +1425,103 @@ function revertToOriginalRhinoSeed() {
     window.resetTransformations();
   }
 
-  // 4. Update DNA UI and render un-deformed geometry in Three.js viewport
+  // 4. Force meshGroup, curveGroup, cageGroup visibility to TRUE
+  if (window.meshGroup) window.meshGroup.visible = true;
+  if (window.curveGroup) window.curveGroup.visible = true;
+  if (window.cageGroup) window.cageGroup.visible = true;
+
+  // Sync layer toggle buttons UI
+  const btnMesh = document.getElementById('btn-toggle-mesh'); if (btnMesh) btnMesh.classList.add('active');
+  const btnCage = document.getElementById('btn-toggle-cage'); if (btnCage) btnCage.classList.add('active');
+  const btnCurves = document.getElementById('btn-toggle-curves'); if (btnCurves) btnCurves.classList.add('active');
+
+  // 5. Explicitly restore original un-deformed vertex positions on ALL SubD meshes
+  if (window.originalMeshes && Array.isArray(window.originalMeshes)) {
+    window.originalMeshes.forEach(item => {
+      if (item.mesh && item.mesh.geometry && item.originalPositions) {
+        item.mesh.visible = true;
+        const attr = item.mesh.geometry.attributes.position;
+        if (attr) {
+          for (let i = 0; i < item.originalPositions.length; i++) {
+            attr.array[i] = item.originalPositions[i];
+          }
+          attr.needsUpdate = true;
+          item.mesh.geometry.computeVertexNormals();
+          item.mesh.geometry.computeBoundingBox();
+          item.mesh.geometry.computeBoundingSphere();
+        }
+        if (item.mesh.material) {
+          item.mesh.material.wireframe = false;
+          item.mesh.material.needsUpdate = true;
+        }
+      }
+    });
+  }
+
+  // 6. Explicitly restore original curve positions
+  if (window.originalCurves && Array.isArray(window.originalCurves)) {
+    window.originalCurves.forEach(item => {
+      if (item.line && item.line.geometry && item.originalPositions) {
+        item.line.visible = true;
+        const attr = item.line.geometry.attributes.position;
+        if (attr) {
+          for (let i = 0; i < item.originalPositions.length; i++) {
+            attr.array[i] = item.originalPositions[i];
+          }
+          attr.needsUpdate = true;
+        }
+      }
+    });
+  }
+
+  // 7. Explicitly restore original SubD cage positions
+  if (window.originalCages && Array.isArray(window.originalCages)) {
+    window.originalCages.forEach(item => {
+      if (item.cageLines && item.cageLines.geometry && item.originalLinePositions) {
+        item.cageLines.visible = true;
+        const lineAttr = item.cageLines.geometry.attributes.position;
+        if (lineAttr) {
+          for (let i = 0; i < item.originalLinePositions.length; i++) {
+            lineAttr.array[i] = item.originalLinePositions[i];
+          }
+          lineAttr.needsUpdate = true;
+        }
+      }
+      if (item.cagePoints && item.cagePoints.geometry && item.originalPtPositions) {
+        item.cagePoints.visible = true;
+        const ptAttr = item.cagePoints.geometry.attributes.position;
+        if (ptAttr) {
+          for (let i = 0; i < item.originalPtPositions.length; i++) {
+            ptAttr.array[i] = item.originalPtPositions[i];
+          }
+          ptAttr.needsUpdate = true;
+        }
+      }
+    });
+  }
+
+  // 8. Update DNA UI and render
   updateDnaUIAndViewport();
 
-  // 5. Hide Refinement Banner & Designer Changes Panel
+  // 9. Hide Refinement Banner & Designer Changes Panel
   const refBanner = document.getElementById('designer-refinement-banner');
   if (refBanner) refBanner.style.display = 'none';
 
   const changesPanel = document.getElementById('designer-changes-panel');
   if (changesPanel) changesPanel.style.display = 'none';
 
-  // 6. Explicitly render baseline geometry in viewport
-  if (window.renderIterationGeometry) {
-    window.renderIterationGeometry([0, 0, 0, 0, 0, 0]);
-  }
-
-  // 7. Update Viewport Header Overlay Title
+  // 10. Update Viewport Header Overlay Title
   const vpTag = document.getElementById('vp-gen-tag');
   if (vpTag) vpTag.textContent = 'GENERATION 0: ORIGINAL RHINO SEED';
 
-  // 8. Update active state of visual comparison mode buttons
-  if (window.switchVisualComparisonMode) {
-    window.switchVisualComparisonMode('SEED');
-  }
+  // 11. Sync visual comparison mode buttons
+  const bSeed = document.getElementById('btn-comp-seed');
+  const btns = document.querySelectorAll('#btn-comp-seed, #btn-comp-parent, #btn-comp-iter, #btn-comp-overlay');
+  btns.forEach(b => b.classList.remove('active'));
+  if (bSeed) bSeed.classList.add('active');
 
-  // 9. Reset seed parent selection indicator
-  if (window.selectSeedParent) {
-    window.selectSeedParent();
-  }
+  // 12. Re-fit camera to restored SubD mesh bounds
+  if (window.fitCamera) window.fitCamera();
 }
 window.revertToOriginalRhinoSeed = revertToOriginalRhinoSeed;
 

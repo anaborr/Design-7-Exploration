@@ -1692,3 +1692,11 @@ window.runDomainBDiagnostics = runDomainBDiagnostics;
 window.applyArtNouveauDNA = applyArtNouveauDNA;
 window.calculateSeedIdentityScore = calculateSeedIdentityScore;
 
+window.meshGroup = meshGroup;
+window.curveGroup = curveGroup;
+window.cageGroup = cageGroup;
+window.originalMeshes = originalMeshes;
+window.originalCurves = originalCurves;
+window.originalCages = originalCages;
+window.fitCamera = fitCamera;
+
