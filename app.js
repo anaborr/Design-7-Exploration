@@ -1524,13 +1524,21 @@ window.switchVisualComparisonMode = switchVisualComparisonMode;
  */
 function renderIterationGeometry(recipeOrDna) {
   const compMode = activeVisualCompMode;
+  const isSeedDna = !recipeOrDna || (Array.isArray(recipeOrDna) && recipeOrDna.every(v => v === 0));
 
-  // Deform Meshes
+  // Ensure render groups are visible
+  if (meshGroup) meshGroup.visible = true;
+  if (curveGroup) curveGroup.visible = true;
+  if (cageGroup) cageGroup.visible = true;
+
+  // Deform or Restore SubD / Standard Meshes
   originalMeshes.forEach(item => {
+    if (!item.mesh || !item.mesh.geometry || !item.originalPositions) return;
+
     const attr = item.mesh.geometry.attributes.position;
     let defPos;
 
-    if (compMode === 'SEED') {
+    if (compMode === 'SEED' || isSeedDna) {
       defPos = item.originalPositions;
     } else {
       defPos = executeRecipeDeformation(item.originalPositions, recipeOrDna, modelBounds);
@@ -1541,6 +1549,9 @@ function renderIterationGeometry(recipeOrDna) {
     }
     attr.needsUpdate = true;
     item.mesh.geometry.computeVertexNormals();
+    item.mesh.geometry.computeBoundingBox();
+    item.mesh.geometry.computeBoundingSphere();
+    item.mesh.visible = true;
 
     // Adjust visual style for overlay comparison mode
     if (compMode === 'OVERLAY') {
@@ -1550,12 +1561,14 @@ function renderIterationGeometry(recipeOrDna) {
     }
   });
 
-  // Deform Curves
+  // Deform or Restore Curves
   originalCurves.forEach(item => {
+    if (!item.line || !item.line.geometry || !item.originalPositions) return;
+
     const attr = item.line.geometry.attributes.position;
     let defPos;
 
-    if (compMode === 'SEED') {
+    if (compMode === 'SEED' || isSeedDna) {
       defPos = item.originalPositions;
     } else {
       defPos = executeRecipeDeformation(item.originalPositions, recipeOrDna, modelBounds);
@@ -1565,23 +1578,30 @@ function renderIterationGeometry(recipeOrDna) {
       attr.array[i] = defPos[i];
     }
     attr.needsUpdate = true;
+    item.line.visible = true;
   });
 
-  // Deform SubD Cages
+  // Deform or Restore SubD Cages
   originalCages.forEach(item => {
-    const lineAttr = item.cageLines.geometry.attributes.position;
-    let defLinePos = compMode === 'SEED' ? item.originalLinePositions : executeRecipeDeformation(item.originalLinePositions, recipeOrDna, modelBounds);
-    for (let i = 0; i < defLinePos.length; i++) {
-      lineAttr.array[i] = defLinePos[i];
+    if (item.cageLines && item.cageLines.geometry && item.originalLinePositions) {
+      const lineAttr = item.cageLines.geometry.attributes.position;
+      let defLinePos = (compMode === 'SEED' || isSeedDna) ? item.originalLinePositions : executeRecipeDeformation(item.originalLinePositions, recipeOrDna, modelBounds);
+      for (let i = 0; i < defLinePos.length; i++) {
+        lineAttr.array[i] = defLinePos[i];
+      }
+      lineAttr.needsUpdate = true;
+      item.cageLines.visible = true;
     }
-    lineAttr.needsUpdate = true;
 
-    const ptAttr = item.cagePoints.geometry.attributes.position;
-    let defPtPos = compMode === 'SEED' ? item.originalPtPositions : executeRecipeDeformation(item.originalPtPositions, recipeOrDna, modelBounds);
-    for (let i = 0; i < defPtPos.length; i++) {
-      ptAttr.array[i] = defPtPos[i];
+    if (item.cagePoints && item.cagePoints.geometry && item.originalPtPositions) {
+      const ptAttr = item.cagePoints.geometry.attributes.position;
+      let defPtPos = (compMode === 'SEED' || isSeedDna) ? item.originalPtPositions : executeRecipeDeformation(item.originalPtPositions, recipeOrDna, modelBounds);
+      for (let i = 0; i < defPtPos.length; i++) {
+        ptAttr.array[i] = defPtPos[i];
+      }
+      ptAttr.needsUpdate = true;
+      item.cagePoints.visible = true;
     }
-    ptAttr.needsUpdate = true;
   });
 }
 
