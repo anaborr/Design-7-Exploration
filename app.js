@@ -532,21 +532,7 @@ function parseRhinoObjects(doc, filename) {
       subdCount++;
       subdObjectsInMemory.push(geom);
       buildSubDCageOverlay(geom);
-
-      // Convert SubD object into 3D Mesh for rendering and Rule Engine analysis
-      let subDMesh = null;
-      if (rhino.Mesh.createFromSubDControlNet) {
-        subDMesh = rhino.Mesh.createFromSubDControlNet(geom, false);
-      }
-      if (!subDMesh && geom.toTwoManifoldMesh) {
-        subDMesh = geom.toTwoManifoldMesh();
-      }
-      if (subDMesh) {
-        buildThreeMesh(subDMesh);
-      } else {
-        // Fallback: build mesh directly from SubD control cage vertices/faces
-        buildSubDFallbackMesh(geom);
-      }
+      buildSubDMeshGeometry(geom);
     }
   }
 
@@ -650,6 +636,38 @@ function buildThreeCurve(curveGeom) {
   }
 }
 
+function buildSubDMeshGeometry(subdGeom) {
+  if (!subdGeom) return;
+  let meshGeom = null;
+
+  try {
+    if (typeof subdGeom.toMesh === 'function') {
+      meshGeom = subdGeom.toMesh();
+    }
+  } catch (e) {}
+
+  if (!meshGeom && window.rhino && window.rhino.Mesh) {
+    try {
+      if (typeof window.rhino.Mesh.createFromSubD === 'function') {
+        meshGeom = window.rhino.Mesh.createFromSubD(subdGeom);
+      }
+    } catch (e) {}
+  }
+
+  if (!meshGeom && window.rhino && window.rhino.Mesh) {
+    try {
+      if (typeof window.rhino.Mesh.createFromSubDControlNet === 'function') {
+        meshGeom = window.rhino.Mesh.createFromSubDControlNet(subdGeom, false);
+      }
+    } catch (e) {}
+  }
+
+  const targetGeom = meshGeom || (subdGeom.vertices && subdGeom.faces ? subdGeom : null);
+  if (targetGeom) {
+    buildThreeMesh(targetGeom);
+  }
+}
+
 function buildSubDCageOverlay(subdGeom) {
   try {
     let cageMesh = null;
@@ -699,53 +717,6 @@ function buildSubDCageOverlay(subdGeom) {
       originalCages.push({ cageLines, cagePoints, originalLinePositions: origLinePos, originalPtPositions: origPtPos });
     }
   } catch (e) {}
-}
-
-function buildSubDFallbackMesh(subdGeom) {
-  try {
-    if (!subdGeom || !subdGeom.vertices || !subdGeom.faces) return;
-    const verts = subdGeom.vertices();
-    const faces = subdGeom.faces();
-    const positions = [];
-
-    for (let f = 0; f < faces.count; f++) {
-      const face = faces.get(f);
-      const p1 = rhinoPointToThree(verts.get(face[0])[0], verts.get(face[0])[1], verts.get(face[0])[2]);
-      const p2 = rhinoPointToThree(verts.get(face[1])[0], verts.get(face[1])[1], verts.get(face[1])[2]);
-      const p3 = rhinoPointToThree(verts.get(face[2])[0], verts.get(face[2])[1], verts.get(face[2])[2]);
-
-      positions.push(p1.x, p1.y, p1.z);
-      positions.push(p2.x, p2.y, p2.z);
-      positions.push(p3.x, p3.y, p3.z);
-
-      if (faces.isQuad && faces.isQuad(face)) {
-        const p4 = rhinoPointToThree(verts.get(face[3])[0], verts.get(face[3])[1], verts.get(face[3])[2]);
-        positions.push(p1.x, p1.y, p1.z);
-        positions.push(p3.x, p3.y, p3.z);
-        positions.push(p4.x, p4.y, p4.z);
-      }
-    }
-
-    if (positions.length > 0) {
-      const posArray = new Float32Array(positions);
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(posArray.slice(), 3));
-      geometry.computeVertexNormals();
-
-      const material = new THREE.MeshStandardMaterial({
-        color: 0x999999,
-        roughness: 0.4,
-        metalness: 0.1,
-        side: THREE.DoubleSide
-      });
-
-      const mesh = new THREE.Mesh(geometry, material);
-      meshGroup.add(mesh);
-      originalMeshes.push({ mesh, originalPositions: posArray });
-    }
-  } catch (e) {
-    console.warn('[SubD Fallback Mesh Warning]', e);
-  }
 }
 
 function computeModelBounds() {

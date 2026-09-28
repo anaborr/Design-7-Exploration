@@ -226,7 +226,7 @@ function parseDocumentDualRep(doc) {
           center: cageStats ? cageStats.center : new THREE.Vector3()
         });
 
-        // Build display mesh representation for SubD geometry
+        // Convert SubD into renderable THREE.Mesh geometry
         buildFallbackDisplayMesh(geom, subDLabel);
       }
 
@@ -372,20 +372,27 @@ function parseRhinoMeshObject(meshGeom, label) {
 function buildFallbackDisplayMesh(subdGeom, label) {
   try {
     let meshGeom = null;
-    if (rhino.Mesh.createFromSubDControlNet) {
-      meshGeom = rhino.Mesh.createFromSubDControlNet(subdGeom, false);
+    if (typeof subdGeom.toMesh === 'function') {
+      try { meshGeom = subdGeom.toMesh(); } catch (e) {}
     }
-    if (!meshGeom) return;
+    if (!meshGeom && rhino.Mesh && typeof rhino.Mesh.createFromSubD === 'function') {
+      try { meshGeom = rhino.Mesh.createFromSubD(subdGeom); } catch (e) {}
+    }
+    if (!meshGeom && rhino.Mesh && typeof rhino.Mesh.createFromSubDControlNet === 'function') {
+      try { meshGeom = rhino.Mesh.createFromSubDControlNet(subdGeom, false); } catch (e) {}
+    }
+    const target = meshGeom || (subdGeom.vertices && subdGeom.faces ? subdGeom : null);
+    if (!target) return;
 
-    const stats = parseRhinoMeshObject(meshGeom, `${label} (ControlNet Mesh)`);
+    const stats = parseRhinoMeshObject(target, `${label} (Render Mesh)`);
     if (stats) {
       fidelityData.meshList.push({
-        id: `${label} (ControlNet Mesh)`,
-        guid: 'AUTO_CAGE_MESH',
-        layer: 'Generated',
+        id: `${label} (Render Mesh)`,
+        guid: 'AUTO_SUBD_MESH',
+        layer: 'SubD Geometry',
         verts: stats.verts,
         faces: stats.faces,
-        source: 'Fallback Control-Net Mesh (Export Mesh from Rhino for Smooth Display)',
+        source: 'SubD Renderable Mesh',
         center: stats.center
       });
     }
