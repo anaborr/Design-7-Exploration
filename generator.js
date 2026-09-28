@@ -360,17 +360,6 @@ function updateDnaUIAndViewport() {
   const bdgV = document.getElementById('badge-dna-v'); if (bdgV) bdgV.textContent = getQualitativeStateLabel('POSITIVE_NEGATIVE', v);
   const bdgG = document.getElementById('badge-dna-g'); if (bdgG) bdgG.textContent = getQualitativeStateLabel('GROWTH', g);
 
-  // Toggle Advanced Branch Controls Panel visibility
-  const branchPanel = document.getElementById('advanced-branch-panel');
-  if (branchPanel) {
-    if (b > 0) {
-      branchPanel.classList.remove('hidden');
-      if (window.syncAdvancedBranchUI) window.syncAdvancedBranchUI();
-    } else {
-      branchPanel.classList.add('hidden');
-    }
-  }
-
   // Update Form DNA Vector Readout
   const codeEl = document.getElementById('readout-form-dna');
   if (codeEl) {
@@ -384,9 +373,18 @@ function updateDnaUIAndViewport() {
   const secEl = document.getElementById('readout-secondary-principle');
   if (secEl) secEl.textContent = domSec.secondary;
 
+  // Toggle Advanced Branching Panel visibility (Branching > 0%)
+  const branchPanel = document.getElementById('advanced-branch-controls');
+  if (branchPanel) {
+    branchPanel.style.display = (b > 0) ? 'block' : 'none';
+  }
+
   // Render transformed geometry in Three.js main viewport
   if (window.renderIterationGeometry) {
     window.renderIterationGeometry(dna);
+  }
+  if (window.updateBranchGizmos) {
+    window.updateBranchGizmos();
   }
 
   // Read actual empirical engine stats
