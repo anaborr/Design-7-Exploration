@@ -186,6 +186,7 @@ function initRhino3dm() {
   if (window.rhino3dm) {
     window.rhino3dm().then((loadedRhino) => {
       rhino = loadedRhino;
+      window.rhino = loadedRhino;
       console.log('[RHINO3DM] WebAssembly ready!');
     }).catch(err => {
       console.error('[RHINO3DM ERROR] Failed to initialize rhino3dm:', err);
@@ -204,6 +205,7 @@ function setupUIEventListeners() {
       if (file) {
         loadRhinoFile(file);
       }
+      e.target.value = '';
     });
   }
 
@@ -228,6 +230,16 @@ function setupUIEventListeners() {
   const btnReset = document.getElementById('btn-reset-transform');
   if (btnReset) {
     btnReset.addEventListener('click', resetTransformations);
+  }
+
+  // Restore Original Rhino Geometry Buttons
+  const btnRestoreHeader = document.getElementById('btn-restore-original');
+  if (btnRestoreHeader) {
+    btnRestoreHeader.addEventListener('click', restoreOriginalImportedGeometry);
+  }
+  const btnRestoreSidebar = document.getElementById('btn-sidebar-restore-original');
+  if (btnRestoreSidebar) {
+    btnRestoreSidebar.addEventListener('click', restoreOriginalImportedGeometry);
   }
 
   // DOMAIN B0: Principle Weights Sliders
@@ -372,7 +384,7 @@ function createSampleRhinoSeed() {
   }
 
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions.slice(), 3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
 
@@ -381,9 +393,14 @@ function createSampleRhinoSeed() {
   meshGroup.add(mesh);
 
   originalMeshes.push({
+    mesh: mesh,
     threeMesh: mesh,
-    originalPositions: positions.slice()
+    originalPositions: new Float32Array(positions)
   });
+
+  window.originalMeshes = originalMeshes;
+  window.originalCurves = originalCurves;
+  window.originalCages = originalCages;
 
   computeModelBounds();
 
@@ -487,6 +504,167 @@ function resetTransformations() {
 }
 
 /**
+ * RESTORE ORIGINAL IMPORTED RHINO GEOMETRY
+ * Restores all SubD meshes, curves, and cages back to exact un-deformed Rhino geometry.
+ */
+function restoreOriginalImportedGeometry() {
+  console.log('[RESTORE] Restoring original imported Rhino geometry and SubD meshes...');
+
+  // Set visual comparison mode to SEED
+  activeVisualCompMode = 'SEED';
+
+  // 1. Reset manual sliders in UI and state
+  ['slider-whiplash', 'slider-taper', 'slider-expand', 'slider-void'].forEach(id => {
+    const s = document.getElementById(id);
+    if (s) s.value = 0;
+  });
+  ['val-whiplash', 'val-taper', 'val-expand', 'val-void'].forEach(id => {
+    const r = document.getElementById(id);
+    if (r) r.textContent = '0%';
+  });
+  transformParams.whiplash = 0;
+  transformParams.taper = 0;
+  transformParams.expand = 0;
+  transformParams.carveVoid = 0;
+
+  // 2. Reset Domain B DNA state in generator.js if available
+  if (window.domainState) {
+    window.domainState.dna = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+    window.domainState.activeRefinementProposal = null;
+    window.domainState.selectedParentId = 'RHINO-SEED';
+    window.domainState.selectedParentGenome = null;
+    window.domainState.visualComparisonMode = 'SEED';
+  }
+
+  // 3. Reset 6 Art Nouveau DNA slider elements in DOM
+  ['slider-dna-c', 'slider-dna-b', 'slider-dna-w', 'slider-dna-m', 'slider-dna-v', 'slider-dna-g'].forEach(id => {
+    const sEl = document.getElementById(id);
+    if (sEl) sEl.value = 0;
+  });
+
+  // Reset secondary branch controls if present
+  const branchCountEl = document.getElementById('slider-branch-count'); if (branchCountEl) branchCountEl.value = 2;
+  const branchPosEl = document.getElementById('slider-branch-pos'); if (branchPosEl) branchPosEl.value = 50;
+  const branchHAngleEl = document.getElementById('slider-branch-h-angle'); if (branchHAngleEl) branchHAngleEl.value = 0;
+  const branchVAngleEl = document.getElementById('slider-branch-v-angle'); if (branchVAngleEl) branchVAngleEl.value = 0;
+  const branchLenEl = document.getElementById('slider-branch-length'); if (branchLenEl) branchLenEl.value = 100;
+  const branchWidthEl = document.getElementById('slider-branch-width'); if (branchWidthEl) branchWidthEl.value = 100;
+
+  // 4. Force Groups & Layers to be Visible
+  if (meshGroup) meshGroup.visible = true;
+  if (curveGroup) curveGroup.visible = true;
+  if (cageGroup) cageGroup.visible = true;
+
+  const btnMesh = document.getElementById('btn-toggle-mesh'); if (btnMesh) btnMesh.classList.add('active');
+  const btnCage = document.getElementById('btn-toggle-cage'); if (btnCage) btnCage.classList.add('active');
+  const btnCurves = document.getElementById('btn-toggle-curves'); if (btnCurves) btnCurves.classList.add('active');
+
+  // 5. Restore ALL SubD and standard meshes to exact un-deformed positions
+  originalMeshes.forEach(item => {
+    const targetMesh = item.mesh || item.threeMesh;
+    if (!targetMesh || !targetMesh.geometry || !item.originalPositions) return;
+
+    targetMesh.visible = true;
+    const attr = targetMesh.geometry.attributes.position;
+    if (attr) {
+      for (let i = 0; i < item.originalPositions.length; i++) {
+        attr.array[i] = item.originalPositions[i];
+      }
+      attr.needsUpdate = true;
+      targetMesh.geometry.computeVertexNormals();
+      targetMesh.geometry.computeBoundingBox();
+      targetMesh.geometry.computeBoundingSphere();
+    }
+    if (targetMesh.material) {
+      targetMesh.material.wireframe = false;
+      targetMesh.material.needsUpdate = true;
+    }
+  });
+
+  // 6. Restore curves
+  originalCurves.forEach(item => {
+    const targetLine = item.line || item.threeCurve;
+    if (!targetLine || !targetLine.geometry || !item.originalPositions) return;
+
+    targetLine.visible = true;
+    const attr = targetLine.geometry.attributes.position;
+    if (attr) {
+      for (let i = 0; i < item.originalPositions.length; i++) {
+        attr.array[i] = item.originalPositions[i];
+      }
+      attr.needsUpdate = true;
+    }
+  });
+
+  // 7. Restore SubD cages
+  originalCages.forEach(item => {
+    if (item.cageLines && item.cageLines.geometry && item.originalLinePositions) {
+      item.cageLines.visible = true;
+      const lineAttr = item.cageLines.geometry.attributes.position;
+      if (lineAttr) {
+        for (let i = 0; i < item.originalLinePositions.length; i++) {
+          lineAttr.array[i] = item.originalLinePositions[i];
+        }
+        lineAttr.needsUpdate = true;
+      }
+    }
+    if (item.cagePoints && item.cagePoints.geometry && item.originalPtPositions) {
+      item.cagePoints.visible = true;
+      const ptAttr = item.cagePoints.geometry.attributes.position;
+      if (ptAttr) {
+        for (let i = 0; i < item.originalPtPositions.length; i++) {
+          ptAttr.array[i] = item.originalPtPositions[i];
+        }
+        ptAttr.needsUpdate = true;
+      }
+    }
+  });
+
+  // 8. Update DNA UI and stats
+  if (window.updateDnaUIAndViewport) {
+    window.updateDnaUIAndViewport();
+  }
+
+  // 9. Hide Refinement Banner & Designer Changes Panel & Active Iter Badge
+  const refBanner = document.getElementById('designer-refinement-banner');
+  if (refBanner) refBanner.style.display = 'none';
+
+  const changesPanel = document.getElementById('designer-changes-panel');
+  if (changesPanel) changesPanel.style.display = 'none';
+
+  const activeBadge = document.getElementById('selected-iter-readout');
+  if (activeBadge) activeBadge.style.display = 'none';
+
+  // Deselect iteration cards and lineage nodes in gallery
+  document.querySelectorAll('.pop-iter-card').forEach(c => c.classList.remove('selected'));
+  document.querySelectorAll('.lineage-node').forEach(n => n.classList.remove('active'));
+
+  // 10. Update Viewport Header Overlay Title
+  const vpTag = document.getElementById('vp-gen-tag');
+  if (vpTag) vpTag.textContent = 'GENERATION 0: ORIGINAL RHINO SEED';
+
+  // 11. Sync visual comparison mode buttons
+  const bSeed = document.getElementById('btn-comp-seed');
+  const btns = document.querySelectorAll('#btn-comp-seed, #btn-comp-parent, #btn-comp-iter, #btn-comp-overlay');
+  btns.forEach(b => b.classList.remove('active'));
+  if (bSeed) bSeed.classList.add('active');
+
+  // 12. Re-compute bounds and re-fit camera
+  computeModelBounds();
+  fitCamera();
+
+  // 13. Synchronize global window references
+  window.originalMeshes = originalMeshes;
+  window.originalCurves = originalCurves;
+  window.originalCages = originalCages;
+
+  console.log(`[RESTORE SUCCESS] Successfully restored ${originalMeshes.length} SubD/standard meshes to original Rhino geometry.`);
+}
+
+window.restoreOriginalImportedGeometry = restoreOriginalImportedGeometry;
+window.revertToOriginalRhinoSeed = restoreOriginalImportedGeometry;
+
+/**
  * 4. LOAD & PARSE RHINO .3DM FILE
  */
 function loadRhinoFile(file) {
@@ -500,6 +678,10 @@ function loadRhinoFile(file) {
   originalCurves = [];
   originalCages = [];
   subdObjectsInMemory = [];
+
+  window.originalMeshes = originalMeshes;
+  window.originalCurves = originalCurves;
+  window.originalCages = originalCages;
 
   const reader = new FileReader();
   reader.onload = (evt) => {
@@ -520,6 +702,20 @@ function loadRhinoFile(file) {
   reader.readAsArrayBuffer(file);
 }
 
+window.loadRhinoFile = loadRhinoFile;
+window.loadRhinoFromUrl = async function(url = 'compressed.3dm') {
+  try {
+    console.log(`[URL LOADER] Fetching ${url}...`);
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const blob = await resp.blob();
+    blob.name = url.split('/').pop() || 'compressed.3dm';
+    loadRhinoFile(blob);
+  } catch (e) {
+    console.error('[URL LOADER ERROR]', e);
+  }
+};
+
 /**
  * 5. PARSE RHINO OBJECTS
  */
@@ -532,6 +728,33 @@ function parseRhinoObjects(doc, filename) {
 
   for (let i = 0; i < objects.count; i++) {
     const obj = objects.get(i);
+
+    try {
+      const attrs = obj.attributes();
+      if (attrs) {
+        if (attrs.visible === false || attrs.visible === 0) {
+          console.log(`[IMPORTER] Skipping hidden object (index ${i})`);
+          continue;
+        }
+        if (attrs.mode && attrs.mode.value === 1) {
+          console.log(`[IMPORTER] Skipping object with hidden mode (index ${i})`);
+          continue;
+        }
+        if (attrs.layerIndex >= 0) {
+          const layers = doc.layers();
+          if (layers && attrs.layerIndex < layers.count) {
+            const layer = layers.get(attrs.layerIndex);
+            if (layer && (layer.visible === false || layer.visible === 0)) {
+              console.log(`[IMPORTER] Skipping object on hidden layer (index ${i})`);
+              continue;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[IMPORTER] Error checking object visibility:', e);
+    }
+
     const geom = obj.geometry();
     if (!geom) continue;
 
@@ -597,10 +820,24 @@ function parseRhinoObjects(doc, filename) {
     window.selectSeedParent();
   }
 
-  document.getElementById('info-filename').textContent = filename;
-  document.getElementById('info-meshes').textContent = meshCount + successfulSubDs;
-  document.getElementById('info-subds').textContent = subdCount;
-  document.getElementById('info-curves').textContent = curveCount;
+  const elFilename = document.getElementById('info-filename');
+  if (elFilename) elFilename.textContent = filename;
+  const elMeshes = document.getElementById('info-meshes');
+  if (elMeshes) elMeshes.textContent = meshCount + successfulSubDs;
+  const elSubds = document.getElementById('info-subds');
+  if (elSubds) elSubds.textContent = subdCount;
+  const elRendered = document.getElementById('info-rendered');
+  if (elRendered) elRendered.textContent = meshCount + successfulSubDs;
+  const elCurves = document.getElementById('info-curves');
+  if (elCurves) elCurves.textContent = curveCount;
+
+  activeVisualCompMode = 'ITERATION';
+  window.activeVisualCompMode = 'ITERATION';
+  if (window.domainState) window.domainState.visualComparisonMode = 'ITERATION';
+
+  window.originalMeshes = originalMeshes;
+  window.originalCurves = originalCurves;
+  window.originalCages = originalCages;
 
   fitCamera();
 }
@@ -647,7 +884,7 @@ function buildThreeMesh(meshGeom) {
   if (indices.length === 0) return;
 
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions.slice(), 3));
   geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
   geometry.computeVertexNormals();
 
@@ -665,7 +902,7 @@ function buildThreeMesh(meshGeom) {
   mesh.receiveShadow = true;
   meshGroup.add(mesh);
 
-  originalMeshes.push({ mesh, originalPositions: positions });
+  originalMeshes.push({ mesh, threeMesh: mesh, originalPositions: new Float32Array(positions) });
 }
 
 function buildThreeCurve(curveGeom) {
@@ -748,26 +985,48 @@ function getValidFaceCount(meshObj) {
 
 function convertSubDToPolygonMesh(subdGeom) {
   if (!subdGeom) return { mesh: null, method: 'NONE' };
+  const r = window.rhino || rhino;
   let mesh = null;
   let method = 'NONE';
 
-  // 1. Try rhino.Mesh.createFromSubD(subdGeom) - smooth limit surface polygon mesh
-  try {
-    if (window.rhino && window.rhino.Mesh && typeof window.rhino.Mesh.createFromSubD === 'function') {
-      const candidate = window.rhino.Mesh.createFromSubD(subdGeom);
-      if (candidate && getValidVertexCount(candidate) > 0 && getValidFaceCount(candidate) > 0) {
-        mesh = candidate;
-        method = 'rhino.Mesh.createFromSubD';
+  // 1. High-Fidelity Smooth Subdivision Limit Surface
+  // Subdivide SubD by level 2 Catmull-Clark and extract smooth polygon mesh
+  for (let level of [2, 1]) {
+    try {
+      if (typeof subdGeom.duplicate === 'function' && r && r.Mesh && typeof r.Mesh.createFromSubDControlNet === 'function') {
+        const sub = subdGeom.duplicate();
+        if (typeof sub.subdivide === 'function') {
+          sub.subdivide(level);
+        }
+        const candidate = r.Mesh.createFromSubDControlNet(sub, false);
+        if (candidate && getValidVertexCount(candidate) > 0 && getValidFaceCount(candidate) > 0) {
+          mesh = candidate;
+          method = `SubD.subdivide(${level}) -> Mesh.createFromSubDControlNet`;
+          break;
+        }
       }
-    }
-  } catch (e) {}
+    } catch (e) {}
+  }
 
-  // 1b. Try rhino.Mesh.createFromSubD with density arguments (0 to 4)
+  // 2. Direct createFromSubDControlNet (level 0)
+  if (!mesh) {
+    try {
+      if (r && r.Mesh && typeof r.Mesh.createFromSubDControlNet === 'function') {
+        const candidate = r.Mesh.createFromSubDControlNet(subdGeom, false);
+        if (candidate && getValidVertexCount(candidate) > 0 && getValidFaceCount(candidate) > 0) {
+          mesh = candidate;
+          method = 'rhino.Mesh.createFromSubDControlNet';
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 3. Optional createFromSubD with density arguments if supported
   if (!mesh) {
     for (let d = 0; d <= 4; d++) {
       try {
-        if (window.rhino && window.rhino.Mesh && typeof window.rhino.Mesh.createFromSubD === 'function') {
-          const candidate = window.rhino.Mesh.createFromSubD(subdGeom, d);
+        if (r && r.Mesh && typeof r.Mesh.createFromSubD === 'function') {
+          const candidate = r.Mesh.createFromSubD(subdGeom, d);
           if (candidate && getValidVertexCount(candidate) > 0 && getValidFaceCount(candidate) > 0) {
             mesh = candidate;
             method = `rhino.Mesh.createFromSubD(density=${d})`;
@@ -778,68 +1037,7 @@ function convertSubDToPolygonMesh(subdGeom) {
     }
   }
 
-  // 2. Try subdGeom.toMesh()
-  if (!mesh) {
-    try {
-      if (typeof subdGeom.toMesh === 'function') {
-        const candidate = subdGeom.toMesh();
-        if (candidate && getValidVertexCount(candidate) > 0 && getValidFaceCount(candidate) > 0) {
-          mesh = candidate;
-          method = 'subdGeom.toMesh';
-        }
-      }
-    } catch (e) {}
-  }
-
-  // 2b. Try subdGeom.toMesh(density)
-  if (!mesh) {
-    for (let d = 0; d <= 4; d++) {
-      try {
-        if (typeof subdGeom.toMesh === 'function') {
-          const candidate = subdGeom.toMesh(d);
-          if (candidate && getValidVertexCount(candidate) > 0 && getValidFaceCount(candidate) > 0) {
-            mesh = candidate;
-            method = `subdGeom.toMesh(density=${d})`;
-            break;
-          }
-        }
-      } catch (e) {}
-    }
-  }
-
-  // 3. Try subdGeom.toBrep() -> Brep to Mesh
-  if (!mesh) {
-    try {
-      if (typeof subdGeom.toBrep === 'function' && window.rhino && window.rhino.Mesh && typeof window.rhino.Mesh.createFromBrep === 'function') {
-        const brep = subdGeom.toBrep();
-        if (brep) {
-          const meshes = window.rhino.Mesh.createFromBrep(brep);
-          if (meshes && (meshes.count > 0 || (typeof meshes.length === 'number' && meshes.length > 0))) {
-            const candidate = typeof meshes.get === 'function' ? meshes.get(0) : meshes[0];
-            if (candidate && getValidVertexCount(candidate) > 0 && getValidFaceCount(candidate) > 0) {
-              mesh = candidate;
-              method = 'subdGeom.toBrep -> Mesh.createFromBrep';
-            }
-          }
-        }
-      }
-    } catch (e) {}
-  }
-
-  // 4. Fallback to rhino.Mesh.createFromSubDControlNet(subdGeom) if polygon surface conversion fails
-  if (!mesh) {
-    try {
-      if (window.rhino && window.rhino.Mesh && typeof window.rhino.Mesh.createFromSubDControlNet === 'function') {
-        const candidate = window.rhino.Mesh.createFromSubDControlNet(subdGeom);
-        if (candidate && getValidVertexCount(candidate) > 0 && getValidFaceCount(candidate) > 0) {
-          mesh = candidate;
-          method = 'rhino.Mesh.createFromSubDControlNet';
-        }
-      }
-    } catch (e) {}
-  }
-
-  // 5. Direct SubD geometry fallback if it already exposes vertices and faces
+  // 4. Direct SubD geometry fallback if it already exposes vertices and faces
   if (!mesh && subdGeom.vertices && subdGeom.faces && getValidVertexCount(subdGeom) > 0 && getValidFaceCount(subdGeom) > 0) {
     mesh = subdGeom;
     method = 'Direct SubD Geometry';
@@ -921,7 +1119,7 @@ function processAndRenderSubDMesh(subdGeom, subdIndex) {
   }
 
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions.slice(), 3));
   geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
   geometry.computeVertexNormals();
   geometry.computeBoundingBox();
@@ -945,7 +1143,7 @@ function processAndRenderSubDMesh(subdGeom, subdIndex) {
   mesh.visible = true;
 
   meshGroup.add(mesh);
-  originalMeshes.push({ mesh, originalPositions: positions });
+  originalMeshes.push({ mesh, threeMesh: mesh, originalPositions: new Float32Array(positions) });
 
   const msg = `SubD ${subdIndex} | vertices: ${vertCount} | faces: ${faceCount} | triangles: ${triFaceCount} | THREE.Mesh added: YES`;
   console.log(msg);
@@ -963,9 +1161,10 @@ function processAndRenderSubDMesh(subdGeom, subdIndex) {
 
 function buildSubDCageOverlay(subdGeom) {
   try {
+    const r = window.rhino || rhino;
     let cageMesh = null;
-    if (window.rhino && window.rhino.Mesh && window.rhino.Mesh.createFromSubDControlNet) {
-      cageMesh = window.rhino.Mesh.createFromSubDControlNet(subdGeom, false);
+    if (r && r.Mesh && r.Mesh.createFromSubDControlNet) {
+      cageMesh = r.Mesh.createFromSubDControlNet(subdGeom, false);
     }
     if (!cageMesh && subdGeom.vertices) cageMesh = subdGeom;
 
@@ -1173,10 +1372,18 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
     // 2. ORGANIC ART NOUVEAU BRANCHING (B)
     // Continuous spatial bifurcation along natural botanical parabolic tendril curves
     if (activeB > 0.05) {
-      const nodeStartU = Math.max(0.10, 0.38 - activeB * 0.25); // Smooth node start height
-      const maxBranchReach = activeB * 0.75 * domSpan;
-      const numForks = activeB >= 0.55 ? 3 : 2; // 2-way or 3-way bifurcation
-      const forkAngle = (25 + activeB * 70) * (Math.PI / 180); // Smooth 25 deg to 95 deg flare
+      const bSettings = (window.domainState && window.domainState.branchSettings) || {};
+      const customForks = bSettings.count ? parseInt(bSettings.count) : null;
+      const numForks = customForks || (activeB >= 0.55 ? 3 : 2);
+      const customNodeU = (bSettings.pos !== undefined) ? (bSettings.pos / 100) : null;
+      const nodeStartU = customNodeU !== null ? Math.min(0.85, Math.max(0.05, customNodeU)) : Math.max(0.10, 0.38 - activeB * 0.25);
+      const lenMult = (bSettings.length !== undefined) ? (bSettings.length / 100) : 1.0;
+      const widthMult = (bSettings.width !== undefined) ? (bSettings.width / 100) : 1.0;
+      const hAngleRad = (bSettings.hAngle !== undefined) ? (bSettings.hAngle * Math.PI / 180) : 0;
+      const vAngleRad = (bSettings.vAngle !== undefined) ? (bSettings.vAngle * Math.PI / 180) : 0;
+
+      const maxBranchReach = activeB * 0.75 * domSpan * lenMult;
+      const forkAngle = ((25 + activeB * 70) * (Math.PI / 180)) * widthMult;
 
       for (let i = 0; i < temp.length; i += 3) {
         let x = temp[i], y = temp[i+1], z = temp[i+2];
@@ -1184,7 +1391,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
         let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
 
         if (u > nodeStartU) {
-          let tBranch = (u - nodeStartU) / (1 - nodeStartU);
+          let tBranch = (u - nodeStartU) / Math.max(0.001, (1 - nodeStartU));
           // C1/C2 continuous organic botanical growth envelope (smooth S-curve launch)
           let smoothLaunch = 0.5 * (1 - Math.cos(Math.PI * tBranch));
           let growthEnvelope = Math.pow(smoothLaunch, 1.35) * (1.0 + 0.30 * Math.sin(Math.PI * tBranch));
@@ -1204,9 +1411,9 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
           // Sinuous Art Nouveau organic wave along branch path
           let sinuousWave = 0.25 * Math.sin(2 * Math.PI * tBranch);
 
-          let branchDx = dispMagnitude * Math.cos(spatialAngle + spreadAngle * 0.6 + sinuousWave);
-          let branchDz = dispMagnitude * Math.sin(spatialAngle + spreadAngle * 0.6 + sinuousWave);
-          let branchDy = dispMagnitude * 0.35 * tBranch; // Organic upward botanical reach
+          let branchDx = dispMagnitude * Math.cos(spatialAngle + spreadAngle * 0.6 + sinuousWave + hAngleRad);
+          let branchDz = dispMagnitude * Math.sin(spatialAngle + spreadAngle * 0.6 + sinuousWave + hAngleRad);
+          let branchDy = dispMagnitude * (0.35 + 0.35 * Math.sin(vAngleRad)) * tBranch; // Organic upward botanical reach
 
           temp[i] += branchDx;
           temp[i+2] += branchDz;
@@ -1502,19 +1709,31 @@ function measureGeometryMetrics(defPositions, origPositions, bounds) {
 }
 
 let activeVisualCompMode = 'ITERATION';
+window.activeVisualCompMode = activeVisualCompMode;
 
 function switchVisualComparisonMode(mode) {
   activeVisualCompMode = mode;
+  window.activeVisualCompMode = mode;
+  if (window.domainState) window.domainState.visualComparisonMode = mode;
 
-  const btns = document.querySelectorAll('.btn-vp-pill[onclick*="switchVisualComparisonMode"]');
+  const btns = document.querySelectorAll('#btn-comp-seed, #btn-comp-parent, #btn-comp-iter, #btn-comp-overlay, .btn-vp-pill[onclick*="switchVisualComparisonMode"]');
   btns.forEach(b => {
     b.classList.remove('active');
-    if (b.getAttribute('onclick').includes(mode)) b.classList.add('active');
+    const clk = b.getAttribute('onclick') || '';
+    const id = b.id || '';
+    if (clk.includes(`'${mode}'`) || clk.includes(`"${mode}"`) || id.toLowerCase().includes(mode.toLowerCase())) {
+      b.classList.add('active');
+    }
   });
 
-  if (window.domainState && window.domainState.dna) {
-    renderIterationGeometry(window.domainState.dna);
+  let targetDna = (window.domainState && window.domainState.dna) ? window.domainState.dna : [0, 0, 0, 0, 0, 0];
+  if (mode === 'SEED') {
+    targetDna = [0, 0, 0, 0, 0, 0];
+  } else if (mode === 'PARENT') {
+    targetDna = (window.domainState && window.domainState.selectedParentGenome) ? window.domainState.selectedParentGenome.dna : [0, 0, 0, 0, 0, 0];
   }
+
+  renderIterationGeometry(targetDna, mode);
 }
 
 window.switchVisualComparisonMode = switchVisualComparisonMode;
@@ -1522,9 +1741,26 @@ window.switchVisualComparisonMode = switchVisualComparisonMode;
 /**
  * RENDER RECIPE / DNA DEFORMATION IN MAIN VIEWPORT
  */
-function renderIterationGeometry(recipeOrDna) {
-  const compMode = activeVisualCompMode;
+function renderIterationGeometry(recipeOrDna, explicitMode) {
+  let compMode = explicitMode || activeVisualCompMode;
   const isSeedDna = !recipeOrDna || (Array.isArray(recipeOrDna) && recipeOrDna.every(v => v === 0));
+
+  // If user passes a non-zero DNA vector (tweaking sliders or running generation),
+  // but comparison mode was locked to SEED, automatically switch to ITERATION mode so tweaks take effect!
+  if (!isSeedDna && (compMode === 'SEED' || !explicitMode)) {
+    compMode = 'ITERATION';
+    activeVisualCompMode = 'ITERATION';
+    window.activeVisualCompMode = 'ITERATION';
+    if (window.domainState) window.domainState.visualComparisonMode = 'ITERATION';
+
+    const bSeed = document.getElementById('btn-comp-seed');
+    const bIter = document.getElementById('btn-comp-iter');
+    if (bSeed) bSeed.classList.remove('active');
+    if (bIter) bIter.classList.add('active');
+
+    const vpTag = document.getElementById('vp-gen-tag');
+    if (vpTag) vpTag.textContent = 'INTERACTIVE LIVE TWEAK';
+  }
 
   // Ensure render groups are visible
   if (meshGroup) meshGroup.visible = true;
@@ -1533,9 +1769,10 @@ function renderIterationGeometry(recipeOrDna) {
 
   // Deform or Restore SubD / Standard Meshes
   originalMeshes.forEach(item => {
-    if (!item.mesh || !item.mesh.geometry || !item.originalPositions) return;
+    const targetMesh = item.mesh || item.threeMesh;
+    if (!targetMesh || !targetMesh.geometry || !item.originalPositions) return;
 
-    const attr = item.mesh.geometry.attributes.position;
+    const attr = targetMesh.geometry.attributes.position;
     let defPos;
 
     if (compMode === 'SEED' || isSeedDna) {
@@ -1548,24 +1785,31 @@ function renderIterationGeometry(recipeOrDna) {
       attr.array[i] = defPos[i];
     }
     attr.needsUpdate = true;
-    item.mesh.geometry.computeVertexNormals();
-    item.mesh.geometry.computeBoundingBox();
-    item.mesh.geometry.computeBoundingSphere();
-    item.mesh.visible = true;
+    targetMesh.geometry.computeVertexNormals();
+    targetMesh.geometry.computeBoundingBox();
+    targetMesh.geometry.computeBoundingSphere();
+    targetMesh.visible = true;
 
     // Adjust visual style for overlay comparison mode
     if (compMode === 'OVERLAY') {
-      if (item.mesh.material) item.mesh.material.wireframe = true;
+      if (targetMesh.material) {
+        targetMesh.material.wireframe = true;
+        targetMesh.material.needsUpdate = true;
+      }
     } else {
-      if (item.mesh.material) item.mesh.material.wireframe = false;
+      if (targetMesh.material) {
+        targetMesh.material.wireframe = false;
+        targetMesh.material.needsUpdate = true;
+      }
     }
   });
 
   // Deform or Restore Curves
   originalCurves.forEach(item => {
-    if (!item.line || !item.line.geometry || !item.originalPositions) return;
+    const targetLine = item.line || item.threeCurve;
+    if (!targetLine || !targetLine.geometry || !item.originalPositions) return;
 
-    const attr = item.line.geometry.attributes.position;
+    const attr = targetLine.geometry.attributes.position;
     let defPos;
 
     if (compMode === 'SEED' || isSeedDna) {
@@ -1578,7 +1822,7 @@ function renderIterationGeometry(recipeOrDna) {
       attr.array[i] = defPos[i];
     }
     attr.needsUpdate = true;
-    item.line.visible = true;
+    targetLine.visible = true;
   });
 
   // Deform or Restore SubD Cages

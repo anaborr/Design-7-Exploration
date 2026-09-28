@@ -1406,6 +1406,12 @@ window.resetToAutoProposal = resetToAutoProposal;
 function revertToOriginalRhinoSeed() {
   console.log('[REVERT] Reverting workspace to original imported Rhino 3D geometry...');
 
+  // Delegate directly to the master restoreOriginalImportedGeometry function in app.js if present
+  if (typeof window.restoreOriginalImportedGeometry === 'function' && window.restoreOriginalImportedGeometry !== revertToOriginalRhinoSeed) {
+    window.restoreOriginalImportedGeometry();
+    return;
+  }
+
   // 1. Reset domain state
   domainState.dna = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
   domainState.activeRefinementProposal = null;
@@ -1438,21 +1444,22 @@ function revertToOriginalRhinoSeed() {
   // 5. Explicitly restore original un-deformed vertex positions on ALL SubD meshes
   if (window.originalMeshes && Array.isArray(window.originalMeshes)) {
     window.originalMeshes.forEach(item => {
-      if (item.mesh && item.mesh.geometry && item.originalPositions) {
-        item.mesh.visible = true;
-        const attr = item.mesh.geometry.attributes.position;
+      const targetMesh = item.mesh || item.threeMesh;
+      if (targetMesh && targetMesh.geometry && item.originalPositions) {
+        targetMesh.visible = true;
+        const attr = targetMesh.geometry.attributes.position;
         if (attr) {
           for (let i = 0; i < item.originalPositions.length; i++) {
             attr.array[i] = item.originalPositions[i];
           }
           attr.needsUpdate = true;
-          item.mesh.geometry.computeVertexNormals();
-          item.mesh.geometry.computeBoundingBox();
-          item.mesh.geometry.computeBoundingSphere();
+          targetMesh.geometry.computeVertexNormals();
+          targetMesh.geometry.computeBoundingBox();
+          targetMesh.geometry.computeBoundingSphere();
         }
-        if (item.mesh.material) {
-          item.mesh.material.wireframe = false;
-          item.mesh.material.needsUpdate = true;
+        if (targetMesh.material) {
+          targetMesh.material.wireframe = false;
+          targetMesh.material.needsUpdate = true;
         }
       }
     });
@@ -1685,9 +1692,86 @@ function setupDnaSliderListeners() {
     if (slider) {
       slider.addEventListener('input', (e) => {
         domainState.dna[item.index] = parseInt(e.target.value) / 100.0;
+        
+        // Auto-switch comparison mode to ITERATION so tweaks immediately deform viewport
+        if (typeof window.switchVisualComparisonMode === 'function') {
+          window.switchVisualComparisonMode('ITERATION');
+        } else {
+          window.activeVisualCompMode = 'ITERATION';
+          domainState.visualComparisonMode = 'ITERATION';
+        }
+        const bSeed = document.getElementById('btn-comp-seed');
+        const bIter = document.getElementById('btn-comp-iter');
+        if (bSeed) bSeed.classList.remove('active');
+        if (bIter) bIter.classList.add('active');
+
+        const vpTag = document.getElementById('vp-gen-tag');
+        if (vpTag) vpTag.textContent = 'INTERACTIVE LIVE TWEAK';
+
         updateDnaUIAndViewport();
       });
     }
+  });
+
+  // Advanced branch sliders
+  const branchMap = [
+    { id: 'slider-branch-count', key: 'count', readId: 'val-branch-count', unit: '' },
+    { id: 'slider-branch-pos', key: 'pos', readId: 'val-branch-pos', unit: '%' },
+    { id: 'slider-branch-h-angle', key: 'hAngle', readId: 'val-branch-h-angle', unit: '°' },
+    { id: 'slider-branch-v-angle', key: 'vAngle', readId: 'val-branch-v-angle', unit: '°' },
+    { id: 'slider-branch-length', key: 'length', readId: 'val-branch-length', unit: '%' },
+    { id: 'slider-branch-width', key: 'width', readId: 'val-branch-width', unit: '%' }
+  ];
+
+  if (!domainState.branchSettings) {
+    domainState.branchSettings = { count: 2, pos: 50, hAngle: 0, vAngle: 0, length: 100, width: 100 };
+  }
+
+  branchMap.forEach(bm => {
+    const el = document.getElementById(bm.id);
+    const readEl = document.getElementById(bm.readId);
+    if (el) {
+      el.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        if (readEl) readEl.textContent = `${val}${bm.unit}`;
+        domainState.branchSettings[bm.key] = val;
+
+        // If branching DNA slider is 0, nudge it so user immediately sees branch adjustments
+        if (domainState.dna[1] < 0.25) {
+          domainState.dna[1] = 0.45;
+          const bSlider = document.getElementById('slider-dna-b');
+          if (bSlider) bSlider.value = 45;
+        }
+
+        if (typeof window.switchVisualComparisonMode === 'function') {
+          window.switchVisualComparisonMode('ITERATION');
+        } else {
+          window.activeVisualCompMode = 'ITERATION';
+          domainState.visualComparisonMode = 'ITERATION';
+        }
+        const bSeed = document.getElementById('btn-comp-seed');
+        const bIter = document.getElementById('btn-comp-iter');
+        if (bSeed) bSeed.classList.remove('active');
+        if (bIter) bIter.classList.add('active');
+
+        const vpTag = document.getElementById('vp-gen-tag');
+        if (vpTag) vpTag.textContent = 'INTERACTIVE LIVE TWEAK';
+
+        updateDnaUIAndViewport();
+      });
+    }
+  });
+
+  // Branch picker buttons
+  const pickBtns = document.querySelectorAll('.btn-branch-pick');
+  pickBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      pickBtns.forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      const bIdx = e.target.getAttribute('data-branch') || '0';
+      const tag = document.getElementById('branch-selected-tag');
+      if (tag) tag.textContent = `Branch ${parseInt(bIdx) + 1} Selected`;
+    });
   });
 
   const threshSlider = document.getElementById('slider-seed-identity-threshold');
@@ -2074,9 +2158,9 @@ function renderDesignReasoningPanel(iter) {
   panel.style.display = 'flex';
 
   const domSec = getDominantAndSecondary(iter.dna);
-  document.getElementById('rs-principle').textContent = `DOMINANT: ${domSec.dominant} | SECONDARY: ${domSec.secondary}`;
-  document.getElementById('rs-intent').textContent = `"Hierarchical Art Nouveau transformation derived directly from Rhino seed geometry."`;
-  document.getElementById('rs-identity-score').textContent = `${iter.seedSimilarity}%`;
+  const elPrinc = document.getElementById('rs-principle'); if (elPrinc) elPrinc.textContent = `DOMINANT: ${domSec.dominant} | SECONDARY: ${domSec.secondary}`;
+  const elIntent = document.getElementById('rs-intent'); if (elIntent) elIntent.textContent = `"Hierarchical Art Nouveau transformation derived directly from Rhino seed geometry."`;
+  const elIdScore = document.getElementById('rs-identity-score'); if (elIdScore) elIdScore.textContent = `${iter.seedSimilarity}%`;
   
   const parentSimEl = document.getElementById('rs-parent-sim-score');
   if (parentSimEl) parentSimEl.textContent = `${iter.parentSimilarity}%`;
@@ -2437,20 +2521,20 @@ function openLibraryDetail(iterId) {
 
   modal.style.display = 'flex';
 
-  document.getElementById('det-title').textContent = `SAVED ITERATION: ${iter.id} (GEN ${iter.generation})`;
-  document.getElementById('det-principle').textContent = `DOMINANT: ${iter.dominantPrinciple}`;
-  document.getElementById('det-intent').textContent = `"Hierarchical Art Nouveau Shape Grammar transformation."`;
-  document.getElementById('det-seed-id').textContent = `${iter.seedSimilarity}%`;
-  document.getElementById('det-parent-sim').textContent = `${iter.parentSimilarity || 100}%`;
-  document.getElementById('det-target-region').textContent = `Studied Variable: ${iter.studyVariable} = ${iter.studyValuePct}%`;
+  const elTitle = document.getElementById('det-title'); if (elTitle) elTitle.textContent = `SAVED ITERATION: ${iter.id} (GEN ${iter.generation})`;
+  const elPrinc = document.getElementById('det-principle'); if (elPrinc) elPrinc.textContent = `DOMINANT: ${iter.dominantPrinciple}`;
+  const elIntent = document.getElementById('det-intent'); if (elIntent) elIntent.textContent = `"Hierarchical Art Nouveau Shape Grammar transformation."`;
+  const elSeedId = document.getElementById('det-seed-id'); if (elSeedId) elSeedId.textContent = `${iter.seedSimilarity}%`;
+  const elParentSim = document.getElementById('det-parent-sim'); if (elParentSim) elParentSim.textContent = `${iter.parentSimilarity || 100}%`;
+  const elTarget = document.getElementById('det-target-region'); if (elTarget) elTarget.textContent = `Studied Variable: ${iter.studyVariable} = ${iter.studyValuePct}%`;
 
-  document.getElementById('det-recipe-seq').textContent = `CONTINUITY → BRANCHING → WHIPLASH → MERGING → POS/NEG → GROWTH`;
+  const elRecipe = document.getElementById('det-recipe-seq'); if (elRecipe) elRecipe.textContent = `CONTINUITY → BRANCHING → WHIPLASH → MERGING → POS/NEG → GROWTH`;
 
   const m = iter.measuredOutput || {};
-  document.getElementById('det-measured-out').textContent = `Height: ${m.heightChangePct > 0 ? '+' : ''}${m.heightChangePct || 0}% | Width: ${m.widthChangePct > 0 ? '+' : ''}${m.widthChangePct || 0}% | Verticality: ${m.verticality || 0} | Asymmetry: ${m.asymmetry || 0}%`;
+  const elMeasured = document.getElementById('det-measured-out'); if (elMeasured) elMeasured.textContent = `Height: ${m.heightChangePct > 0 ? '+' : ''}${m.heightChangePct || 0}% | Width: ${m.widthChangePct > 0 ? '+' : ''}${m.widthChangePct || 0}% | Verticality: ${m.verticality || 0} | Asymmetry: ${m.asymmetry || 0}%`;
 
-  document.getElementById('det-why-text').textContent = iter.whyText;
-  document.getElementById('det-lineage-path').textContent = `Rhino Seed → Parent: ${iter.parentId} → ${iter.id}`;
+  const elWhy = document.getElementById('det-why-text'); if (elWhy) elWhy.textContent = iter.whyText;
+  const elLineage = document.getElementById('det-lineage-path'); if (elLineage) elLineage.textContent = `Rhino Seed → Parent: ${iter.parentId} → ${iter.id}`;
 
   const btnUse = document.getElementById('det-btn-use-parent');
   if (btnUse) btnUse.onclick = () => { useAsParent(iter.id); modal.style.display = 'none'; };
@@ -2769,5 +2853,7 @@ window.toggleFavoriteLibrary = toggleFavoriteLibrary;
 window.deleteIterationFromDB = deleteIterationFromDB;
 window.updateDnaUIAndViewport = updateDnaUIAndViewport;
 window.revertToOriginalRhinoSeed = revertToOriginalRhinoSeed;
-window.restoreOriginalImportedGeometry = revertToOriginalRhinoSeed;
+if (!window.restoreOriginalImportedGeometry) {
+  window.restoreOriginalImportedGeometry = revertToOriginalRhinoSeed;
+}
 

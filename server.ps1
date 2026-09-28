@@ -31,14 +31,22 @@ try {
                 }
                 $bytes = [System.IO.File]::ReadAllBytes($filePath)
                 $response.ContentType = $mime
-                $response.ContentLength64 = $bytes.Length
-                $response.OutputStream.Write($bytes, 0, $bytes.Length)
+                if ($request.HttpMethod -eq "HEAD") {
+                    $response.ContentLength64 = 0
+                } else {
+                    $response.ContentLength64 = $bytes.Length
+                    $response.OutputStream.Write($bytes, 0, $bytes.Length)
+                }
                 $response.OutputStream.Close()
             } else {
                 $response.StatusCode = 404
                 $errBytes = [System.Text.Encoding]::UTF8.GetBytes("Not Found")
-                $response.ContentLength64 = $errBytes.Length
-                $response.OutputStream.Write($errBytes, 0, $errBytes.Length)
+                if ($request.HttpMethod -eq "HEAD") {
+                    $response.ContentLength64 = 0
+                } else {
+                    $response.ContentLength64 = $errBytes.Length
+                    $response.OutputStream.Write($errBytes, 0, $errBytes.Length)
+                }
                 $response.OutputStream.Close()
             }
         } catch {
