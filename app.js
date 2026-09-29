@@ -1662,6 +1662,34 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
       }
     }
 
+    // COMPUTE SMOOTH SUB-D NORMALS MANUALLY
+    // ThreeJS computeVertexNormals produces flat shading for unindexed geometry.
+    // By merging coincident vertex normals manually, we ensure smooth organic SubD shading.
+    let weldedPositions = [];
+    let vertMap = new Map();
+    let currentIdx = 0;
+    let indices = [];
+
+    for (let i = 0; i < fullMesh.length; i += 3) {
+      let x = fullMesh[i];
+      let y = fullMesh[i+1];
+      let z = fullMesh[i+2];
+      let key = Math.round(x*1000) + '_' + Math.round(y*1000) + '_' + Math.round(z*1000);
+      
+      if (vertMap.has(key)) {
+        indices.push(vertMap.get(key));
+      } else {
+        vertMap.set(key, currentIdx);
+        indices.push(currentIdx);
+        weldedPositions.push(x, y, z);
+        currentIdx++;
+      }
+    }
+
+    // Attach indices to global so updateLiveGeometry can use it!
+    window._lastComputedIndices = new Uint32Array(indices);
+    window._lastComputedWeldedPositions = new Float32Array(weldedPositions);
+
     return fullMesh;
   }
 
@@ -1917,18 +1945,38 @@ function renderIterationGeometry(recipeOrDna, explicitMode) {
 
     if (defPos.length !== attr.array.length) {
       const newGeom = new THREE.BufferGeometry();
-      newGeom.setAttribute('position', new THREE.Float32BufferAttribute(defPos, 3));
+      
+      // Apply manually computed welded SubD topology to achieve smooth, connected shading
+      if (window._lastComputedWeldedPositions && window._lastComputedIndices && window._lastComputedIndices.length > 0) {
+        newGeom.setAttribute('position', new THREE.BufferAttribute(window._lastComputedWeldedPositions, 3));
+        newGeom.setIndex(new THREE.BufferAttribute(window._lastComputedIndices, 1));
+      } else {
+        newGeom.setAttribute('position', new THREE.Float32BufferAttribute(defPos, 3));
+      }
+      
       newGeom.computeVertexNormals();
       newGeom.computeBoundingBox();
       newGeom.computeBoundingSphere();
       targetMesh.geometry.dispose();
       targetMesh.geometry = newGeom;
     } else {
-      for (let i = 0; i < defPos.length; i++) {
-        attr.array[i] = defPos[i];
+      if (window._lastComputedWeldedPositions && window._lastComputedIndices && window._lastComputedIndices.length > 0) {
+        targetMesh.geometry.dispose();
+        const newGeom = new THREE.BufferGeometry();
+        newGeom.setAttribute('position', new THREE.BufferAttribute(window._lastComputedWeldedPositions, 3));
+        newGeom.setIndex(new THREE.BufferAttribute(window._lastComputedIndices, 1));
+        newGeom.computeVertexNormals();
+        targetMesh.geometry = newGeom;
+      } else {
+        for (let i = 0; i < defPos.length; i++) {
+          attr.array[i] = defPos[i];
+        }
+        attr.needsUpdate = true;
+        if (targetMesh.geometry.index) {
+          targetMesh.geometry.index.needsUpdate = true;
+        }
+        targetMesh.geometry.computeVertexNormals();
       }
-      attr.needsUpdate = true;
-      targetMesh.geometry.computeVertexNormals();
       targetMesh.geometry.computeBoundingBox();
       targetMesh.geometry.computeBoundingSphere();
     }
