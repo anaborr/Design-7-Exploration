@@ -1480,7 +1480,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     // 2. BRANCHING - Controls offshoot COUNT
     if (B > 0.05 && isMesh) {
       const bSettings = (window.domainState && window.domainState.branchSettings) || {};
-      const numForks = Math.floor(1 + activeB * 8); 
+      const numForks = Math.floor(4 + activeB * 28); 
       const lenMult = (bSettings.length !== undefined) ? (bSettings.length / 100) : 1.0;
       const widthMult = (bSettings.width !== undefined) ? (bSettings.width / 100) : 1.0;
       
@@ -1491,7 +1491,8 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
       let numTriangles = Math.floor(temp.length / 9);
       for (let f = 0; f < numForks; f++) {
          if (numTriangles <= 0) break;
-         let triIndex = Math.floor(Math.abs(Math.sin(f * 13.37) * 43758.5453123) % numTriangles);
+         let goldenRatio = 0.61803398875;
+         let triIndex = Math.floor((((f + 0.314159) * goldenRatio) % 1) * numTriangles);
          let i = triIndex * 9;
 
          let cx = (temp[i] + temp[i+3] + temp[i+6]) / 3;
@@ -1543,7 +1544,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     // 6. GROWTH - Controls extension LENGTH
     if (G > 0.05 && isMesh) {
       const gSettings = (window.domainState && window.domainState.growthSettings) || {};
-      const numOrigins = gSettings.count ? parseInt(gSettings.count) : 4;
+      const numOrigins = Math.floor(4 + activeG * 18);
       const numSegments = Math.floor(12 + activeG * 8); 
       const growthReach = Math.max(0.1, activeG) * 0.6 * domSpan; 
       const growthBaseRadius = domSpan * 0.02; 
@@ -1551,7 +1552,8 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
       let numTriangles = Math.floor(temp.length / 9);
       for (let g = 0; g < numOrigins; g++) {
          if (numTriangles <= 0) break;
-         let triIndex = Math.floor(Math.abs(Math.sin(g * 99.123) * 43758.5453123) % numTriangles);
+         let goldenRatio = 0.61803398875;
+         let triIndex = Math.floor((((g + 0.785398) * goldenRatio) % 1) * numTriangles);
          let i = triIndex * 9;
 
          let cx = (temp[i] + temp[i+3] + temp[i+6]) / 3;
