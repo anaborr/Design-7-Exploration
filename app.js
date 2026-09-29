@@ -1546,40 +1546,44 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
             let k = getKey(x, y, z);
             let n = vNormals.get(k) || {x:0, y:0, z:0};
             
-            // 2. BRANCHING (B) - ARCHITECTURAL DIVISION
+            // 2. BRANCHING (B) - NODE BUNDLING & INTERNAL SPACES
             if (activeB > 0.05) {
-                // Determine macro spatial regions for branching
-                let branchField = noise3D(x*freqB, y*freqB, z*freqB);
+                // Determine organic node centers by warping space
+                let warpX = noise3D(x*freqB, y*freqB, z*freqB) * 1.5;
+                let warpY = noise3D(x*freqB + 100, y*freqB + 100, z*freqB + 100) * 1.5;
+                let warpZ = noise3D(x*freqB + 200, y*freqB + 200, z*freqB + 200) * 1.5;
                 
-                // If this region splits off to become a new architectural element
-                if (branchField > 0.4) {
-                    let intensity = Math.pow((branchField - 0.4) / 0.6, 2.0); // Smooth easing
-                    let pull = intensity * activeB;
+                let nx = x * freqB * 2.0 + warpX;
+                let ny = y * freqB * 2.0 + warpY;
+                let nz = z * freqB * 2.0 + warpZ;
+                
+                let dx = Math.sin(nx);
+                let dy = Math.sin(ny);
+                let dz = Math.sin(nz);
+                
+                let distToNode = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                
+                // Define the radius of the internal spaces based on branching intensity
+                let voidRadius = 1.1 * activeB; 
+                
+                if (distToNode < voidRadius) {
+                    // Push vertices outward from the node center to create empty spaces
+                    let pushFactor = Math.pow((voidRadius - distToNode) / voidRadius, 1.2) * (domSpan * 0.25) * activeB;
                     
-                    // Decide what type of element this branch becomes
-                    let archType = noise3D(x*freqB + 100, y*freqB, z*freqB);
+                    let dirLen = distToNode + 0.0001;
+                    let dirX = dx / dirLen;
+                    let dirY = dy / dirLen;
+                    let dirZ = dz / dirLen;
                     
-                    if (archType > 0.6) {
-                        // CEILING/WALL -> STRUCTURAL SUPPORT (Pull straight down to floor)
-                        let targetY = bounds.min.y;
-                        temp[i+1] += (targetY - temp[i+1]) * pull;
-                        // Thicken the support slightly at the base
-                        temp[i] += n.x * pull * domSpan * 0.05;
-                        temp[i+2] += n.z * pull * domSpan * 0.05;
-                    } else if (archType > 0.4) {
-                        // WALL -> PARTITION / SPATIAL DIVISION (Pull horizontally along normal)
-                        let pullDist = domSpan * 0.35 * pull;
-                        temp[i] += n.x * pullDist;
-                        temp[i+2] += n.z * pullDist;
-                    } else {
-                        // CIRCULATION BOUNDARY -> NEW WALL (Pull strongly along dominant axis)
-                        let pullDist = domSpan * 0.35 * pull;
-                        if (Math.abs(n.x) > Math.abs(n.z)) {
-                            temp[i] += Math.sign(n.x) * pullDist;
-                        } else {
-                            temp[i+2] += Math.sign(n.z) * pullDist;
-                        }
-                    }
+                    // Calculate a tangent vector to create the 'bundling' swirl effect around the nodes
+                    let tanX = dirY - dirZ;
+                    let tanY = dirZ - dirX;
+                    let tanZ = dirX - dirY;
+                    
+                    // Apply outward push (void creation) and tangent swirl (bundling)
+                    temp[i] += (dirX + tanX * 1.2) * pushFactor;
+                    temp[i+1] += (dirY + tanY * 1.2) * pushFactor;
+                    temp[i+2] += (dirZ + tanZ * 1.2) * pushFactor;
                 }
             }
             
