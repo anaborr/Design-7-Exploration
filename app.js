@@ -1371,7 +1371,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
     }
 
     // 2. ORGANIC ART NOUVEAU BRANCHING (B) - CREATE NEW GEOMETRY
-    if (activeB > 0.05) {
+    if (B > 0.05) {
       const bSettings = (window.domainState && window.domainState.branchSettings) || {};
       const customForks = bSettings.count ? parseInt(bSettings.count) : null;
       const numForks = customForks || (activeB >= 0.55 ? 3 : 2);
@@ -1388,6 +1388,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
 
       for (let f = 0; f < numForks; f++) {
         let spreadAngle = (f - (numForks - 1) / 2.0) * forkAngle;
+        let trianglesFound = 0;
         
         for (let i = 0; i < temp.length; i += 9) {
           if (i + 8 >= temp.length) break;
@@ -1399,14 +1400,15 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
           let domVal = (domAxis === 'X') ? cx : ((domAxis === 'Z') ? cz : cy);
           let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
           
-          if (u > nodeStartU && u < nodeStartU + 0.08) {
+          if (u > nodeStartU - 0.15 && u < nodeStartU + 0.15) {
             let dx = cx - centerX;
             let dz = cz - centerZ;
             let spatialAngle = Math.atan2(dz, dx);
             let angleDiff = Math.abs(spatialAngle - ((f * Math.PI * 2 / numForks) - Math.PI));
             if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
             
-            if (angleDiff < 0.25) { 
+            if (angleDiff < 0.8 && trianglesFound < 4) { 
+              trianglesFound++;
               let prevVerts = [
                 {x: temp[i], y: temp[i+1], z: temp[i+2]},
                 {x: temp[i+3], y: temp[i+4], z: temp[i+5]},
@@ -1518,13 +1520,14 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
     }
 
     // 6. GROWTH / AGGREGATION (G) - CREATE NEW EXTENSIONS
-    if (activeG > 0.05) {
+    if (G > 0.05) {
       const numOrigins = 3;
       const numSegments = Math.floor(3 + activeG * 8); 
-      const growthReach = activeG * 0.8 * domSpan;
+      const growthReach = Math.max(0.1, activeG) * 0.8 * domSpan;
 
       for (let g = 0; g < numOrigins; g++) {
         let targetU = 0.2 + (g / numOrigins) * 0.6; 
+        let trianglesFound = 0;
         
         for (let i = 0; i < temp.length; i += 9) {
           if (i + 8 >= temp.length) break;
@@ -1535,13 +1538,14 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
           let domVal = (domAxis === 'X') ? cx : ((domAxis === 'Z') ? cz : cy);
           let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
           
-          if (u > targetU && u < targetU + 0.05) {
+          if (u > targetU - 0.15 && u < targetU + 0.15) {
             let dx = cx - centerX; let dz = cz - centerZ;
             let spatialAngle = Math.atan2(dz, dx);
             let angleDiff = Math.abs(spatialAngle - (g * Math.PI * 2 / numOrigins));
             if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
             
-            if (angleDiff < 0.2) { 
+            if (angleDiff < 0.8 && trianglesFound < 4) { 
+              trianglesFound++;
               let prevVerts = [
                 {x: temp[i], y: temp[i+1], z: temp[i+2]},
                 {x: temp[i+3], y: temp[i+4], z: temp[i+5]},
@@ -1847,10 +1851,14 @@ function renderIterationGeometry(recipeOrDna, explicitMode) {
       defPos = executeRecipeDeformation(item.originalPositions, recipeOrDna, modelBounds);
     }
 
-    for (let i = 0; i < defPos.length; i++) {
-      attr.array[i] = defPos[i];
+    if (defPos.length !== attr.array.length) {
+      targetMesh.geometry.setAttribute('position', new THREE.Float32BufferAttribute(defPos, 3));
+    } else {
+      for (let i = 0; i < defPos.length; i++) {
+        attr.array[i] = defPos[i];
+      }
+      attr.needsUpdate = true;
     }
-    attr.needsUpdate = true;
     targetMesh.geometry.computeVertexNormals();
     targetMesh.geometry.computeBoundingBox();
     targetMesh.geometry.computeBoundingSphere();
@@ -1884,10 +1892,14 @@ function renderIterationGeometry(recipeOrDna, explicitMode) {
       defPos = executeRecipeDeformation(item.originalPositions, recipeOrDna, modelBounds);
     }
 
-    for (let i = 0; i < defPos.length; i++) {
-      attr.array[i] = defPos[i];
+    if (defPos.length !== attr.array.length) {
+      targetLine.geometry.setAttribute('position', new THREE.Float32BufferAttribute(defPos, 3));
+    } else {
+      for (let i = 0; i < defPos.length; i++) {
+        attr.array[i] = defPos[i];
+      }
+      attr.needsUpdate = true;
     }
-    attr.needsUpdate = true;
     targetLine.visible = true;
   });
 
@@ -1896,20 +1908,28 @@ function renderIterationGeometry(recipeOrDna, explicitMode) {
     if (item.cageLines && item.cageLines.geometry && item.originalLinePositions) {
       const lineAttr = item.cageLines.geometry.attributes.position;
       let defLinePos = (compMode === 'SEED' || isSeedDna) ? item.originalLinePositions : executeRecipeDeformation(item.originalLinePositions, recipeOrDna, modelBounds);
-      for (let i = 0; i < defLinePos.length; i++) {
-        lineAttr.array[i] = defLinePos[i];
+      if (defLinePos.length !== lineAttr.array.length) {
+        item.cageLines.geometry.setAttribute('position', new THREE.Float32BufferAttribute(defLinePos, 3));
+      } else {
+        for (let i = 0; i < defLinePos.length; i++) {
+          lineAttr.array[i] = defLinePos[i];
+        }
+        lineAttr.needsUpdate = true;
       }
-      lineAttr.needsUpdate = true;
       item.cageLines.visible = true;
     }
 
     if (item.cagePoints && item.cagePoints.geometry && item.originalPtPositions) {
       const ptAttr = item.cagePoints.geometry.attributes.position;
       let defPtPos = (compMode === 'SEED' || isSeedDna) ? item.originalPtPositions : executeRecipeDeformation(item.originalPtPositions, recipeOrDna, modelBounds);
-      for (let i = 0; i < defPtPos.length; i++) {
-        ptAttr.array[i] = defPtPos[i];
+      if (defPtPos.length !== ptAttr.array.length) {
+        item.cagePoints.geometry.setAttribute('position', new THREE.Float32BufferAttribute(defPtPos, 3));
+      } else {
+        for (let i = 0; i < defPtPos.length; i++) {
+          ptAttr.array[i] = defPtPos[i];
+        }
+        ptAttr.needsUpdate = true;
       }
-      ptAttr.needsUpdate = true;
       item.cagePoints.visible = true;
     }
   });
