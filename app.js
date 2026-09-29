@@ -1538,11 +1538,11 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
         }
 
         let original = new Float32Array(temp);
-        let freqB = (5 + activeB * 25) / domSpan; 
-        let ampB = activeB * 0.05 * domSpan;
+        let freqB = (3 + activeB * 15) / domSpan; 
+        let ampB = activeB * 0.35 * domSpan;
         
-        let freqG = (2 + activeG * 10) / domSpan;
-        let ampG = activeG * 0.12 * domSpan;
+        let freqG = (1 + activeG * 6) / domSpan;
+        let ampG = activeG * 0.55 * domSpan;
         
         for (let i = 0; i < temp.length; i += 3) {
             let x = original[i], y = original[i+1], z = original[i+2];
@@ -1552,18 +1552,18 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
             let dispB = 0;
             if (activeB > 0.05) {
                 let maskB = noise3D(x*freqB*0.1, y*freqB*0.1, z*freqB*0.1);
-                if (maskB > 0.3) {
+                if (maskB > 0.1) {
                     let rawB = ridgedNoise(x*freqB, y*freqB, z*freqB, 4);
-                    dispB = Math.pow(rawB, 2.0) * ampB * ((maskB - 0.3) / 0.7);
+                    dispB = Math.pow(rawB, 1.5) * ampB * ((maskB - 0.1) / 0.9);
                 }
             }
             
             let dispG = 0;
             if (activeG > 0.05) {
                 let maskG = noise3D(x*freqG*0.1 + 100, y*freqG*0.1, z*freqG*0.1);
-                if (maskG > 0.2) {
+                if (maskG > 0.05) {
                     let rawG = ridgedNoise(x*freqG, y*freqG, z*freqG, 3);
-                    dispG = Math.pow(rawG, 1.5) * ampG * ((maskG - 0.2) / 0.8);
+                    dispG = Math.pow(rawG, 1.2) * ampG * ((maskG - 0.05) / 0.95);
                 }
             }
             
