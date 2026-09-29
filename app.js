@@ -1352,8 +1352,10 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     let newVertices = [];
 
     function generateSmoothBranch(vertsArr, evalPath, baseRadius, numSegs) {
-      let sides = 8;
+      let sides = 16;
       let prevRing = [];
+      let lastDir = null, lastUp = null, lastRight = null;
+      
       for (let seg = 0; seg <= numSegs; seg++) {
         let t = seg / numSegs;
         let curCenter = evalPath(t);
@@ -1370,14 +1372,32 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
         let dLen = Math.sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
         if(dLen < 0.0001) dir = {x:0,y:1,z:0}; else {dir.x/=dLen; dir.y/=dLen; dir.z/=dLen;}
         
-        let up = Math.abs(dir.y) < 0.99 ? {x:0, y:1, z:0} : {x:1, y:0, z:0};
-        let right = { x: up.y*dir.z - up.z*dir.y, y: up.z*dir.x - up.x*dir.z, z: up.x*dir.y - up.y*dir.x };
-        let rLen = Math.sqrt(right.x*right.x + right.y*right.y + right.z*right.z);
-        if(rLen < 0.0001) { right = {x:1,y:0,z:0}; } else { right.x/=rLen; right.y/=rLen; right.z/=rLen; }
+        if (!lastDir) {
+          let up = Math.abs(dir.y) < 0.99 ? {x:0, y:1, z:0} : {x:1, y:0, z:0};
+          let right = { x: up.y*dir.z - up.z*dir.y, y: up.z*dir.x - up.x*dir.z, z: up.x*dir.y - up.y*dir.x };
+          let rLen = Math.sqrt(right.x*right.x + right.y*right.y + right.z*right.z);
+          if(rLen < 0.0001) { right = {x:1,y:0,z:0}; } else { right.x/=rLen; right.y/=rLen; right.z/=rLen; }
+          let up2 = { x: dir.y*right.z - dir.z*right.y, y: dir.z*right.x - dir.x*right.z, z: dir.x*right.y - dir.y*right.x };
+          lastDir = dir; lastUp = up2; lastRight = right;
+        } else {
+          let cross = { x: lastDir.y*dir.z - lastDir.z*dir.y, y: lastDir.z*dir.x - lastDir.x*dir.z, z: lastDir.x*dir.y - lastDir.y*dir.x };
+          let dot = lastDir.x*dir.x + lastDir.y*dir.y + lastDir.z*dir.z;
+          let cLen = Math.sqrt(cross.x*cross.x + cross.y*cross.y + cross.z*cross.z);
+          if (cLen > 0.0001) {
+            cross.x/=cLen; cross.y/=cLen; cross.z/=cLen;
+            let angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+            let C = Math.cos(angle), S = Math.sin(angle), t_mat = 1 - C;
+            let R = (v, k) => ({
+                 x: v.x*(C + k.x*k.x*t_mat) + v.y*(k.x*k.y*t_mat - k.z*S) + v.z*(k.x*k.z*t_mat + k.y*S),
+                 y: v.x*(k.y*k.x*t_mat + k.z*S) + v.y*(C + k.y*k.y*t_mat) + v.z*(k.y*k.z*t_mat - k.x*S),
+                 z: v.x*(k.z*k.x*t_mat - k.y*S) + v.y*(k.z*k.y*t_mat + k.x*S) + v.z*(C + k.z*k.z*t_mat)
+            });
+            lastRight = R(lastRight, cross);
+            lastUp = R(lastUp, cross);
+          }
+          lastDir = dir;
+        }
         
-        let up2 = { x: dir.y*right.z - dir.z*right.y, y: dir.z*right.x - dir.x*right.z, z: dir.x*right.y - dir.y*right.x };
-        
-        // Organic bulbous taper (power function) instead of linear stringy cone
         let radiusScale = Math.pow(1.0 - t, 0.65);
         let currentRadius = baseRadius * radiusScale; 
         if (seg === numSegs) currentRadius = 0; 
@@ -1387,12 +1407,12 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
         let currentRing = [];
         for (let s = 0; s < sides; s++) {
           let angle = (s / sides) * Math.PI * 2;
-          let cx = Math.cos(angle) * currentRadius;
-          let cy = Math.sin(angle) * currentRadius;
+          let rCos = Math.cos(angle) * currentRadius;
+          let rSin = Math.sin(angle) * currentRadius;
           currentRing.push({
-            x: curCenter.x + right.x * cx + up2.x * cy,
-            y: curCenter.y + right.y * cx + up2.y * cy,
-            z: curCenter.z + right.z * cx + up2.z * cy
+            x: curCenter.x + lastRight.x * rCos + lastUp.x * rSin,
+            y: curCenter.y + lastRight.y * rCos + lastUp.y * rSin,
+            z: curCenter.z + lastRight.z * rCos + lastUp.z * rSin
           });
         }
         
@@ -1475,22 +1495,29 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
               branchesSpawned++;
               
               let evalPath = (t) => {
-                // Smooth ease-in-out curve
                 let ease = t * t * (3 - 2 * t);
-                let dispMagnitude = ease * maxBranchReach * (0.5 + activeB);
+                let dispMagnitude = ease * maxBranchReach * (0.8 + activeB);
                 
-                // Add natural droop/S-curve vertically
-                let verticalWave = Math.sin(t * Math.PI) * maxBranchReach * 0.25;
+                let nx = cx, ny = cy, nz = cz;
                 
-                let branchDx = dispMagnitude * Math.cos(spatialAngle + spreadAngle + hAngleRad);
-                let branchDz = dispMagnitude * Math.sin(spatialAngle + spreadAngle + hAngleRad);
-                let branchDy = dispMagnitude * (0.2 + Math.sin(vAngleRad)) + verticalWave;
+                // Unified fluid sweep along primary axis (graceful arch downward)
+                if (domAxis === 'X') {
+                   let sweepDir = (cx > centerX) ? 1 : -1;
+                   nx += sweepDir * dispMagnitude;
+                   ny -= dispMagnitude * 0.45; // arch towards ground
+                   nz += (cz > centerZ ? 1 : -1) * dispMagnitude * 0.25; 
+                } else if (domAxis === 'Z') {
+                   let sweepDir = (cz > centerZ) ? 1 : -1; 
+                   nz += sweepDir * dispMagnitude;
+                   ny -= dispMagnitude * 0.45;
+                   nx += (cx > centerX ? 1 : -1) * dispMagnitude * 0.25;
+                } else {
+                   let sweepDir = (cy > centerY) ? 1 : -1;
+                   ny += sweepDir * dispMagnitude;
+                   nx += (cx > centerX ? 1 : -1) * dispMagnitude * 0.45;
+                   nz += (cz > centerZ ? 1 : -1) * dispMagnitude * 0.25;
+                }
                 
-                let nx = cx + branchDx;
-                let ny = cy + (domAxis === 'Y' ? branchDy : 0);
-                let nz = cz + branchDz;
-                if (domAxis === 'X') nx += branchDy;
-                if (domAxis === 'Z') nz += branchDy;
                 return { x: nx, y: ny, z: nz };
               };
               
@@ -1596,22 +1623,30 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
               
               let evalPath = (t) => {
                 let ease = t * t * (3 - 2 * t);
-                let dispMagnitude = ease * growthReach;
                 
-                // Art Nouveau Whiplash Curl: angle spirals outward
-                let curlAngle = spatialAngle + t * Math.PI * 1.5; 
+                // Art Nouveau Fern Curl: radius grows, angle spirals in parallel to axis
+                let curlRadius = ease * growthReach * 0.8;
+                let curlAngle = t * Math.PI * 1.5; // unfurl 270 degrees
                 
-                let spiralDx = dispMagnitude * Math.cos(curlAngle);
-                let spiralDz = dispMagnitude * Math.sin(curlAngle);
+                let nx = cx, ny = cy, nz = cz;
                 
-                // Organic wave height
-                let spiralDy = dispMagnitude * 0.4 + Math.sin(t * Math.PI * 1.2) * growthReach * 0.3;
+                if (domAxis === 'X') {
+                   let dir = (cx > centerX) ? 1 : -1;
+                   nx += dir * curlRadius * Math.sin(curlAngle);
+                   ny += curlRadius * Math.cos(curlAngle) - curlRadius; // start tangent
+                   nz += (cz > centerZ ? 1 : -1) * ease * growthReach * 0.25;
+                } else if (domAxis === 'Z') {
+                   let dir = (cz > centerZ) ? 1 : -1;
+                   nz += dir * curlRadius * Math.sin(curlAngle);
+                   ny += curlRadius * Math.cos(curlAngle) - curlRadius; 
+                   nx += (cx > centerX ? 1 : -1) * ease * growthReach * 0.25;
+                } else {
+                   let dir = (cy > centerY) ? 1 : -1;
+                   ny += dir * curlRadius * Math.sin(curlAngle);
+                   nx += curlRadius * Math.cos(curlAngle) - curlRadius;
+                   nz += (cz > centerZ ? 1 : -1) * ease * growthReach * 0.25;
+                }
                 
-                let nx = cx + spiralDx;
-                let ny = cy + (domAxis === 'Y' ? spiralDy : 0);
-                let nz = cz + spiralDz;
-                if (domAxis === 'X') nx += spiralDy;
-                if (domAxis === 'Z') nz += spiralDy;
                 return { x: nx, y: ny, z: nz };
               };
               
