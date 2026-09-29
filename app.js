@@ -1478,7 +1478,11 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
           nx = -nx; ny = -ny; nz = -nz;
        }
        
-       let tx = v1.x, ty = v1.y, tz = v1.z;
+       let len1 = e1.x*e1.x + e1.y*e1.y + e1.z*e1.z;
+       let len2 = e2.x*e2.x + e2.y*e2.y + e2.z*e2.z;
+       let tx, ty, tz;
+       if (len1 > len2) { tx = e1.x; ty = e1.y; tz = e1.z; }
+       else { tx = e2.x; ty = e2.y; tz = e2.z; }
        let tLen = Math.sqrt(tx*tx + ty*ty + tz*tz);
        if (tLen > 0.0001) { tx/=tLen; ty/=tLen; tz/=tLen; } else { tx=1; ty=0; tz=0; }
        
@@ -1520,7 +1524,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
         let P2 = { x: P0.x + dirX*length*0.7 + bx*spread*1.2, y: P0.y + dirY*length*0.7 + by*spread*1.2, z: P0.z + dirZ*length*0.7 + bz*spread*1.2 };
         let P3 = { x: P0.x + dirX*length + bx*spread*0.8, y: P0.y + dirY*length + by*spread*0.8, z: P0.z + dirZ*length + bz*spread*0.8 };
 
-        allSpineCurves.push({ P0, P1, P2, P3, rStart: radius, rEnd: radius * 0.7, normal });
+        allSpineCurves.push({ P0, P1, P2, P3, rStart: radius, rEnd: radius * 0.7, normal, isRoot: depth === 0 });
 
         let rotateDir = (d, angle) => {
             let C = Math.cos(angle), S = Math.sin(angle), n = normal, t_mat = 1 - C;
@@ -1592,6 +1596,39 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
          let dir = {x: tx, y: ty, z: tz};
          buildVine({x: cx, y: cy, z: cz}, dir, {nx, ny, nz}, growthReach, growthBaseRadius, 0, maxDepth, (g % 2 === 0) ? 1 : -1, true);
       }
+    }
+
+    // ROOT MELTING ALGORITHM: Swell the base mesh at the roots to swallow intersections seamlessly
+    if (allSpineCurves.length > 0) {
+        let rootCurves = allSpineCurves.filter(c => c.isRoot);
+        for (let i = 0; i < temp.length; i += 3) {
+            let vx = temp[i], vy = temp[i+1], vz = temp[i+2];
+            let maxPull = 0, pullX = 0, pullY = 0, pullZ = 0;
+            for (let curve of rootCurves) {
+                let dx = curve.P1.x - vx;
+                let dy = curve.P1.y - vy;
+                let dz = curve.P1.z - vz;
+                let distSq = dx*dx + dy*dy + dz*dz;
+                let rSq = (curve.rStart * 4.5) * (curve.rStart * 4.5); 
+                if (distSq < rSq) {
+                    let dist = Math.sqrt(distSq);
+                    let normalizedDist = dist / (curve.rStart * 4.5);
+                    let factor = Math.cos(normalizedDist * Math.PI / 2);
+                    let pull = factor * factor * curve.rStart * 2.5; 
+                    if (pull > maxPull) {
+                        maxPull = pull;
+                        pullX = curve.normal.nx * maxPull;
+                        pullY = curve.normal.ny * maxPull;
+                        pullZ = curve.normal.nz * maxPull;
+                    }
+                }
+            }
+            if (maxPull > 0) {
+                temp[i] += pullX;
+                temp[i+1] += pullY;
+                temp[i+2] += pullZ;
+            }
+        }
     }
 
     // Generate the vine geometry
