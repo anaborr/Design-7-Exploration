@@ -1378,12 +1378,6 @@ function generateProgramIteration() {
     narrative = "Continuous circulation acts as the primary whiplash element from which branching spaces and growth develop.";
   }
 
-  // Set advanced branch sliders to create rhythm / hierarchy
-  const bCount = document.getElementById('slider-branch-count');
-  if (bCount && (program === 'WORKSPACE' || program === 'CIRCULATION')) {
-    bCount.value = Math.floor(3 + Math.random() * 3); // 3 to 5
-    if (window.updateBranchControlsUI) window.updateBranchControlsUI();
-  }
 
   // Update UI values
   ['c','b','w','m','v'].forEach(k => {
@@ -1874,66 +1868,6 @@ function setupDnaSliderListeners() {
     }
   });
 
-  // Advanced branch sliders
-  const branchMap = [
-    { id: 'slider-branch-count', key: 'count', readId: 'val-branch-count', unit: '' },
-    { id: 'slider-branch-pos', key: 'pos', readId: 'val-branch-pos', unit: '%' },
-    { id: 'slider-branch-h-angle', key: 'hAngle', readId: 'val-branch-h-angle', unit: '°' },
-    { id: 'slider-branch-v-angle', key: 'vAngle', readId: 'val-branch-v-angle', unit: '°' },
-    { id: 'slider-branch-length', key: 'length', readId: 'val-branch-length', unit: '%' },
-    { id: 'slider-branch-width', key: 'width', readId: 'val-branch-width', unit: '%' }
-  ];
-
-  if (!domainState.branchSettings) {
-    domainState.branchSettings = { count: 2, pos: 50, hAngle: 0, vAngle: 0, length: 100, width: 100 };
-  }
-
-  branchMap.forEach(bm => {
-    const el = document.getElementById(bm.id);
-    const readEl = document.getElementById(bm.readId);
-    if (el) {
-      el.addEventListener('input', (e) => {
-        const val = parseFloat(e.target.value);
-        if (readEl) readEl.textContent = `${val}${bm.unit}`;
-        domainState.branchSettings[bm.key] = val;
-
-        // If branching DNA slider is 0, nudge it so user immediately sees branch adjustments
-        if (domainState.dna[1] < 0.25) {
-          domainState.dna[1] = 0.45;
-          const bSlider = document.getElementById('slider-dna-b');
-          if (bSlider) bSlider.value = 45;
-        }
-
-        if (typeof window.switchVisualComparisonMode === 'function') {
-          window.switchVisualComparisonMode('ITERATION');
-        } else {
-          window.activeVisualCompMode = 'ITERATION';
-          domainState.visualComparisonMode = 'ITERATION';
-        }
-        const bSeed = document.getElementById('btn-comp-seed');
-        const bIter = document.getElementById('btn-comp-iter');
-        if (bSeed) bSeed.classList.remove('active');
-        if (bIter) bIter.classList.add('active');
-
-        const vpTag = document.getElementById('vp-gen-tag');
-        if (vpTag) vpTag.textContent = 'INTERACTIVE LIVE TWEAK';
-
-        updateDnaUIAndViewport();
-      });
-    }
-  });
-
-  // Branch picker buttons
-  const pickBtns = document.querySelectorAll('.btn-branch-pick');
-  pickBtns.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      pickBtns.forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active');
-      const bIdx = e.target.getAttribute('data-branch') || '0';
-      const tag = document.getElementById('branch-selected-tag');
-      if (tag) tag.textContent = `Branch ${parseInt(bIdx) + 1} Selected`;
-    });
-  });
 
   const threshSlider = document.getElementById('slider-seed-identity-threshold');
   const threshVal = document.getElementById('val-seed-identity-threshold');

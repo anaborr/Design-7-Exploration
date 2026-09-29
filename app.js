@@ -543,13 +543,7 @@ function restoreOriginalImportedGeometry() {
     if (sEl) sEl.value = 0;
   });
 
-  // Reset secondary branch controls if present
-  const branchCountEl = document.getElementById('slider-branch-count'); if (branchCountEl) branchCountEl.value = 2;
-  const branchPosEl = document.getElementById('slider-branch-pos'); if (branchPosEl) branchPosEl.value = 50;
-  const branchHAngleEl = document.getElementById('slider-branch-h-angle'); if (branchHAngleEl) branchHAngleEl.value = 0;
-  const branchVAngleEl = document.getElementById('slider-branch-v-angle'); if (branchVAngleEl) branchVAngleEl.value = 0;
-  const branchLenEl = document.getElementById('slider-branch-length'); if (branchLenEl) branchLenEl.value = 100;
-  const branchWidthEl = document.getElementById('slider-branch-width'); if (branchWidthEl) branchWidthEl.value = 100;
+
 
   // 4. Force Groups & Layers to be Visible
   if (meshGroup) meshGroup.visible = true;
