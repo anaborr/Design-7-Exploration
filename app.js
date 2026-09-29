@@ -1492,7 +1492,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     // 2. BRANCHING - Controls offshoot COUNT
     if (B > 0.05 && isMesh) {
       const bSettings = (window.domainState && window.domainState.branchSettings) || {};
-      const numForks = Math.floor(4 + activeB * 28); 
+      const numForks = Math.floor(10 + activeB * 150); // Up to 160 intricate branches!
       const lenMult = (bSettings.length !== undefined) ? (bSettings.length / 100) : 1.0;
       const widthMult = (bSettings.width !== undefined) ? (bSettings.width / 100) : 1.0;
       
@@ -1512,17 +1512,21 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
           
          let {nx, ny, nz, tx, ty, tz} = getNormal(i, temp);
          
+         let isMajor = (f % 4 === 0);
+         let reach = isMajor ? branchLength * 1.5 : branchLength * (0.3 + 0.7 * ((f * 13) % 100) / 100);
+         let baseRad = isMajor ? branchBaseRadius * 2.0 : branchBaseRadius * 0.7;
+         let curlDir = (f % 2 === 0) ? 1 : -1;
+         let sCurve = (f % 3 === 0) ? -1 : 1; 
+
          let evalPath = (t) => {
-             let reach = branchLength;
              let P0 = {x: cx, y: cy, z: cz};
              let bx = ny * tz - nz * ty;
              let by = nz * tx - nx * tz;
              let bz = nx * ty - ny * tx;
-             let curlDir = (f % 2 === 0) ? 1 : -1;
-             let spread = reach * 0.5;
-             let P1 = { x: cx + tx * reach * 0.35, y: cy + ty * reach * 0.35, z: cz + tz * reach * 0.35 };
-             let P2 = { x: cx + tx * reach * 0.7 + bx * spread * curlDir * 0.6, y: cy + ty * reach * 0.7 + by * spread * curlDir * 0.6, z: cz + tz * reach * 0.7 + bz * spread * curlDir * 0.6 };
-             let P3 = { x: cx + tx * reach * 1.0 + bx * spread * curlDir, y: cy + ty * reach * 1.0 + by * spread * curlDir, z: cz + tz * reach * 1.0 + bz * spread * curlDir };
+             let spread = reach * 0.8;
+             let P1 = { x: cx + tx * reach * 0.3 + bx * spread * curlDir * 0.4, y: cy + ty * reach * 0.3 + by * spread * curlDir * 0.4, z: cz + tz * reach * 0.3 + bz * spread * curlDir * 0.4 };
+             let P2 = { x: cx + tx * reach * 0.7 + bx * spread * curlDir * 0.8 * sCurve, y: cy + ty * reach * 0.7 + by * spread * curlDir * 0.8 * sCurve, z: cz + tz * reach * 0.7 + bz * spread * curlDir * 0.8 * sCurve };
+             let P3 = { x: cx + tx * reach * 1.0 + bx * spread * curlDir * 1.5, y: cy + ty * reach * 1.0 + by * spread * curlDir * 1.5, z: cz + tz * reach * 1.0 + bz * spread * curlDir * 1.5 };
              
              let uT = 1 - t;
              let uT2 = uT * uT, uT3 = uT2 * uT, t2 = t * t, t3 = t2 * t;
@@ -1537,7 +1541,8 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
              let t = s/12;
              let pt = evalPath(t);
              let flare = (t < 0.15) ? 1.0 + 2.5 * Math.pow((0.15 - t)/0.15, 2) : 1.0;
-             let rad = branchBaseRadius * 2.5 * Math.cos(t * Math.PI / 2) * flare;
+             let taper = Math.pow(1 - t, 1.2); 
+             let rad = baseRad * 2.5 * taper * flare;
              allSpinePoints.push({x: pt.x, y: pt.y, z: pt.z, r: rad, nx: nx, ny: ny, nz: nz});
          }
       }
@@ -1546,7 +1551,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     // 6. GROWTH - Controls extension LENGTH
     if (G > 0.05 && isMesh) {
       const gSettings = (window.domainState && window.domainState.growthSettings) || {};
-      const numOrigins = Math.floor(4 + activeG * 18);
+      const numOrigins = Math.floor(10 + activeG * 100); // Up to 110 intertwining vines
       const growthReach = Math.max(0.1, activeG) * 0.6 * domSpan; 
       const growthBaseRadius = domSpan * 0.02; 
 
@@ -1563,8 +1568,13 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
           
          let {nx, ny, nz, tx, ty, tz} = getNormal(i, temp);
          
+         let isMajor = (g % 5 === 0);
+         let reach = isMajor ? growthReach * 1.5 : growthReach * (0.4 + 0.6 * ((g * 17) % 100) / 100);
+         let baseRad = isMajor ? growthBaseRadius * 2.0 : growthBaseRadius * 0.6;
+         let curlDir = (g % 3 === 0) ? 0 : (g % 2 === 0 ? 1 : -1);
+         let sCurve = (g % 4 === 0) ? -1 : 1; 
+
          let evalPath = (t) => {
-             let reach = growthReach;
              let P0 = {x: cx, y: cy, z: cz};
              let bx = ny * tz - nz * ty;
              let by = nz * tx - nx * tz;
@@ -1574,12 +1584,10 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
              if (isEnd && ty < 0) { tx = -tx; ty = -ty; tz = -tz; }
              if (!isEnd && ty > 0) { tx = -tx; ty = -ty; tz = -tz; }
              
-             let curlDir = (g % 3 === 0) ? 0 : (g % 2 === 0 ? 1 : -1);
-             let spread = reach * 0.3;
-             
-             let P1 = { x: cx + tx * reach * 0.4, y: cy + ty * reach * 0.4, z: cz + tz * reach * 0.4 };
-             let P2 = { x: cx + tx * reach * 0.8 + bx * spread * curlDir * 0.6, y: cy + ty * reach * 0.8 + by * spread * curlDir * 0.6, z: cz + tz * reach * 0.8 + bz * spread * curlDir * 0.6 };
-             let P3 = { x: cx + tx * reach * 1.1 + bx * spread * curlDir, y: cy + ty * reach * 1.1 + by * spread * curlDir, z: cz + tz * reach * 1.1 + bz * spread * curlDir };
+             let spread = reach * 0.5;
+             let P1 = { x: cx + tx * reach * 0.4 + bx * spread * curlDir * 0.2, y: cy + ty * reach * 0.4 + by * spread * curlDir * 0.2, z: cz + tz * reach * 0.4 + bz * spread * curlDir * 0.2 };
+             let P2 = { x: cx + tx * reach * 0.8 + bx * spread * curlDir * 0.8 * sCurve, y: cy + ty * reach * 0.8 + by * spread * curlDir * 0.8 * sCurve, z: cz + tz * reach * 0.8 + bz * spread * curlDir * 0.8 * sCurve };
+             let P3 = { x: cx + tx * reach * 1.1 + bx * spread * curlDir * 1.2, y: cy + ty * reach * 1.1 + by * spread * curlDir * 1.2, z: cz + tz * reach * 1.1 + bz * spread * curlDir * 1.2 };
              
              let uT = 1 - t;
              let uT2 = uT * uT, uT3 = uT2 * uT, t2 = t * t, t3 = t2 * t;
@@ -1593,7 +1601,8 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
          for(let s=0; s<=16; s++) {
              let t = s/16;
              let pt = evalPath(t);
-             let rad = growthBaseRadius * 2.5 * Math.cos(t * Math.PI / 2);
+             let taper = Math.pow(1 - t, 1.2);
+             let rad = baseRad * 2.5 * taper;
              allSpinePoints.push({x: pt.x, y: pt.y, z: pt.z, r: rad, nx: nx, ny: ny, nz: nz});
          }
       }
@@ -1608,10 +1617,13 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
                 let dx = vx - sp.x;
                 let dy = vy - sp.y;
                 let dz = vz - sp.z;
-                let dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                if (dist < sp.r) {
-                    let factor = Math.cos((dist / sp.r) * Math.PI / 2);
-                    let pull = factor * factor * sp.r * 1.5; 
+                let distSq = dx*dx + dy*dy + dz*dz;
+                let rSq = sp.r * sp.r;
+                if (distSq < rSq) {
+                    let dist = Math.sqrt(distSq);
+                    let normalizedDist = dist / sp.r;
+                    let factor = 1.0 - normalizedDist;
+                    let pull = factor * factor * sp.r * 2.5; 
                     totalPullX += sp.nx * pull;
                     totalPullY += sp.ny * pull;
                     totalPullZ += sp.nz * pull;
