@@ -1427,8 +1427,8 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
 
         for (let s = 0; s < sides; s++) {
           let angle = (s / sides) * Math.PI * 2;
-          let widenFactor = surfaceNormal ? 3.0 : 1.0;
-          let squashFactor = surfaceNormal ? 0.15 : 1.0;
+          let widenFactor = 1.0;
+          let squashFactor = 1.0;
           
           let rCos = Math.cos(angle) * currentRadius * widenFactor;
           let rSin = Math.sin(angle) * currentRadius * squashFactor;
@@ -1485,228 +1485,138 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
        return {nx, ny, nz, tx, ty, tz};
     }
 
-    let hasBranching = B > 0.05 && isMesh;
-    let hasGrowth = G > 0.05 && isMesh;
+    let allSpineCurves = [];
 
-    let newVertices = [];
-    let newIndices = [];
+    function buildVine(pt, initialDir, normal, length, radius, depth, maxDepth, curlDir, isVerticalLattice) {
+        if (depth > maxDepth || radius < 0.001 * domSpan) return;
+        
+        let dirX = initialDir.x, dirY = initialDir.y, dirZ = initialDir.z;
+        if (isVerticalLattice) {
+            let dotN = normal.ny; 
+            dirX = 0 - dotN * normal.nx;
+            dirY = 1 - dotN * normal.ny;
+            dirZ = 0 - dotN * normal.nz;
+        }
+        
+        let dotD = dirX*normal.nx + dirY*normal.ny + dirZ*normal.nz;
+        dirX -= dotD * normal.nx;
+        dirY -= dotD * normal.ny;
+        dirZ -= dotD * normal.nz;
+        
+        let dLen = Math.sqrt(dirX*dirX + dirY*dirY + dirZ*dirZ);
+        if (dLen > 0.001) { dirX/=dLen; dirY/=dLen; dirZ/=dLen; }
+        else { dirX = initialDir.x; dirY = initialDir.y; dirZ = initialDir.z; }
 
-    function generateSmoothBranch(vertsArr, indicesArr, baseVertOffset, pathPts, rStart, rEnd, sides) {
-        if (pathPts.length < 2) return;
-        
-        let ringIndices = [];
-        let numSegs = pathPts.length - 1;
-        let up = {x: 0, y: 1, z: 0};
-        
-        for (let seg = 0; seg <= numSegs; seg++) {
-            let t = seg / numSegs;
-            let currentRadius = rStart * (1 - t) + rEnd * t;
-            let pt = pathPts[seg];
-            
-            let dir;
-            if (seg < numSegs) {
-                let nextPt = pathPts[seg + 1];
-                dir = {x: nextPt.x - pt.x, y: nextPt.y - pt.y, z: nextPt.z - pt.z};
-            } else {
-                let prevPt = pathPts[seg - 1];
-                dir = {x: pt.x - prevPt.x, y: pt.y - prevPt.y, z: pt.z - prevPt.z};
-            }
-            
-            let len = Math.sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
-            if (len > 0) { dir.x/=len; dir.y/=len; dir.z/=len; } else { dir = {x:0, y:1, z:0}; }
-            
-            let right = {x: up.y*dir.z - up.z*dir.y, y: up.z*dir.x - up.x*dir.z, z: up.x*dir.y - up.y*dir.x};
-            let rLen = Math.sqrt(right.x*right.x + right.y*right.y + right.z*right.z);
-            if (rLen < 0.001) {
-                up = {x: 1, y: 0, z: 0};
-                right = {x: up.y*dir.z - up.z*dir.y, y: up.z*dir.x - up.x*dir.z, z: up.x*dir.y - up.y*dir.x};
-                rLen = Math.sqrt(right.x*right.x + right.y*right.y + right.z*right.z);
-            }
-            right.x/=rLen; right.y/=rLen; right.z/=rLen;
-            up = {x: dir.y*right.z - dir.z*right.y, y: dir.z*right.x - dir.x*right.z, z: dir.x*right.y - dir.y*right.x};
-            
-            let newRingIndices = [];
-            let ringStartIdx = baseVertOffset + vertsArr.length / 3;
-            
-            for (let s = 0; s < sides; s++) {
-                let angle = (s / sides) * Math.PI * 2;
-                let rCos = Math.cos(angle) * currentRadius;
-                let rSin = Math.sin(angle) * currentRadius * 0.7; // slight squash for flow
-                
-                vertsArr.push(pt.x + right.x*rCos + up.x*rSin, pt.y + right.y*rCos + up.y*rSin, pt.z + right.z*rCos + up.z*rSin);
-                newRingIndices.push(ringStartIdx + s);
-            }
-            
-            if (seg > 0) {
-                for (let s = 0; s < sides; s++) {
-                    let sNext = (s + 1) % sides;
-                    indicesArr.push(ringIndices[s], newRingIndices[s], newRingIndices[sNext], ringIndices[s], newRingIndices[sNext], ringIndices[sNext]);
-                }
-            } else if (seg === 0) {
-                // Cap the start
-                let capIdx = baseVertOffset + vertsArr.length / 3;
-                vertsArr.push(pt.x, pt.y, pt.z);
-                for (let s = 0; s < sides; s++) {
-                    indicesArr.push(capIdx, newRingIndices[s], newRingIndices[(s + 1) % sides]);
-                }
-            }
-            
-            if (seg === numSegs) {
-                // Cap the end
-                let capIdx = baseVertOffset + vertsArr.length / 3;
-                vertsArr.push(pt.x, pt.y, pt.z);
-                for (let s = 0; s < sides; s++) {
-                    indicesArr.push(capIdx, newRingIndices[(s + 1) % sides], newRingIndices[s]);
-                }
-            }
-            
-            ringIndices = newRingIndices;
+        let hugFactor = 0.2;
+        dirX -= normal.nx * hugFactor;
+        dirY -= normal.ny * hugFactor;
+        dirZ -= normal.nz * hugFactor;
+        let nLen = Math.sqrt(dirX*dirX + dirY*dirY + dirZ*dirZ);
+        if (nLen > 0) { dirX/=nLen; dirY/=nLen; dirZ/=nLen; }
+
+        let bx = normal.ny * dirZ - normal.nz * dirY;
+        let by = normal.nz * dirX - normal.nx * dirZ;
+        let bz = normal.nx * dirY - normal.ny * dirX;
+
+        let spread = length * 0.4 * curlDir;
+        let P0 = pt;
+        let P1 = { x: P0.x + dirX*length*0.3 + bx*spread, y: P0.y + dirY*length*0.3 + by*spread, z: P0.z + dirZ*length*0.3 + bz*spread };
+        let P2 = { x: P0.x + dirX*length*0.7 + bx*spread*0.8, y: P0.y + dirY*length*0.7 + by*spread*0.8, z: P0.z + dirZ*length*0.7 + bz*spread*0.8 };
+        let P3 = { x: P0.x + dirX*length + bx*spread*0.4, y: P0.y + dirY*length + by*spread*0.4, z: P0.z + dirZ*length + bz*spread*0.4 };
+
+        allSpineCurves.push({ P0, P1, P2, P3, rStart: radius, rEnd: radius * 0.75, normal });
+
+        let rotateDir = (d, angle) => {
+            let C = Math.cos(angle), S = Math.sin(angle), n = normal, t_mat = 1 - C;
+            return {
+                x: d.x*(C + n.nx*n.nx*t_mat) + d.y*(n.nx*n.ny*t_mat - n.nz*S) + d.z*(n.nx*n.nz*t_mat + n.ny*S),
+                y: d.x*(n.ny*n.nx*t_mat + n.nz*S) + d.y*(C + n.ny*n.ny*t_mat) + d.z*(n.ny*n.nz*t_mat - n.nx*S),
+                z: d.x*(n.nz*n.nx*t_mat - n.ny*S) + d.y*(n.nz*n.ny*t_mat + n.nx*S) + d.z*(C + n.nz*n.nz*t_mat)
+            };
+        };
+
+        let dir1 = rotateDir({x:dirX, y:dirY, z:dirZ}, 0.2 * curlDir);
+        let dir2 = rotateDir({x:dirX, y:dirY, z:dirZ}, -0.5 * curlDir);
+
+        buildVine(P3, dir1, normal, length * 0.9, radius * 0.75, depth + 1, maxDepth, curlDir, isVerticalLattice);
+        if ((depth * 13 + Math.floor(Math.abs(P3.x) * 100)) % 100 < 65) {
+            buildVine(P3, dir2, normal, length * 0.8, radius * 0.65, depth + 1, maxDepth, -curlDir, isVerticalLattice);
         }
     }
 
-    if (hasBranching || hasGrowth) {
-        let adjacency = new Map();
-        let parseKey = (k) => { let p = k.split(','); return {x: parseFloat(p[0]), y: parseFloat(p[1]), z: parseFloat(p[2])}; };
-        let addEdge = (a, b) => {
-            if (!adjacency.has(a)) adjacency.set(a, new Set());
-            if (!adjacency.has(b)) adjacency.set(b, new Set());
-            adjacency.get(a).add(b);
-            adjacency.get(b).add(a);
-        };
-        
-        for (let i = 0; i < temp.length; i += 9) {
-            let v1 = `${temp[i].toFixed(3)},${temp[i+1].toFixed(3)},${temp[i+2].toFixed(3)}`;
-            let v2 = `${temp[i+3].toFixed(3)},${temp[i+4].toFixed(3)},${temp[i+5].toFixed(3)}`;
-            let v3 = `${temp[i+6].toFixed(3)},${temp[i+7].toFixed(3)},${temp[i+8].toFixed(3)}`;
-            addEdge(v1, v2);
-            addEdge(v2, v3);
-            addEdge(v3, v1);
-        }
-        
-        let allKeys = Array.from(adjacency.keys());
-        
-        let buildMeshPath = (startKey, numSteps, momentumDir, splitChance, currentDepth, maxDepth) => {
-            let paths = [];
-            let pathKeys = [startKey];
-            let currKey = startKey;
-            let currentDir = momentumDir;
-            
-            for(let s=0; s<numSteps; s++) {
-                let neighbors = Array.from(adjacency.get(currKey) || []);
-                let unvisited = neighbors.filter(n => !pathKeys.includes(n));
-                if(unvisited.length === 0) unvisited = neighbors; 
-                if(unvisited.length === 0) break;
-                
-                let currPt = parseKey(currKey);
-                
-                let bestNeighbor = unvisited[0];
-                let bestScore = -Infinity;
-                let secondBest = null;
-                
-                for(let nKey of unvisited) {
-                    let nPt = parseKey(nKey);
-                    let dir = {x: nPt.x - currPt.x, y: nPt.y - currPt.y, z: nPt.z - currPt.z};
-                    let len = Math.sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
-                    if(len>0) { dir.x/=len; dir.y/=len; dir.z/=len; }
-                    
-                    let score = dir.x*currentDir.x + dir.y*currentDir.y + dir.z*currentDir.z;
-                    score += (Math.random() * 0.8 - 0.4); 
-                    
-                    if(score > bestScore) {
-                        secondBest = bestNeighbor;
-                        bestScore = score;
-                        bestNeighbor = nKey;
-                    }
-                }
-                
-                pathKeys.push(bestNeighbor);
-                
-                if (currentDepth < maxDepth && secondBest && Math.random() < splitChance) {
-                    let branchDir = {x: currentDir.y, y: currentDir.z, z: currentDir.x}; 
-                    let subPaths = buildMeshPath(currKey, Math.floor(numSteps/1.5), branchDir, splitChance * 0.5, currentDepth + 1, maxDepth);
-                    paths.push(...subPaths);
-                }
-                
-                let nextPt = parseKey(bestNeighbor);
-                currentDir = {x: nextPt.x - currPt.x, y: nextPt.y - currPt.y, z: nextPt.z - currPt.z};
-                let cLen = Math.sqrt(currentDir.x*currentDir.x + currentDir.y*currentDir.y + currentDir.z*currentDir.z);
-                if(cLen>0) { currentDir.x/=cLen; currentDir.y/=cLen; currentDir.z/=cLen; }
-                
-                currKey = bestNeighbor;
-            }
-            
-            paths.push(pathKeys.map(k => parseKey(k)));
-            return paths;
-        };
+    if (B > 0.05 && isMesh) {
+      const bSettings = (window.domainState && window.domainState.branchSettings) || {};
+      const numOrigins = Math.floor(10 + activeB * 50); 
+      const lenMult = (bSettings.length !== undefined) ? (bSettings.length / 100) : 1.0;
+      const widthMult = (bSettings.width !== undefined) ? (bSettings.width / 100) : 1.0;
+      
+      const branchLength = 0.03 * domSpan * lenMult;
+      const branchBaseRadius = domSpan * 0.015 * widthMult; 
+      const maxDepth = Math.floor(3 + activeB * 4);
 
-        let smoothPath = (pts, iterations) => {
-            if (pts.length < 3) return pts;
-            let result = pts;
-            for (let it = 0; it < iterations; it++) {
-                let smoothed = [];
-                smoothed.push(result[0]);
-                for (let i = 0; i < result.length - 1; i++) {
-                    let p0 = result[i], p1 = result[i+1];
-                    smoothed.push({x: p0.x*0.75 + p1.x*0.25, y: p0.y*0.75 + p1.y*0.25, z: p0.z*0.75 + p1.z*0.25});
-                    smoothed.push({x: p0.x*0.25 + p1.x*0.75, y: p0.y*0.25 + p1.y*0.75, z: p0.z*0.25 + p1.z*0.75});
-                }
-                smoothed.push(result[result.length - 1]);
-                result = smoothed;
-            }
-            return result;
-        };
+      let numTriangles = Math.floor(temp.length / 9);
+      for (let f = 0; f < numOrigins; f++) {
+         if (numTriangles <= 0) break;
+         let goldenRatio = 0.61803398875;
+         let triIndex = Math.floor((((f + 0.314159) * goldenRatio) % 1) * numTriangles);
+         let i = triIndex * 9;
+         let cx = (temp[i] + temp[i+3] + temp[i+6]) / 3;
+         let cy = (temp[i+1] + temp[i+4] + temp[i+7]) / 3;
+         let cz = (temp[i+2] + temp[i+5] + temp[i+8]) / 3;
+         let {nx, ny, nz, tx, ty, tz} = getNormal(i, temp);
+         
+         let dir = {x: tx, y: ty, z: tz};
+         buildVine({x: cx, y: cy, z: cz}, dir, {nx, ny, nz}, branchLength, branchBaseRadius, 0, maxDepth, (f % 2 === 0) ? 1 : -1, false);
+      }
+    }
 
-        let branchPaths = [];
-        
-        if (hasGrowth) {
-            let numG = Math.floor(6 + activeG * 35);
-            let gRad = domSpan * 0.025;
-            let gSteps = Math.floor(20 + activeG * 50);
-            let flowDir = {x: domAxis==='X'?1:0, y: domAxis==='Y'?1:0, z: domAxis==='Z'?1:0}; 
-            
-            for(let i=0; i<numG; i++) {
-                if (allKeys.length === 0) break;
-                let startKey = allKeys[Math.floor(Math.random() * allKeys.length)];
-                let paths = buildMeshPath(startKey, gSteps, flowDir, 0.15, 0, 2);
-                for(let p of paths) {
-                    if(p.length > 2) branchPaths.push({path: smoothPath(p, 2), rStart: gRad, rEnd: gRad*0.3, sides: 14});
-                }
-            }
-        }
-        
-        if (hasBranching) {
-            let numB = Math.floor(15 + activeB * 80);
-            let bRad = domSpan * 0.012;
-            let bSteps = Math.floor(10 + activeB * 20);
-            let flowDir = {x: domAxis==='Z'?1:0, y: domAxis==='X'?1:0, z: domAxis==='Y'?1:0}; 
-            
-            for(let i=0; i<numB; i++) {
-                if (allKeys.length === 0) break;
-                let startKey = allKeys[Math.floor(Math.random() * allKeys.length)];
-                let paths = buildMeshPath(startKey, bSteps, flowDir, 0.25, 0, 3);
-                for(let p of paths) {
-                    if(p.length > 2) branchPaths.push({path: smoothPath(p, 2), rStart: bRad, rEnd: bRad*0.1, sides: 10});
-                }
-            }
-        }
+    if (G > 0.05 && isMesh) {
+      const numOrigins = Math.floor(8 + activeG * 40); 
+      const growthReach = 0.04 * domSpan * (0.5 + activeG * 0.8); 
+      const growthBaseRadius = domSpan * 0.02; 
+      const maxDepth = Math.floor(4 + activeG * 5);
 
-        for(let bp of branchPaths) {
-            generateSmoothBranch(newVertices, newIndices, temp.length / 3, bp.path, bp.rStart, bp.rEnd, bp.sides);
+      let numTriangles = Math.floor(temp.length / 9);
+      for (let g = 0; g < numOrigins; g++) {
+         if (numTriangles <= 0) break;
+         let goldenRatio = 0.61803398875;
+         let triIndex = Math.floor((((g + 0.785398) * goldenRatio) % 1) * numTriangles);
+         let i = triIndex * 9;
+         let cx = (temp[i] + temp[i+3] + temp[i+6]) / 3;
+         let cy = (temp[i+1] + temp[i+4] + temp[i+7]) / 3;
+         let cz = (temp[i+2] + temp[i+5] + temp[i+8]) / 3;
+         let {nx, ny, nz, tx, ty, tz} = getNormal(i, temp);
+         
+         let isEnd = (g % 2 === 0);
+         if (isEnd && ty < 0) { tx = -tx; ty = -ty; tz = -tz; }
+         if (!isEnd && ty > 0) { tx = -tx; ty = -ty; tz = -tz; }
+
+         let dir = {x: tx, y: ty, z: tz};
+         buildVine({x: cx, y: cy, z: cz}, dir, {nx, ny, nz}, growthReach, growthBaseRadius, 0, maxDepth, (g % 2 === 0) ? 1 : -1, true);
+      }
+    }
+
+    if (allSpineCurves.length > 0) {
+        for (let curve of allSpineCurves) {
+            let evalP = (t) => {
+                let uT = 1 - t;
+                let uT2 = uT * uT, uT3 = uT2 * uT, t2 = t * t, t3 = t2 * t;
+                return {
+                    x: uT3*curve.P0.x + 3*uT2*t*curve.P1.x + 3*uT*t2*curve.P2.x + t3*curve.P3.x,
+                    y: uT3*curve.P0.y + 3*uT2*t*curve.P1.y + 3*uT*t2*curve.P2.y + t3*curve.P3.y,
+                    z: uT3*curve.P0.z + 3*uT2*t*curve.P1.z + 3*uT*t2*curve.P2.z + t3*curve.P3.z
+                };
+            };
+            generateSmoothBranch(newVertices, newIndices, temp.length / 3, evalP, curve.rStart, curve.rEnd, 6, curve.normal);
         }
     }
 
     let fullMesh = temp;
-    if (hasBranching || hasGrowth) {
-      if (newVertices.length > 0) {
-        fullMesh = new Float32Array(temp.length + newVertices.length);
-        fullMesh.set(temp);
-        fullMesh.set(newVertices, temp.length);
-        window._lastComputedBranchIndices = new Uint32Array(newIndices);
-      } else {
-        window._lastComputedBranchIndices = new Uint32Array([]);
-      }
-    } else {
-        window._lastComputedBranchIndices = new Uint32Array([]);
+    if (newVertices.length > 0) {
+      fullMesh = new Float32Array(temp.length + newVertices.length);
+      fullMesh.set(temp);
+      fullMesh.set(newVertices, temp.length);
+      window._lastComputedBranchIndices = new Uint32Array(newIndices);
     }
 
     // 3. WHIPLASH (W) - Curves the branches
