@@ -1281,7 +1281,7 @@ function calculateSeedIdentityScore(deformedPos, origPos, bounds) {
   return score;
 }
 
-function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
+function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMesh = true) {
   if (!positions || positions.length === 0) return new Float32Array(0);
   
   const C = dna && dna[0] !== undefined ? Math.max(0, Math.min(1, dna[0])) : 0;
@@ -1371,7 +1371,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
     }
 
     // 2. ORGANIC ART NOUVEAU BRANCHING (B) - CREATE NEW GEOMETRY
-    if (B > 0.05) {
+    if (B > 0.05 && isMesh) {
       const bSettings = (window.domainState && window.domainState.branchSettings) || {};
       const customForks = bSettings.count ? parseInt(bSettings.count) : null;
       const numForks = customForks || (activeB >= 0.55 ? 3 : 2);
@@ -1520,7 +1520,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
     }
 
     // 6. GROWTH / AGGREGATION (G) - CREATE NEW EXTENSIONS
-    if (G > 0.05) {
+    if (G > 0.05 && isMesh) {
       const numOrigins = 3;
       const numSegments = Math.floor(3 + activeG * 8); 
       const growthReach = Math.max(0.1, activeG) * 0.8 * domSpan;
@@ -1651,13 +1651,13 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
   return finalPositions;
 }
 
-function executeRecipeDeformation(positions, recipeOrDna, bounds) {
+function executeRecipeDeformation(positions, recipeOrDna, bounds, isMesh = true) {
   if (!positions || positions.length === 0) return new Float32Array(0);
   
   // If passed DNA vector [C, B, W, M, V, G]
   if (Array.isArray(recipeOrDna) && recipeOrDna.length === 6 && typeof recipeOrDna[0] === 'number') {
     const thresh = (window.domainState && window.domainState.seedIdentityThreshold) ? window.domainState.seedIdentityThreshold : 75;
-    return applyArtNouveauDNA(positions, recipeOrDna, bounds, thresh);
+    return applyArtNouveauDNA(positions, recipeOrDna, bounds, thresh, isMesh);
   }
 
   // If passed array of recipe objects, convert to DNA representation
@@ -1674,7 +1674,7 @@ function executeRecipeDeformation(positions, recipeOrDna, bounds) {
   }
 
   const thresh = (window.domainState && window.domainState.seedIdentityThreshold) ? window.domainState.seedIdentityThreshold : 75;
-  return applyArtNouveauDNA(positions, dna, bounds, thresh);
+  return applyArtNouveauDNA(positions, dna, bounds, thresh, isMesh);
 }
 
 /**
@@ -1889,7 +1889,7 @@ function renderIterationGeometry(recipeOrDna, explicitMode) {
     if (compMode === 'SEED' || isSeedDna) {
       defPos = item.originalPositions;
     } else {
-      defPos = executeRecipeDeformation(item.originalPositions, recipeOrDna, modelBounds);
+      defPos = executeRecipeDeformation(item.originalPositions, recipeOrDna, modelBounds, false);
     }
 
     if (defPos.length !== attr.array.length) {
@@ -1907,7 +1907,7 @@ function renderIterationGeometry(recipeOrDna, explicitMode) {
   originalCages.forEach(item => {
     if (item.cageLines && item.cageLines.geometry && item.originalLinePositions) {
       const lineAttr = item.cageLines.geometry.attributes.position;
-      let defLinePos = (compMode === 'SEED' || isSeedDna) ? item.originalLinePositions : executeRecipeDeformation(item.originalLinePositions, recipeOrDna, modelBounds);
+      let defLinePos = (compMode === 'SEED' || isSeedDna) ? item.originalLinePositions : executeRecipeDeformation(item.originalLinePositions, recipeOrDna, modelBounds, false);
       if (defLinePos.length !== lineAttr.array.length) {
         item.cageLines.geometry.setAttribute('position', new THREE.Float32BufferAttribute(defLinePos, 3));
       } else {
@@ -1921,7 +1921,7 @@ function renderIterationGeometry(recipeOrDna, explicitMode) {
 
     if (item.cagePoints && item.cagePoints.geometry && item.originalPtPositions) {
       const ptAttr = item.cagePoints.geometry.attributes.position;
-      let defPtPos = (compMode === 'SEED' || isSeedDna) ? item.originalPtPositions : executeRecipeDeformation(item.originalPtPositions, recipeOrDna, modelBounds);
+      let defPtPos = (compMode === 'SEED' || isSeedDna) ? item.originalPtPositions : executeRecipeDeformation(item.originalPtPositions, recipeOrDna, modelBounds, false);
       if (defPtPos.length !== ptAttr.array.length) {
         item.cagePoints.geometry.setAttribute('position', new THREE.Float32BufferAttribute(defPtPos, 3));
       } else {
