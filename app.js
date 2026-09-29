@@ -1659,6 +1659,34 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
       }
     }
 
+    // Confine all iterations to be exactly 8000 cubic feet (bounding box volume)
+    let bMinX = Infinity, bMinY = Infinity, bMinZ = Infinity;
+    let bMaxX = -Infinity, bMaxY = -Infinity, bMaxZ = -Infinity;
+    
+    for (let i = 0; i < fullMesh.length; i += 3) {
+      if (fullMesh[i] < bMinX) bMinX = fullMesh[i];
+      if (fullMesh[i] > bMaxX) bMaxX = fullMesh[i];
+      if (fullMesh[i+1] < bMinY) bMinY = fullMesh[i+1];
+      if (fullMesh[i+1] > bMaxY) bMaxY = fullMesh[i+1];
+      if (fullMesh[i+2] < bMinZ) bMinZ = fullMesh[i+2];
+      if (fullMesh[i+2] > bMaxZ) bMaxZ = fullMesh[i+2];
+    }
+    
+    let currentVol = (bMaxX - bMinX) * (bMaxY - bMinY) * (bMaxZ - bMinZ);
+    if (currentVol > 0.0001) {
+      let targetVol = 8000;
+      let scaleFactor = Math.pow(targetVol / currentVol, 1/3);
+      let cx = (bMinX + bMaxX) / 2;
+      let cy = (bMinY + bMaxY) / 2;
+      let cz = (bMinZ + bMaxZ) / 2;
+      
+      for (let i = 0; i < fullMesh.length; i += 3) {
+        fullMesh[i] = cx + (fullMesh[i] - cx) * scaleFactor;
+        fullMesh[i+1] = cy + (fullMesh[i+1] - cy) * scaleFactor;
+        fullMesh[i+2] = cz + (fullMesh[i+2] - cz) * scaleFactor;
+      }
+    }
+
     // Return safely without destructive welding to preserve mesh topology
     window._lastComputedIndices = null;
     window._lastComputedWeldedPositions = null;
