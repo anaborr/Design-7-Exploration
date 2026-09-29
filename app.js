@@ -653,7 +653,7 @@ function restoreOriginalImportedGeometry() {
 
   // 11. Sync visual comparison mode buttons
   const bSeed = document.getElementById('btn-comp-seed');
-  const btns = document.querySelectorAll('#btn-comp-seed, #btn-comp-parent, #btn-comp-iter, #btn-comp-overlay');
+  const btns = document.querySelectorAll('#btn-comp-seed, #btn-comp-parent, #btn-comp-iter');
   btns.forEach(b => b.classList.remove('active'));
   if (bSeed) bSeed.classList.add('active');
 
@@ -1878,7 +1878,7 @@ function switchVisualComparisonMode(mode) {
   window.activeVisualCompMode = mode;
   if (window.domainState) window.domainState.visualComparisonMode = mode;
 
-  const btns = document.querySelectorAll('#btn-comp-seed, #btn-comp-parent, #btn-comp-iter, #btn-comp-overlay, .btn-vp-pill[onclick*="switchVisualComparisonMode"]');
+  const btns = document.querySelectorAll('#btn-comp-seed, #btn-comp-parent, #btn-comp-iter, .btn-vp-pill[onclick*="switchVisualComparisonMode"]');
   btns.forEach(b => {
     b.classList.remove('active');
     const clk = b.getAttribute('onclick') || '';

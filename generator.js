@@ -1678,7 +1678,7 @@ function revertToOriginalRhinoSeed() {
 
   // 11. Sync visual comparison mode buttons
   const bSeed = document.getElementById('btn-comp-seed');
-  const btns = document.querySelectorAll('#btn-comp-seed, #btn-comp-parent, #btn-comp-iter, #btn-comp-overlay');
+  const btns = document.querySelectorAll('#btn-comp-seed, #btn-comp-parent, #btn-comp-iter');
   btns.forEach(b => b.classList.remove('active'));
   if (bSeed) bSeed.classList.add('active');
 
@@ -1805,7 +1805,7 @@ window.refineCurrentWhyProposal = refineCurrentWhyProposal;
 
 function switchVisualComparisonMode(mode) {
   domainState.visualComparisonMode = mode;
-  const btns = document.querySelectorAll('#btn-comp-seed, #btn-comp-parent, #btn-comp-iter, #btn-comp-overlay');
+  const btns = document.querySelectorAll('#btn-comp-seed, #btn-comp-parent, #btn-comp-iter');
   btns.forEach(b => b.classList.remove('active'));
 
   let targetDna = domainState.dna;
@@ -2879,17 +2879,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const btnExport = document.getElementById('btn-export-library');
   if (btnExport) btnExport.addEventListener('click', exportLibraryToJSON);
 
-  const inputImport = document.getElementById('import-json-input');
-  if (inputImport) {
-    inputImport.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (evt) => importLibraryFromJSON(evt.target.result);
-        reader.readAsText(file);
-      }
-    });
-  }
+
 
   // Compare Selected Button
   const btnCompare = document.getElementById('btn-compare-selected');
