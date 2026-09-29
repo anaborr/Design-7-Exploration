@@ -177,7 +177,7 @@
                   <details style="margin-top:4px;">
                     <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Description</summary>
                     <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
-                      Add new offshoots. Creates new geometry attached to the existing form. A surface can produce a curved, tapered offshoot, and that offshoot can later produce smaller branches. Select attachment locations on existing surfaces. Create new surfaces or volumes extending from those locations. Keep branches connected and smaller than their parent.<br><br><i>Slider: low = a few branches; high = more branches. (Branch length and thickness have separate controls below).</i>
+                      Split the existing surface flow. Branching feels like the original mesh naturally dividing, not new geometry being stuck onto it. A branch must initially follow the same tangent/direction as its parent surface. Gradually separate from the parent instead of immediately shooting outward. Maintain a smooth curved transition at the connection. Branches inherit the parent's curvature and gradually taper.<br><br><i>Slider: low = original surface barely separates; high = more visible branching and additional connected branches.</i>
                     </div>
                   </details>
                 </div>
@@ -237,7 +237,7 @@
                   <details style="margin-top:4px;">
                     <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Description</summary>
                     <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
-                      Extend from local surface points. Makes selected surface locations sprout and extend through three-dimensional space. Selects points or small patches as growth origins. Creates new geometry extending outward from each origin. Gives each extension its own direction and curved path. Continues extending the tips through successive growth steps.<br><br><i>Slider: low = short, early extensions; high = longer, more developed extensions.</i>
+                      Continue the existing surface flow. Growth extends the direction already present in the imported mesh. Growth begins primarily from existing edges, ends, or strong directional regions. Continues in approximately the same direction first, then gradually curves away from the original trajectory. Growth looks like the original form is being stretched/continued into new space.<br><br><i>Slider: low = short continuation of the existing form; high = longer flowing extension.</i>
                     </div>
                   </details>
                 </div>
