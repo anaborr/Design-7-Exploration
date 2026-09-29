@@ -1538,40 +1538,65 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
         }
 
         let original = new Float32Array(temp);
-        let freqB = (3 + activeB * 15) / domSpan; 
-        let ampB = activeB * 0.35 * domSpan;
-        
-        let freqG = (1 + activeG * 6) / domSpan;
-        let ampG = activeG * 0.55 * domSpan;
+        let freqB = 0.5 / domSpan; // Very low frequency for massive architectural division
+        let freqG = 0.8 / domSpan; // Low frequency for large spatial growth
         
         for (let i = 0; i < temp.length; i += 3) {
             let x = original[i], y = original[i+1], z = original[i+2];
             let k = getKey(x, y, z);
             let n = vNormals.get(k) || {x:0, y:0, z:0};
             
-            let dispB = 0;
+            // 2. BRANCHING (B) - ARCHITECTURAL DIVISION
             if (activeB > 0.05) {
-                let maskB = noise3D(x*freqB*0.1, y*freqB*0.1, z*freqB*0.1);
-                if (maskB > 0.1) {
-                    let rawB = ridgedNoise(x*freqB, y*freqB, z*freqB, 4);
-                    dispB = Math.pow(rawB, 1.5) * ampB * ((maskB - 0.1) / 0.9);
+                // Determine macro spatial regions for branching
+                let branchField = noise3D(x*freqB, y*freqB, z*freqB);
+                
+                // If this region splits off to become a new architectural element
+                if (branchField > 0.4) {
+                    let intensity = Math.pow((branchField - 0.4) / 0.6, 2.0); // Smooth easing
+                    let pull = intensity * activeB;
+                    
+                    // Decide what type of element this branch becomes
+                    let archType = noise3D(x*freqB + 100, y*freqB, z*freqB);
+                    
+                    if (archType > 0.6) {
+                        // CEILING/WALL -> STRUCTURAL SUPPORT (Pull straight down to floor)
+                        let targetY = bounds.min.y;
+                        temp[i+1] += (targetY - temp[i+1]) * pull;
+                        // Thicken the support slightly at the base
+                        temp[i] += n.x * pull * domSpan * 0.05;
+                        temp[i+2] += n.z * pull * domSpan * 0.05;
+                    } else if (archType > 0.4) {
+                        // WALL -> PARTITION / SPATIAL DIVISION (Pull horizontally along normal)
+                        let pullDist = domSpan * 0.35 * pull;
+                        temp[i] += n.x * pullDist;
+                        temp[i+2] += n.z * pullDist;
+                    } else {
+                        // CIRCULATION BOUNDARY -> NEW WALL (Pull strongly along dominant axis)
+                        let pullDist = domSpan * 0.35 * pull;
+                        if (Math.abs(n.x) > Math.abs(n.z)) {
+                            temp[i] += Math.sign(n.x) * pullDist;
+                        } else {
+                            temp[i+2] += Math.sign(n.z) * pullDist;
+                        }
+                    }
                 }
             }
             
-            let dispG = 0;
+            // 3. GROWTH (G) - ARCHITECTURAL ENCLOSURES & PROLIFERATION
             if (activeG > 0.05) {
-                let maskG = noise3D(x*freqG*0.1 + 100, y*freqG*0.1, z*freqG*0.1);
-                if (maskG > 0.05) {
-                    let rawG = ridgedNoise(x*freqG, y*freqG, z*freqG, 3);
-                    dispG = Math.pow(rawG, 1.2) * ampG * ((maskG - 0.05) / 0.95);
+                let growthField = noise3D(x*freqG + 50, y*freqG + 50, z*freqG + 50);
+                
+                // Expand outward to frame gathering spaces or extend workspaces
+                if (growthField > 0.4) {
+                    let intensity = Math.pow((growthField - 0.4) / 0.6, 1.5);
+                    let pull = intensity * activeG;
+                    
+                    let pullDist = domSpan * 0.4 * pull;
+                    temp[i] += n.x * pullDist;
+                    temp[i+1] += Math.max(0, n.y) * pullDist; // Grow primarily outward and upward to create overhang enclosures
+                    temp[i+2] += n.z * pullDist;
                 }
-            }
-            
-            let totalDisp = dispB + dispG;
-            if (totalDisp > 0) {
-                temp[i] += n.x * totalDisp;
-                temp[i+1] += n.y * totalDisp;
-                temp[i+2] += n.z * totalDisp;
             }
         }
     }
