@@ -1413,8 +1413,9 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
           lastDir = dir;
         }
         
-        let radiusScale = Math.cos(t * Math.PI / 2);
-        let currentRadius = Math.max(0.08 * baseRadius, baseRadius * radiusScale); 
+        let flare = (t < 0.15) ? 1.0 + 2.5 * Math.pow((0.15 - t)/0.15, 2) : 1.0;
+        let radiusScale = Math.cos(t * Math.PI / 2) * flare;
+        let currentRadius = Math.max(0.04 * baseRadius, baseRadius * radiusScale); 
         curCenter = evalPath(t); 
 
         let newRingIndices = [];
@@ -1468,19 +1469,24 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
        if (nx*(cx-centerX) + ny*(cy-centerY) + nz*(cz-centerZ) < 0) {
           nx = -nx; ny = -ny; nz = -nz;
        }
-       return {nx, ny, nz};
+       
+       let tx = v1.x, ty = v1.y, tz = v1.z;
+       let tLen = Math.sqrt(tx*tx + ty*ty + tz*tz);
+       if (tLen > 0.0001) { tx/=tLen; ty/=tLen; tz/=tLen; } else { tx=1; ty=0; tz=0; }
+       
+       return {nx, ny, nz, tx, ty, tz};
     }
 
     // 2. BRANCHING - Controls offshoot COUNT
     if (B > 0.05 && isMesh) {
       const bSettings = (window.domainState && window.domainState.branchSettings) || {};
-      const numForks = Math.floor(1 + activeB * 15); 
+      const numForks = Math.floor(1 + activeB * 8); 
       const lenMult = (bSettings.length !== undefined) ? (bSettings.length / 100) : 1.0;
       const widthMult = (bSettings.width !== undefined) ? (bSettings.width / 100) : 1.0;
       
-      const branchLength = 0.5 * domSpan * lenMult;
+      const branchLength = 0.22 * domSpan * lenMult;
       const numSegments = 16; 
-      const branchBaseRadius = domSpan * 0.03 * widthMult; 
+      const branchBaseRadius = domSpan * 0.015 * widthMult; 
 
       for (let f = 0; f < numForks; f++) {
         let targetU = (f + 0.5) / numForks;
@@ -1497,46 +1503,31 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
           let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
           
           if (Math.abs(u - targetU) < 0.1 && !spawned) {
-             let {nx, ny, nz} = getNormal(i, temp);
+             let {nx, ny, nz, tx, ty, tz} = getNormal(i, temp);
              spawned = true;
-             
              let evalPath = (t) => {
                  let reach = branchLength;
                  let P0 = {x: cx, y: cy, z: cz};
                  
-                 // Calculate local tangent to follow existing surface flow
-                 let dotUP = ny;
-                 let tx = -dotUP*nx, ty = 1 - dotUP*ny, tz = -dotUP*nz;
-                 let tLen = Math.sqrt(tx*tx + ty*ty + tz*tz);
-                 if (tLen < 0.001) {
-                   let dotFwd = nz;
-                   tx = -dotFwd*nx; ty = -dotFwd*ny; tz = 1 - dotFwd*nz;
-                   tLen = Math.sqrt(tx*tx + ty*ty + tz*tz);
-                 }
-                 if (tLen > 0.001) { tx/=tLen; ty/=tLen; tz/=tLen; } else { tx=1; ty=0; tz=0; }
-                 
-                 // P1: Strongly follow the tangent direction for the first 35% of the curve
                  let P1 = {
-                   x: cx + tx * reach * 0.35, 
-                   y: cy + ty * reach * 0.35, 
-                   z: cz + tz * reach * 0.35
+                   x: cx + tx * reach * 0.45, 
+                   y: cy + ty * reach * 0.45, 
+                   z: cz + tz * reach * 0.45
                  };
                  
-                 // P2: Gradually separate from the parent
+                 let P2 = {
+                    x: cx + tx * reach * 0.8 + nx * reach * 0.15,
+                    y: cy + ty * reach * 0.8 + ny * reach * 0.15,
+                    z: cz + tz * reach * 0.8 + nz * reach * 0.15
+                 };
+
                  let spreadAngle = (f * Math.PI * 2 / numForks);
                  let sx = Math.cos(spreadAngle), sz = Math.sin(spreadAngle);
                  
-                 let P2 = {
-                    x: cx + tx * reach * 0.7 + nx * reach * 0.15 + sx * reach * 0.15,
-                    y: cy + ty * reach * 0.7 + ny * reach * 0.15,
-                    z: cz + tz * reach * 0.7 + nz * reach * 0.15 + sz * reach * 0.15
-                 };
-
-                 // P3: Tapering elegant curve out
                  let P3 = {
-                    x: cx + tx * reach * 1.0 + nx * reach * 0.3 + sx * reach * 0.3,
+                    x: cx + tx * reach * 1.0 + nx * reach * 0.3 + sx * reach * 0.2,
                     y: cy + ty * reach * 1.0 + ny * reach * 0.3,
-                    z: cz + tz * reach * 1.0 + nz * reach * 0.3 + sz * reach * 0.3
+                    z: cz + tz * reach * 1.0 + nz * reach * 0.3 + sz * reach * 0.2
                  };
                  
                  let uT = 1 - t;
@@ -1561,8 +1552,8 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
       const gSettings = (window.domainState && window.domainState.growthSettings) || {};
       const numOrigins = gSettings.count ? parseInt(gSettings.count) : 4;
       const numSegments = Math.floor(12 + activeG * 8); 
-      const growthReach = Math.max(0.1, activeG) * 1.2 * domSpan; 
-      const growthBaseRadius = domSpan * 0.04; 
+      const growthReach = Math.max(0.1, activeG) * 0.6 * domSpan; 
+      const growthBaseRadius = domSpan * 0.02; 
 
       for (let g = 0; g < numOrigins; g++) {
         let targetU = ((g + 0.7) / numOrigins) % 1.0;
@@ -1578,51 +1569,35 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
           let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
           
           if (Math.abs(u - targetU) < 0.1 && !spawned) {
-             let {nx, ny, nz} = getNormal(i, temp);
+             let {nx, ny, nz, tx, ty, tz} = getNormal(i, temp);
              spawned = true;
-             
              let evalPath = (t) => {
                  let reach = growthReach;
                  let P0 = {x: cx, y: cy, z: cz};
                  
-                 // Calculate local tangent to follow existing surface flow
-                 let dotUP = ny;
-                 let tx = -dotUP*nx, ty = 1 - dotUP*ny, tz = -dotUP*nz;
-                 let tLen = Math.sqrt(tx*tx + ty*ty + tz*tz);
-                 if (tLen < 0.001) {
-                   let dotFwd = nz;
-                   tx = -dotFwd*nx; ty = -dotFwd*ny; tz = 1 - dotFwd*nz;
-                   tLen = Math.sqrt(tx*tx + ty*ty + tz*tz);
-                 }
-                 if (tLen > 0.001) { tx/=tLen; ty/=tLen; tz/=tLen; } else { tx=1; ty=0; tz=0; }
-                 
-                 // Orient tangent properly based on position
                  let isEnd = (g % 2 === 0);
                  if (isEnd && ty < 0) { tx = -tx; ty = -ty; tz = -tz; }
                  if (!isEnd && ty > 0) { tx = -tx; ty = -ty; tz = -tz; }
                  
-                 // P1: Continue in approx that same tangent direction
                  let P1 = {
-                   x: cx + tx * reach * 0.35, 
-                   y: cy + ty * reach * 0.35, 
-                   z: cz + tz * reach * 0.35
+                   x: cx + tx * reach * 0.4, 
+                   y: cy + ty * reach * 0.4, 
+                   z: cz + tz * reach * 0.4
                  };
                  
-                 // P2: Gradually curve away from the trajectory
                  let P2 = {
-                    x: cx + tx * reach * 0.75 + nx * reach * 0.1,
-                    y: cy + ty * reach * 0.75 + ny * reach * 0.1,
-                    z: cz + tz * reach * 0.75 + nz * reach * 0.1
+                    x: cx + tx * reach * 0.8 + nx * reach * 0.1,
+                    y: cy + ty * reach * 0.8 + ny * reach * 0.1,
+                    z: cz + tz * reach * 0.8 + nz * reach * 0.1
                  };
 
-                 // P3: Tapering/expanding end point
                  let curlAngle = (g * Math.PI / numOrigins);
                  let sx = Math.cos(curlAngle), sz = Math.sin(curlAngle);
                  
                  let P3 = {
-                    x: cx + tx * reach * 1.1 + nx * reach * 0.2 + sx * reach * 0.1,
-                    y: cy + ty * reach * 1.1 + ny * reach * 0.2,
-                    z: cz + tz * reach * 1.1 + nz * reach * 0.2 + sz * reach * 0.1
+                    x: cx + tx * reach * 1.1 + nx * reach * 0.15 + sx * reach * 0.1,
+                    y: cy + ty * reach * 1.1 + ny * reach * 0.15,
+                    z: cz + tz * reach * 1.1 + nz * reach * 0.15 + sz * reach * 0.1
                  };
                  
                  let uT = 1 - t;
