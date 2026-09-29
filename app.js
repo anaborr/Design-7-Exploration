@@ -1434,45 +1434,41 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
       }
     }
 
-    // 1. CONTINUITY (C)
-    // S(t) = 3t^2 - 2t^3 smooth interpolation
-    if (activeC > 0) {
-      for (let i = 0; i < temp.length; i += 3) {
-        let x = temp[i], y = temp[i+1], z = temp[i+2];
-        let domVal = (domAxis === 'X') ? x : ((domAxis === 'Z') ? z : y);
-        let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
-        let S = 3 * u * u - 2 * u * u * u; // Smooth cubic transition
-        
-        let targetX = centerX + (x - centerX) * (1 - 0.35 * activeC * S);
-        let targetZ = centerZ + (z - centerZ) * (1 - 0.35 * activeC * S);
-        let targetY = y + activeC * 0.28 * domSpan * Math.sin(Math.PI * u);
-
-        temp[i] = (1 - activeC) * x + activeC * targetX;
-        temp[i+1] = (1 - activeC) * y + activeC * targetY;
-        temp[i+2] = (1 - activeC) * z + activeC * targetZ;
-      }
+    function getNormal(i, arr) {
+       let p0 = {x: arr[i], y: arr[i+1], z: arr[i+2]};
+       let p1 = {x: arr[i+3], y: arr[i+4], z: arr[i+5]};
+       let p2 = {x: arr[i+6], y: arr[i+7], z: arr[i+8]};
+       let v1 = {x: p1.x - p0.x, y: p1.y - p0.y, z: p1.z - p0.z};
+       let v2 = {x: p2.x - p0.x, y: p2.y - p0.y, z: p2.z - p0.z};
+       let nx = v1.y*v2.z - v1.z*v2.y;
+       let ny = v1.z*v2.x - v1.x*v2.z;
+       let nz = v1.x*v2.y - v1.y*v2.x;
+       let len = Math.sqrt(nx*nx + ny*ny + nz*nz);
+       if (len > 0.0001) { nx/=len; ny/=len; nz/=len; } else { nx=0; ny=1; nz=0; }
+       
+       let cx = (p0.x+p1.x+p2.x)/3;
+       let cy = (p0.y+p1.y+p2.y)/3;
+       let cz = (p0.z+p1.z+p2.z)/3;
+       if (nx*(cx-centerX) + ny*(cy-centerY) + nz*(cz-centerZ) < 0) {
+          nx = -nx; ny = -ny; nz = -nz;
+       }
+       return {nx, ny, nz};
     }
 
-    // 2. ORGANIC ART NOUVEAU BRANCHING (B) - CREATE NEW GEOMETRY
+    // 2. BRANCHING - Controls offshoot COUNT
     if (B > 0.05 && isMesh) {
       const bSettings = (window.domainState && window.domainState.branchSettings) || {};
-      const customForks = bSettings.count ? parseInt(bSettings.count) : null;
-      const numForks = customForks || (activeB >= 0.55 ? 3 : 2);
-      const customNodeU = (bSettings.pos !== undefined) ? (bSettings.pos / 100) : null;
-      const nodeStartU = customNodeU !== null ? Math.min(0.85, Math.max(0.05, customNodeU)) : 0.40;
+      const numForks = Math.floor(1 + activeB * 15); 
       const lenMult = (bSettings.length !== undefined) ? (bSettings.length / 100) : 1.0;
       const widthMult = (bSettings.width !== undefined) ? (bSettings.width / 100) : 1.0;
-      const hAngleRad = (bSettings.hAngle !== undefined) ? (bSettings.hAngle * Math.PI / 180) : 0;
-      const vAngleRad = (bSettings.vAngle !== undefined) ? (bSettings.vAngle * Math.PI / 180) : 0;
-
-      const maxBranchReach = 0.5 * domSpan * lenMult;
-      const forkAngle = (60 * (Math.PI / 180)) * widthMult;
-      const numSegments = 16; // Higher resolution for smoother curves
-      const branchBaseRadius = domSpan * 0.045 * widthMult; // Much thicker base for volumetric structural feel
+      
+      const branchLength = 0.5 * domSpan * lenMult;
+      const numSegments = 16; 
+      const branchBaseRadius = domSpan * 0.03 * widthMult; 
 
       for (let f = 0; f < numForks; f++) {
-        let spreadAngle = (f - (numForks - 1) / 2.0) * forkAngle;
-        let branchesSpawned = 0;
+        let targetU = (f + 0.5) / numForks;
+        let spawned = false;
         
         for (let i = 0; i < temp.length; i += 9) {
           if (i + 8 >= temp.length) break;
@@ -1484,57 +1480,103 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
           let domVal = (domAxis === 'X') ? cx : ((domAxis === 'Z') ? cz : cy);
           let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
           
-          if (u > nodeStartU - 0.15 && u < nodeStartU + 0.15) {
-            let dx = cx - centerX;
-            let dz = cz - centerZ;
-            let spatialAngle = Math.atan2(dz, dx);
-            let angleDiff = Math.abs(spatialAngle - ((f * Math.PI * 2 / numForks) - Math.PI));
-            if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
-            
-            if (angleDiff < 0.8 && branchesSpawned < 3) { 
-              branchesSpawned++;
-              
-              let evalPath = (t) => {
-                let ease = t * t * (3 - 2 * t);
-                let dispMagnitude = ease * maxBranchReach * (0.8 + activeB);
-                
-                let nx = cx, ny = cy, nz = cz;
-                
-                // Unified fluid sweep along primary axis (graceful arch downward)
-                if (domAxis === 'X') {
-                   let sweepDir = (cx > centerX) ? 1 : -1;
-                   nx += sweepDir * dispMagnitude;
-                   ny -= dispMagnitude * 0.45; // arch towards ground
-                   nz += (cz > centerZ ? 1 : -1) * dispMagnitude * 0.25; 
-                } else if (domAxis === 'Z') {
-                   let sweepDir = (cz > centerZ) ? 1 : -1; 
-                   nz += sweepDir * dispMagnitude;
-                   ny -= dispMagnitude * 0.45;
-                   nx += (cx > centerX ? 1 : -1) * dispMagnitude * 0.25;
-                } else {
-                   let sweepDir = (cy > centerY) ? 1 : -1;
-                   ny += sweepDir * dispMagnitude;
-                   nx += (cx > centerX ? 1 : -1) * dispMagnitude * 0.45;
-                   nz += (cz > centerZ ? 1 : -1) * dispMagnitude * 0.25;
-                }
-                
-                return { x: nx, y: ny, z: nz };
-              };
-              
-              generateSmoothBranch(newVertices, evalPath, branchBaseRadius, numSegments);
-            }
+          if (Math.abs(u - targetU) < 0.1 && !spawned) {
+             let {nx, ny, nz} = getNormal(i, temp);
+             spawned = true;
+             
+             let evalPath = (t) => {
+                 let reach = branchLength;
+                 let P0 = {x: cx, y: cy, z: cz};
+                 let P1 = {x: cx + nx * reach * 0.5, y: cy + ny * reach * 0.5, z: cz + nz * reach * 0.5};
+                 
+                 let spreadAngle = (f * Math.PI * 2 / numForks);
+                 let spreadDirX = Math.cos(spreadAngle);
+                 let spreadDirZ = Math.sin(spreadAngle);
+                 
+                 let P2 = {
+                    x: cx + spreadDirX * reach,
+                    y: cy + ny * reach - reach * 0.3,
+                    z: cz + spreadDirZ * reach
+                 };
+                 
+                 let uT = 1 - t;
+                 return {
+                    x: uT*uT*P0.x + 2*uT*t*P1.x + t*t*P2.x,
+                    y: uT*uT*P0.y + 2*uT*t*P1.y + t*t*P2.y,
+                    z: uT*uT*P0.z + 2*uT*t*P1.z + t*t*P2.z
+                 };
+             };
+             generateSmoothBranch(newVertices, evalPath, branchBaseRadius, numSegments);
           }
         }
       }
     }
 
-    // 3. WHIPLASH CURVATURE (W)
-    // A(W) = W * 0.45 * transverseDimension
-    // D(t) = A(W) * sin(pi*t + W*pi*t^2)
+    // 6. GROWTH - Controls extension LENGTH
+    if (G > 0.05 && isMesh) {
+      const gSettings = (window.domainState && window.domainState.growthSettings) || {};
+      const numOrigins = gSettings.count ? parseInt(gSettings.count) : 4;
+      const numSegments = Math.floor(12 + activeG * 8); 
+      const growthReach = Math.max(0.1, activeG) * 1.2 * domSpan; 
+      const growthBaseRadius = domSpan * 0.04; 
+
+      for (let g = 0; g < numOrigins; g++) {
+        let targetU = (g + 0.5) / numOrigins;
+        let spawned = false;
+        
+        for (let i = 0; i < temp.length; i += 9) {
+          if (i + 8 >= temp.length) break;
+          let cx = (temp[i] + temp[i+3] + temp[i+6]) / 3;
+          let cy = (temp[i+1] + temp[i+4] + temp[i+7]) / 3;
+          let cz = (temp[i+2] + temp[i+5] + temp[i+8]) / 3;
+          
+          let domVal = (domAxis === 'X') ? cx : ((domAxis === 'Z') ? cz : cy);
+          let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
+          
+          if (Math.abs(u - targetU) < 0.1 && !spawned) {
+             let {nx, ny, nz} = getNormal(i, temp);
+             spawned = true;
+             
+             let evalPath = (t) => {
+                 let P0 = {x: cx, y: cy, z: cz};
+                 let P1 = {x: cx + nx * growthReach * 0.4, y: cy + ny * growthReach * 0.4, z: cz + nz * growthReach * 0.4};
+                 
+                 let curlAngle = (g * Math.PI * 2 / numOrigins) + Math.PI * 1.5; 
+                 let spreadDirX = Math.cos(curlAngle);
+                 let spreadDirZ = Math.sin(curlAngle);
+                 
+                 let P2 = {
+                    x: cx + spreadDirX * growthReach,
+                    y: cy + ny * growthReach + growthReach * 0.5,
+                    z: cz + spreadDirZ * growthReach
+                 };
+                 
+                 let uT = 1 - t;
+                 return {
+                    x: uT*uT*P0.x + 2*uT*t*P1.x + t*t*P2.x,
+                    y: uT*uT*P0.y + 2*uT*t*P1.y + t*t*P2.y,
+                    z: uT*uT*P0.z + 2*uT*t*P1.z + t*t*P2.z
+                 };
+             };
+             generateSmoothBranch(newVertices, evalPath, growthBaseRadius, numSegments);
+          }
+        }
+      }
+    }
+
+    // COMBINE MESHES BEFORE DEFORMATIONS
+    let fullMesh = temp;
+    if (newVertices.length > 0) {
+      fullMesh = new Float32Array(temp.length + newVertices.length);
+      fullMesh.set(temp);
+      fullMesh.set(newVertices, temp.length);
+    }
+
+    // 3. WHIPLASH (W) - Curves the branches
     if (activeW > 0) {
       const Amp = activeW * 0.45 * transSpan;
-      for (let i = 0; i < temp.length; i += 3) {
-        let x = temp[i], y = temp[i+1], z = temp[i+2];
+      for (let i = 0; i < fullMesh.length; i += 3) {
+        let x = fullMesh[i], y = fullMesh[i+1], z = fullMesh[i+2];
         let domVal = (domAxis === 'X') ? x : ((domAxis === 'Z') ? z : y);
         let t = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
 
@@ -1543,27 +1585,27 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
         let totalD = D1 + D2;
 
         if (domAxis === 'Y') {
-          temp[i] += totalD;
-          temp[i+2] += totalD * 0.45 * Math.cos(Math.PI * t);
+          fullMesh[i] += totalD;
+          fullMesh[i+2] += totalD * 0.45 * Math.cos(Math.PI * t);
         } else {
-          temp[i+1] += totalD;
-          temp[i+2] += totalD * 0.45;
+          fullMesh[i+1] += totalD;
+          fullMesh[i+2] += totalD * 0.45;
         }
       }
     }
 
-    // 4. MERGING SURFACES (M)
-    const hasBranchingOrMulti = activeB >= 0.15 || totalVerts >= 20;
+    // 4. MERGING (M) - Connects nearby pieces
+    const hasBranchingOrMulti = activeB >= 0.15 || (fullMesh.length / 3) >= 20;
     if (activeM > 0 && hasBranchingOrMulti) {
       const sigma = (0.05 + 0.35 * activeM) * domSpan;
-      for (let i = 0; i < temp.length; i += 3) {
-        let x = temp[i], z = temp[i+2];
+      for (let i = 0; i < fullMesh.length; i += 3) {
+        let x = fullMesh[i], z = fullMesh[i+2];
         let dist = Math.sqrt((x - centerX)*(x - centerX) + (z - centerZ)*(z - centerZ));
         let w = Math.exp(-(dist * dist) / (2 * sigma * sigma));
         
         let pull = activeM * 1.2 * w;
-        temp[i] += pull * (centerX - x);
-        temp[i+2] += pull * (centerZ - z);
+        fullMesh[i] += pull * (centerX - x);
+        fullMesh[i+2] += pull * (centerZ - z);
       }
     }
 
@@ -1572,8 +1614,8 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
       const Nvoid = Math.floor(1 + 3 * activeV);
       const R = (0.08 + 0.28 * activeV) * transSpan;
 
-      for (let i = 0; i < temp.length; i += 3) {
-        let x = temp[i], y = temp[i+1], z = temp[i+2];
+      for (let i = 0; i < fullMesh.length; i += 3) {
+        let x = fullMesh[i], y = fullMesh[i+1], z = fullMesh[i+2];
         let domVal = (domAxis === 'X') ? x : ((domAxis === 'Z') ? z : y);
         let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
 
@@ -1585,86 +1627,32 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
             let distRad = Math.sqrt(dx * dx + dz * dz) + 0.0001;
             let field = Math.exp(-(distRad * distRad) / (2 * R * R)) * Math.cos(distU * Math.PI * 2.5);
             
-            temp[i] += (dx / distRad) * field * R * activeV * 1.3;
-            temp[i+2] += (dz / distRad) * field * R * activeV * 1.3;
+            fullMesh[i] += (dx / distRad) * field * R * activeV * 1.3;
+            fullMesh[i+2] += (dz / distRad) * field * R * activeV * 1.3;
           }
         }
       }
     }
 
-    // 6. GROWTH / AGGREGATION (G) - CREATE NEW EXTENSIONS
-    if (G > 0.05 && isMesh) {
-      const numOrigins = 3;
-      const numSegments = Math.floor(12 + activeG * 8); // Higher res for curl
-      const growthReach = Math.max(0.1, activeG) * 0.8 * domSpan;
-      const growthBaseRadius = domSpan * 0.05 * Math.max(0.3, activeG); // Much thicker base
-
-      for (let g = 0; g < numOrigins; g++) {
-        let targetU = 0.2 + (g / numOrigins) * 0.6; 
-        let growthsSpawned = 0;
+    // 1. CONTINUITY (C) - Keeps attachments smooth
+    if (activeC > 0) {
+      for (let i = 0; i < fullMesh.length; i += 3) {
+        let x = fullMesh[i], y = fullMesh[i+1], z = fullMesh[i+2];
+        let domVal = (domAxis === 'X') ? x : ((domAxis === 'Z') ? z : y);
+        let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
+        let S = 3 * u * u - 2 * u * u * u; 
         
-        for (let i = 0; i < temp.length; i += 9) {
-          if (i + 8 >= temp.length) break;
-          let cx = (temp[i] + temp[i+3] + temp[i+6]) / 3;
-          let cy = (temp[i+1] + temp[i+4] + temp[i+7]) / 3;
-          let cz = (temp[i+2] + temp[i+5] + temp[i+8]) / 3;
-          
-          let domVal = (domAxis === 'X') ? cx : ((domAxis === 'Z') ? cz : cy);
-          let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
-          
-          if (u > targetU - 0.15 && u < targetU + 0.15) {
-            let dx = cx - centerX; let dz = cz - centerZ;
-            let spatialAngle = Math.atan2(dz, dx);
-            let angleDiff = Math.abs(spatialAngle - (g * Math.PI * 2 / numOrigins));
-            if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
-            
-            if (angleDiff < 0.8 && growthsSpawned < 3) { 
-              growthsSpawned++;
-              
-              let evalPath = (t) => {
-                let ease = t * t * (3 - 2 * t);
-                
-                // Art Nouveau Fern Curl: radius grows, angle spirals in parallel to axis
-                let curlRadius = ease * growthReach * 0.8;
-                let curlAngle = t * Math.PI * 1.5; // unfurl 270 degrees
-                
-                let nx = cx, ny = cy, nz = cz;
-                
-                if (domAxis === 'X') {
-                   let dir = (cx > centerX) ? 1 : -1;
-                   nx += dir * curlRadius * Math.sin(curlAngle);
-                   ny += curlRadius * Math.cos(curlAngle) - curlRadius; // start tangent
-                   nz += (cz > centerZ ? 1 : -1) * ease * growthReach * 0.25;
-                } else if (domAxis === 'Z') {
-                   let dir = (cz > centerZ) ? 1 : -1;
-                   nz += dir * curlRadius * Math.sin(curlAngle);
-                   ny += curlRadius * Math.cos(curlAngle) - curlRadius; 
-                   nx += (cx > centerX ? 1 : -1) * ease * growthReach * 0.25;
-                } else {
-                   let dir = (cy > centerY) ? 1 : -1;
-                   ny += dir * curlRadius * Math.sin(curlAngle);
-                   nx += curlRadius * Math.cos(curlAngle) - curlRadius;
-                   nz += (cz > centerZ ? 1 : -1) * ease * growthReach * 0.25;
-                }
-                
-                return { x: nx, y: ny, z: nz };
-              };
-              
-              generateSmoothBranch(newVertices, evalPath, growthBaseRadius, numSegments);
-            }
-          }
-        }
+        let targetX = centerX + (x - centerX) * (1 - 0.35 * activeC * S);
+        let targetZ = centerZ + (z - centerZ) * (1 - 0.35 * activeC * S);
+        let targetY = y + activeC * 0.28 * domSpan * Math.sin(Math.PI * u);
+
+        fullMesh[i] = (1 - activeC) * x + activeC * targetX;
+        fullMesh[i+1] = (1 - activeC) * y + activeC * targetY;
+        fullMesh[i+2] = (1 - activeC) * z + activeC * targetZ;
       }
     }
 
-    if (newVertices.length > 0) {
-      let combined = new Float32Array(temp.length + newVertices.length);
-      combined.set(temp);
-      combined.set(newVertices, temp.length);
-      return combined;
-    }
-
-    return temp;
+    return fullMesh;
   }
 
   // Calculate Seed Identity Protection threshold loop
