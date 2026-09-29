@@ -1362,41 +1362,41 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     const activeV = V * scale;
     const activeG = G * scale;
 
+    window._lastComputedBranchIndices = [];
     const temp = new Float32Array(positions);
     let newVertices = [];
+    let newIndices = [];
 
-    function generateSmoothBranch(vertsArr, evalPath, baseRadius, numSegs) {
+    function generateSmoothBranch(vertsArr, indicesArr, baseVertOffset, evalPath, baseRadius, numSegs) {
       let sides = 32; // Increased for smooth organic roundness
-      let prevRing = [];
-      let lastDir = null, lastUp = null, lastRight = null;
       let baseCenter = evalPath(0);
+      let curCenter = baseCenter;
       
+      let lastDir = { x: evalPath(0.01).x - baseCenter.x, y: evalPath(0.01).y - baseCenter.y, z: evalPath(0.01).z - baseCenter.z };
+      let len = Math.sqrt(lastDir.x*lastDir.x + lastDir.y*lastDir.y + lastDir.z*lastDir.z);
+      if (len > 0.0001) { lastDir.x/=len; lastDir.y/=len; lastDir.z/=len; } else { lastDir = {x:0, y:1, z:0}; }
+      
+      let lastRight = {x:1, y:0, z:0};
+      if (Math.abs(lastDir.x) > 0.9) lastRight = {x:0, y:1, z:0};
+      let cross1 = { x: lastDir.y*lastRight.z - lastDir.z*lastRight.y, y: lastDir.z*lastRight.x - lastDir.x*lastRight.z, z: lastDir.x*lastRight.y - lastDir.y*lastRight.x };
+      let cLen1 = Math.sqrt(cross1.x*cross1.x + cross1.y*cross1.y + cross1.z*cross1.z);
+      cross1.x/=cLen1; cross1.y/=cLen1; cross1.z/=cLen1;
+      let lastUp = cross1;
+      lastRight = { x: lastUp.y*lastDir.z - lastUp.z*lastDir.y, y: lastUp.z*lastDir.x - lastUp.x*lastDir.z, z: lastUp.x*lastDir.y - lastUp.y*lastDir.x };
+
+      let baseCenterIdx = baseVertOffset + vertsArr.length / 3;
+      vertsArr.push(baseCenter.x, baseCenter.y, baseCenter.z);
+      let ringIndices = [];
+
       for (let seg = 0; seg <= numSegs; seg++) {
         let t = seg / numSegs;
-        let curCenter = evalPath(t);
-        
-        let tNext = Math.min(1.0, t + 0.05);
-        let nextCenter = evalPath(tNext);
-        if (t === 1.0) {
-           let tPrev = Math.max(0.0, t - 0.05);
-           let prevCenter = evalPath(tPrev);
-           nextCenter = curCenter;
-           curCenter = prevCenter; 
-        }
-        let dir = { x: nextCenter.x - curCenter.x, y: nextCenter.y - curCenter.y, z: nextCenter.z - curCenter.z };
-        let dLen = Math.sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
-        if(dLen < 0.0001) dir = {x:0,y:1,z:0}; else {dir.x/=dLen; dir.y/=dLen; dir.z/=dLen;}
-        
-        if (!lastDir) {
-          let up = Math.abs(dir.y) < 0.99 ? {x:0, y:1, z:0} : {x:1, y:0, z:0};
-          let right = { x: up.y*dir.z - up.z*dir.y, y: up.z*dir.x - up.x*dir.z, z: up.x*dir.y - up.y*dir.x };
-          let rLen = Math.sqrt(right.x*right.x + right.y*right.y + right.z*right.z);
-          if(rLen < 0.0001) { right = {x:1,y:0,z:0}; } else { right.x/=rLen; right.y/=rLen; right.z/=rLen; }
-          let up2 = { x: dir.y*right.z - dir.z*right.y, y: dir.z*right.x - dir.x*right.z, z: dir.x*right.y - dir.y*right.x };
-          lastDir = dir; lastUp = up2; lastRight = right;
-        } else {
-          let cross = { x: lastDir.y*dir.z - lastDir.z*dir.y, y: lastDir.z*dir.x - lastDir.x*dir.z, z: lastDir.x*dir.y - lastDir.y*dir.x };
+        if (seg > 0) {
+          let dir = { x: evalPath(t+0.01).x - curCenter.x, y: evalPath(t+0.01).y - curCenter.y, z: evalPath(t+0.01).z - curCenter.z };
+          let dLen = Math.sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
+          if (dLen > 0.0001) { dir.x/=dLen; dir.y/=dLen; dir.z/=dLen; } else { dir = lastDir; }
+          
           let dot = lastDir.x*dir.x + lastDir.y*dir.y + lastDir.z*dir.z;
+          let cross = { x: lastDir.y*dir.z - lastDir.z*dir.y, y: lastDir.z*dir.x - lastDir.x*dir.z, z: lastDir.x*dir.y - lastDir.y*dir.x };
           let cLen = Math.sqrt(cross.x*cross.x + cross.y*cross.y + cross.z*cross.z);
           if (cLen > 0.0001) {
             cross.x/=cLen; cross.y/=cLen; cross.z/=cLen;
@@ -1413,47 +1413,40 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
           lastDir = dir;
         }
         
-        // Smooth rounded dome tip instead of sharp cone
         let radiusScale = Math.cos(t * Math.PI / 2);
         let currentRadius = Math.max(0.08 * baseRadius, baseRadius * radiusScale); 
-        
         curCenter = evalPath(t); 
-        
-        let currentRing = [];
+
+        let newRingIndices = [];
+        let ringStartIdx = baseVertOffset + vertsArr.length / 3;
+
         for (let s = 0; s < sides; s++) {
           let angle = (s / sides) * Math.PI * 2;
           let rCos = Math.cos(angle) * currentRadius;
           let rSin = Math.sin(angle) * currentRadius;
-          currentRing.push({
-            x: curCenter.x + lastRight.x * rCos + lastUp.x * rSin,
-            y: curCenter.y + lastRight.y * rCos + lastUp.y * rSin,
-            z: curCenter.z + lastRight.z * rCos + lastUp.z * rSin
-          });
+          vertsArr.push(curCenter.x + lastRight.x * rCos + lastUp.x * rSin, curCenter.y + lastRight.y * rCos + lastUp.y * rSin, curCenter.z + lastRight.z * rCos + lastUp.z * rSin);
+          newRingIndices.push(ringStartIdx + s);
         }
 
-        if (seg === 1) {
-          // Bottom cap to ensure a closed, manifold mesh
-          for (let s = 0; s < sides; s++) {
-            let sNext = (s + 1) % sides;
-            vertsArr.push(baseCenter.x, baseCenter.y, baseCenter.z, prevRing[s].x, prevRing[s].y, prevRing[s].z, prevRing[sNext].x, prevRing[sNext].y, prevRing[sNext].z);
-          }
+        if (seg === 0) {
+           for (let s = 0; s < sides; s++) {
+             indicesArr.push(baseCenterIdx, newRingIndices[s], newRingIndices[(s + 1) % sides]);
+           }
+        } else {
+           for (let s = 0; s < sides; s++) {
+             let sNext = (s + 1) % sides;
+             indicesArr.push(ringIndices[s], newRingIndices[s], newRingIndices[sNext], ringIndices[s], newRingIndices[sNext], ringIndices[sNext]);
+           }
         }
-        
-        if (seg > 0) {
-          for (let s = 0; s < sides; s++) {
-            let sNext = (s + 1) % sides;
-            let p0 = prevRing[s], p1 = currentRing[s];
-            let p2 = currentRing[sNext], p3 = prevRing[sNext];
-            
-            if (seg === numSegs) {
-              vertsArr.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p3.x, p3.y, p3.z);
-            } else {
-              vertsArr.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
-              vertsArr.push(p0.x, p0.y, p0.z, p2.x, p2.y, p2.z, p3.x, p3.y, p3.z);
-            }
-          }
+
+        if (seg === numSegs) {
+           let topCenterIdx = baseVertOffset + vertsArr.length / 3;
+           vertsArr.push(curCenter.x, curCenter.y, curCenter.z);
+           for (let s = 0; s < sides; s++) {
+             indicesArr.push(topCenterIdx, newRingIndices[(s + 1) % sides], newRingIndices[s]);
+           }
         }
-        prevRing = currentRing;
+        ringIndices = newRingIndices;
       }
     }
 
@@ -1557,7 +1550,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
                     z: uT3*P0.z + 3*uT2*t*P1.z + 3*uT*t2*P2.z + t3*P3.z
                  };
              };
-             generateSmoothBranch(newVertices, evalPath, branchBaseRadius, numSegments);
+             generateSmoothBranch(newVertices, newIndices, temp.length / 3, evalPath, branchBaseRadius, numSegments);
           }
         }
       }
@@ -1643,18 +1636,18 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
                     z: uT3*P0.z + 3*uT2*t*P1.z + 3*uT*t2*P2.z + t3*P3.z
                  };
              };
-             generateSmoothBranch(newVertices, evalPath, growthBaseRadius, numSegments);
+             generateSmoothBranch(newVertices, newIndices, temp.length / 3, evalPath, growthBaseRadius, numSegments);
           }
         }
       }
     }
 
-    // COMBINE MESHES BEFORE DEFORMATIONS
     let fullMesh = temp;
     if (newVertices.length > 0) {
       fullMesh = new Float32Array(temp.length + newVertices.length);
       fullMesh.set(temp);
       fullMesh.set(newVertices, temp.length);
+      window._lastComputedBranchIndices = new Uint32Array(newIndices);
     }
 
     // 3. WHIPLASH (W) - Curves the branches
@@ -2007,10 +2000,17 @@ function renderIterationGeometry(recipeOrDna, explicitMode) {
           let baseVerts = item.originalPositions.length / 3;
           let addedVerts = (defPos.length - item.originalPositions.length) / 3;
           
-          let combinedIndices = new Uint32Array(baseLen + addedVerts);
-          combinedIndices.set(item.originalIndices);
-          for (let i = 0; i < addedVerts; i++) {
-             combinedIndices[baseLen + i] = baseVerts + i;
+          let combinedIndices;
+          if (window._lastComputedBranchIndices && window._lastComputedBranchIndices.length > 0) {
+             combinedIndices = new Uint32Array(baseLen + window._lastComputedBranchIndices.length);
+             combinedIndices.set(item.originalIndices);
+             combinedIndices.set(window._lastComputedBranchIndices, baseLen);
+          } else {
+             combinedIndices = new Uint32Array(baseLen + addedVerts);
+             combinedIndices.set(item.originalIndices);
+             for (let i = 0; i < addedVerts; i++) {
+                combinedIndices[baseLen + i] = baseVerts + i;
+             }
           }
           newGeom.setIndex(new THREE.BufferAttribute(combinedIndices, 1));
         }
