@@ -1377,7 +1377,9 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
         
         let up2 = { x: dir.y*right.z - dir.z*right.y, y: dir.z*right.x - dir.x*right.z, z: dir.x*right.y - dir.y*right.x };
         
-        let currentRadius = baseRadius * (1.0 - 0.9 * t); 
+        // Organic bulbous taper (power function) instead of linear stringy cone
+        let radiusScale = Math.pow(1.0 - t, 0.65);
+        let currentRadius = baseRadius * radiusScale; 
         if (seg === numSegs) currentRadius = 0; 
         
         curCenter = evalPath(t); 
@@ -1445,8 +1447,8 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
 
       const maxBranchReach = 0.5 * domSpan * lenMult;
       const forkAngle = (60 * (Math.PI / 180)) * widthMult;
-      const numSegments = 10; 
-      const branchBaseRadius = domSpan * 0.012 * widthMult;
+      const numSegments = 16; // Higher resolution for smoother curves
+      const branchBaseRadius = domSpan * 0.045 * widthMult; // Much thicker base for volumetric structural feel
 
       for (let f = 0; f < numForks; f++) {
         let spreadAngle = (f - (numForks - 1) / 2.0) * forkAngle;
@@ -1473,11 +1475,16 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
               branchesSpawned++;
               
               let evalPath = (t) => {
-                let smoothLaunch = 0.5 * (1 - Math.cos(Math.PI * t));
-                let dispMagnitude = Math.pow(smoothLaunch, 1.2) * maxBranchReach * (0.5 + activeB);
+                // Smooth ease-in-out curve
+                let ease = t * t * (3 - 2 * t);
+                let dispMagnitude = ease * maxBranchReach * (0.5 + activeB);
+                
+                // Add natural droop/S-curve vertically
+                let verticalWave = Math.sin(t * Math.PI) * maxBranchReach * 0.25;
+                
                 let branchDx = dispMagnitude * Math.cos(spatialAngle + spreadAngle + hAngleRad);
                 let branchDz = dispMagnitude * Math.sin(spatialAngle + spreadAngle + hAngleRad);
-                let branchDy = dispMagnitude * (0.2 + Math.sin(vAngleRad)) * t;
+                let branchDy = dispMagnitude * (0.2 + Math.sin(vAngleRad)) + verticalWave;
                 
                 let nx = cx + branchDx;
                 let ny = cy + (domAxis === 'Y' ? branchDy : 0);
@@ -1561,9 +1568,9 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     // 6. GROWTH / AGGREGATION (G) - CREATE NEW EXTENSIONS
     if (G > 0.05 && isMesh) {
       const numOrigins = 3;
-      const numSegments = Math.floor(6 + activeG * 8); 
+      const numSegments = Math.floor(12 + activeG * 8); // Higher res for curl
       const growthReach = Math.max(0.1, activeG) * 0.8 * domSpan;
-      const growthBaseRadius = domSpan * 0.015 * Math.max(0.2, activeG);
+      const growthBaseRadius = domSpan * 0.05 * Math.max(0.3, activeG); // Much thicker base
 
       for (let g = 0; g < numOrigins; g++) {
         let targetU = 0.2 + (g / numOrigins) * 0.6; 
@@ -1588,10 +1595,18 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
               growthsSpawned++;
               
               let evalPath = (t) => {
-                let dispMagnitude = t * growthReach;
-                let spiralDx = dispMagnitude * Math.cos(spatialAngle + t * Math.PI);
-                let spiralDz = dispMagnitude * Math.sin(spatialAngle + t * Math.PI);
-                let spiralDy = dispMagnitude * 0.5 * t;
+                let ease = t * t * (3 - 2 * t);
+                let dispMagnitude = ease * growthReach;
+                
+                // Art Nouveau Whiplash Curl: angle spirals outward
+                let curlAngle = spatialAngle + t * Math.PI * 1.5; 
+                
+                let spiralDx = dispMagnitude * Math.cos(curlAngle);
+                let spiralDz = dispMagnitude * Math.sin(curlAngle);
+                
+                // Organic wave height
+                let spiralDy = dispMagnitude * 0.4 + Math.sin(t * Math.PI * 1.2) * growthReach * 0.3;
+                
                 let nx = cx + spiralDx;
                 let ny = cy + (domAxis === 'Y' ? spiralDy : 0);
                 let nz = cz + spiralDz;
