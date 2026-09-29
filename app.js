@@ -1423,10 +1423,10 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
             let p2 = currentRing[sNext], p3 = prevRing[sNext];
             
             if (seg === numSegs) {
-              vertsArr.push(p0.x, p0.y, p0.z, p3.x, p3.y, p3.z, p1.x, p1.y, p1.z);
+              vertsArr.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p3.x, p3.y, p3.z);
             } else {
-              vertsArr.push(p0.x, p0.y, p0.z, p3.x, p3.y, p3.z, p2.x, p2.y, p2.z);
-              vertsArr.push(p0.x, p0.y, p0.z, p2.x, p2.y, p2.z, p1.x, p1.y, p1.z);
+              vertsArr.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+              vertsArr.push(p0.x, p0.y, p0.z, p2.x, p2.y, p2.z, p3.x, p3.y, p3.z);
             }
           }
         }
