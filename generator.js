@@ -2095,6 +2095,10 @@ function renderGalleryUI(genIndex, iterations) {
         <button class="btn btn-pop-action btn-set-parent" onclick="selectProposalForRefinement('${iter.id}')">✏️ REFINE</button>
         <button class="btn btn-pop-action btn-save-star" onclick="saveToLibraryHandler('${iter.id}')">★ SAVE</button>
       </div>
+      <div class="iter-card-actions" style="margin-top:2px;">
+        <button class="btn btn-pop-action" style="color:#00f2fe; border-color:#00f2fe; width:50%; padding:2px;" onclick="exportIteration3DM('${iter.id}')">⬇ .3DM</button>
+        <button class="btn btn-pop-action" style="color:#ffd700; border-color:#ffd700; width:50%; padding:2px;" onclick="exportIterationPNG('${iter.id}')">⬇ .PNG</button>
+      </div>
     `;
 
     container.appendChild(card);
@@ -2592,6 +2596,10 @@ function updateLibraryUI() {
         <button class="btn-lib-action" onclick="useAsParent('${iter.id}')">USE PARENT</button>
         <button class="btn-lib-action" style="color:#888888;" onclick="deleteIterationFromDB('${iter.id}')">DELETE</button>
       </div>
+      <div class="lib-card-actions" style="margin-top:3px;">
+        <button class="btn-lib-action" style="color:#00f2fe; border-color:#00f2fe; width:50%;" onclick="exportIteration3DM('${iter.id}')">⬇ .3DM FILE</button>
+        <button class="btn-lib-action" style="color:#ffd700; border-color:#ffd700; width:50%;" onclick="exportIterationPNG('${iter.id}')">⬇ .PNG IMAGE</button>
+      </div>
     `;
 
     grid.appendChild(card);
@@ -2944,3 +2952,49 @@ if (!window.restoreOriginalImportedGeometry) {
   window.restoreOriginalImportedGeometry = revertToOriginalRhinoSeed;
 }
 
+}
+
+window.exportIteration3DM = function(iterId) {
+    const iter = getIterationById(iterId);
+    if(!iter || !window.rhino) {
+        console.error("Rhino3dm not initialized or iter not found");
+        return;
+    }
+    
+    let m = new window.rhino.Mesh();
+    for(let i=0; i<iter.geometry.vertices.length; i+=3) {
+        m.vertices().add(iter.geometry.vertices[i], iter.geometry.vertices[i+1], iter.geometry.vertices[i+2]);
+    }
+    for(let i=0; i<iter.geometry.indices.length; i+=3) {
+        m.faces().addFace(iter.geometry.indices[i], iter.geometry.indices[i+1], iter.geometry.indices[i+2]);
+    }
+    m.normals().computeNormals();
+    
+    let file = new window.rhino.File3dm();
+    file.objects().add(m, null);
+    
+    let buffer = file.toByteArray();
+    let blob = new Blob([buffer], {type: "application/octet-stream"});
+    let url = URL.createObjectURL(blob);
+    let a = document.createElement("a");
+    a.href = url;
+    a.download = iter.id + ".3dm";
+    a.click();
+    URL.revokeObjectURL(url);
+    m.delete();
+    file.delete();
+};
+
+window.exportIterationPNG = function(iterId) {
+    const iter = getIterationById(iterId);
+    if(!iter) return;
+    let canvas = document.getElementById('canvas-lib-' + iter.id);
+    if(!canvas) canvas = document.getElementById('canvas-thumb-' + iter.id);
+    if(canvas) {
+        let url = canvas.toDataURL("image/png");
+        let a = document.createElement("a");
+        a.href = url;
+        a.download = iter.id + ".png";
+        a.click();
+    }
+};
