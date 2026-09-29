@@ -1497,27 +1497,39 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
                  let reach = branchLength;
                  let P0 = {x: cx, y: cy, z: cz};
                  
-                 // Flow gently outward, then immediately sweep UP
+                 // Calculate local tangent to follow existing surface flow
+                 let dotUP = ny;
+                 let tx = -dotUP*nx, ty = 1 - dotUP*ny, tz = -dotUP*nz;
+                 let tLen = Math.sqrt(tx*tx + ty*ty + tz*tz);
+                 if (tLen < 0.001) {
+                   let dotFwd = nz;
+                   tx = -dotFwd*nx; ty = -dotFwd*ny; tz = 1 - dotFwd*nz;
+                   tLen = Math.sqrt(tx*tx + ty*ty + tz*tz);
+                 }
+                 if (tLen > 0.001) { tx/=tLen; ty/=tLen; tz/=tLen; } else { tx=1; ty=0; tz=0; }
+                 
+                 // P1: Strongly follow the tangent direction for the first 35% of the curve
                  let P1 = {
-                   x: cx + nx * reach * 0.2, 
-                   y: cy + reach * 0.3, 
-                   z: cz + nz * reach * 0.2
+                   x: cx + tx * reach * 0.35, 
+                   y: cy + ty * reach * 0.35, 
+                   z: cz + tz * reach * 0.35
                  };
                  
-                 // Wrap around the bounding box center to hug the geometry
-                 let wrapX = (cx > centerX) ? -1 : 1;
-                 let wrapZ = (cz > centerZ) ? -1 : 1;
+                 // P2: Gradually separate from the parent
+                 let spreadAngle = (f * Math.PI * 2 / numForks);
+                 let sx = Math.cos(spreadAngle), sz = Math.sin(spreadAngle);
                  
                  let P2 = {
-                    x: cx + wrapX * reach * 0.3,
-                    y: cy + reach * 0.7,
-                    z: cz + wrapZ * reach * 0.3
+                    x: cx + tx * reach * 0.7 + nx * reach * 0.15 + sx * reach * 0.15,
+                    y: cy + ty * reach * 0.7 + ny * reach * 0.15,
+                    z: cz + tz * reach * 0.7 + nz * reach * 0.15 + sz * reach * 0.15
                  };
 
+                 // P3: Tapering elegant curve out
                  let P3 = {
-                    x: cx + wrapX * reach * 0.5,
-                    y: cy + reach * 1.2,
-                    z: cz + wrapZ * reach * 0.5
+                    x: cx + tx * reach * 1.0 + nx * reach * 0.3 + sx * reach * 0.3,
+                    y: cy + ty * reach * 1.0 + ny * reach * 0.3,
+                    z: cz + tz * reach * 1.0 + nz * reach * 0.3 + sz * reach * 0.3
                  };
                  
                  let uT = 1 - t;
@@ -1566,26 +1578,44 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
                  let reach = growthReach;
                  let P0 = {x: cx, y: cy, z: cz};
                  
-                 // Growth flows downwards and outwards like roots, or upwards like stems
-                 let flowY = (cy < centerY) ? -1 : 1; 
+                 // Calculate local tangent to follow existing surface flow
+                 let dotUP = ny;
+                 let tx = -dotUP*nx, ty = 1 - dotUP*ny, tz = -dotUP*nz;
+                 let tLen = Math.sqrt(tx*tx + ty*ty + tz*tz);
+                 if (tLen < 0.001) {
+                   let dotFwd = nz;
+                   tx = -dotFwd*nx; ty = -dotFwd*ny; tz = 1 - dotFwd*nz;
+                   tLen = Math.sqrt(tx*tx + ty*ty + tz*tz);
+                 }
+                 if (tLen > 0.001) { tx/=tLen; ty/=tLen; tz/=tLen; } else { tx=1; ty=0; tz=0; }
                  
+                 // Orient tangent properly based on position
+                 let isEnd = (g % 2 === 0);
+                 if (isEnd && ty < 0) { tx = -tx; ty = -ty; tz = -tz; }
+                 if (!isEnd && ty > 0) { tx = -tx; ty = -ty; tz = -tz; }
+                 
+                 // P1: Continue in approx that same tangent direction
                  let P1 = {
-                   x: cx + nx * reach * 0.2, 
-                   y: cy + flowY * reach * 0.4, 
-                   z: cz + nz * reach * 0.2
+                   x: cx + tx * reach * 0.35, 
+                   y: cy + ty * reach * 0.35, 
+                   z: cz + tz * reach * 0.35
                  };
                  
-                 let sweepAngle = (g / numOrigins) * Math.PI * 2;
+                 // P2: Gradually curve away from the trajectory
                  let P2 = {
-                    x: cx + Math.cos(sweepAngle) * reach * 0.5,
-                    y: cy + flowY * reach * 0.8,
-                    z: cz + Math.sin(sweepAngle) * reach * 0.5
+                    x: cx + tx * reach * 0.75 + nx * reach * 0.1,
+                    y: cy + ty * reach * 0.75 + ny * reach * 0.1,
+                    z: cz + tz * reach * 0.75 + nz * reach * 0.1
                  };
 
+                 // P3: Tapering/expanding end point
+                 let curlAngle = (g * Math.PI / numOrigins);
+                 let sx = Math.cos(curlAngle), sz = Math.sin(curlAngle);
+                 
                  let P3 = {
-                    x: cx + Math.cos(sweepAngle + Math.PI/4) * reach * 0.8,
-                    y: cy + flowY * reach * 1.3,
-                    z: cz + Math.sin(sweepAngle + Math.PI/4) * reach * 0.8
+                    x: cx + tx * reach * 1.1 + nx * reach * 0.2 + sx * reach * 0.1,
+                    y: cy + ty * reach * 1.1 + ny * reach * 0.2,
+                    z: cz + tz * reach * 1.1 + nz * reach * 0.2 + sz * reach * 0.1
                  };
                  
                  let uT = 1 - t;
