@@ -1505,41 +1505,19 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
             return j1 + (j2 - j1) * fZ2;
         };
 
-        let smoothVeinNoise = (x, y, z, octaves) => {
+        let ridgedNoise = (x, y, z, octaves) => {
             let total = 0, freq = 1, amp = 1, maxAmp = 0;
             for(let i=0; i<octaves; i++) {
                 let n = noise3D(x*freq, y*freq, z*freq);
-                n = Math.pow(Math.sin(n * Math.PI), 2.0);
+                n = 1.0 - Math.abs(n * 2.0 - 1.0);
+                n = n * n * (3 - 2 * n); // Smoothstep the ridge!
                 total += n * amp;
                 maxAmp += amp;
                 amp *= 0.5;
-                freq *= 2.0;
+                freq *= 1.5;
             }
             return total / maxAmp;
         };
-
-        let subdivide = (arr) => {
-            let res = new Float32Array(arr.length * 4);
-            let idx = 0;
-            for(let i=0; i<arr.length; i+=9) {
-                let v0x = arr[i], v0y = arr[i+1], v0z = arr[i+2];
-                let v1x = arr[i+3], v1y = arr[i+4], v1z = arr[i+5];
-                let v2x = arr[i+6], v2y = arr[i+7], v2z = arr[i+8];
-                let m01x = (v0x+v1x)/2, m01y = (v0y+v1y)/2, m01z = (v0z+v1z)/2;
-                let m12x = (v1x+v2x)/2, m12y = (v1y+v2y)/2, m12z = (v1z+v2z)/2;
-                let m20x = (v2x+v0x)/2, m20y = (v2y+v0y)/2, m20z = (v2z+v0z)/2;
-                res[idx++]=v0x; res[idx++]=v0y; res[idx++]=v0z; res[idx++]=m01x; res[idx++]=m01y; res[idx++]=m01z; res[idx++]=m20x; res[idx++]=m20y; res[idx++]=m20z;
-                res[idx++]=m01x; res[idx++]=m01y; res[idx++]=m01z; res[idx++]=v1x; res[idx++]=v1y; res[idx++]=v1z; res[idx++]=m12x; res[idx++]=m12y; res[idx++]=m12z;
-                res[idx++]=m20x; res[idx++]=m20y; res[idx++]=m20z; res[idx++]=m12x; res[idx++]=m12y; res[idx++]=m12z; res[idx++]=v2x; res[idx++]=v2y; res[idx++]=v2z;
-                res[idx++]=m01x; res[idx++]=m01y; res[idx++]=m01z; res[idx++]=m12x; res[idx++]=m12y; res[idx++]=m12z; res[idx++]=m20x; res[idx++]=m20y; res[idx++]=m20z;
-            }
-            return res;
-        };
-
-        if (activeB > 0.05 || activeG > 0.05) {
-            temp = subdivide(temp);
-            temp = subdivide(temp);
-        }
 
         let vNormals = new Map();
         let getKey = (x,y,z) => x + ',' + y + ',' + z;
@@ -1560,11 +1538,11 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
         }
 
         let original = new Float32Array(temp);
-        let freqB = (3 + activeB * 15) / domSpan; 
-        let ampB = activeB * 0.35 * domSpan;
+        let freqB = (1.5 + activeB * 4.0) / domSpan; 
+        let ampB = activeB * 0.20 * domSpan;
         
-        let freqG = (1 + activeG * 6) / domSpan;
-        let ampG = activeG * 0.55 * domSpan;
+        let freqG = (0.5 + activeG * 2.0) / domSpan;
+        let ampG = activeG * 0.35 * domSpan;
         
         for (let i = 0; i < temp.length; i += 3) {
             let x = original[i], y = original[i+1], z = original[i+2];
@@ -1575,8 +1553,8 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
             if (activeB > 0.05) {
                 let maskB = noise3D(x*freqB*0.1, y*freqB*0.1, z*freqB*0.1);
                 if (maskB > 0.1) {
-                    let rawB = smoothVeinNoise(x*freqB, y*freqB, z*freqB, 4);
-                    dispB = rawB * ampB * ((maskB - 0.1) / 0.9);
+                    let rawB = ridgedNoise(x*freqB, y*freqB, z*freqB, 4);
+                    dispB = Math.pow(rawB, 1.5) * ampB * ((maskB - 0.1) / 0.9);
                 }
             }
             
@@ -1584,8 +1562,8 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
             if (activeG > 0.05) {
                 let maskG = noise3D(x*freqG*0.1 + 100, y*freqG*0.1, z*freqG*0.1);
                 if (maskG > 0.05) {
-                    let rawG = smoothVeinNoise(x*freqG, y*freqG, z*freqG, 3);
-                    dispG = rawG * ampG * ((maskG - 0.05) / 0.95);
+                    let rawG = ridgedNoise(x*freqG, y*freqG, z*freqG, 3);
+                    dispG = Math.pow(rawG, 1.2) * ampG * ((maskG - 0.05) / 0.95);
                 }
             }
             
