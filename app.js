@@ -1367,8 +1367,8 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     let newVertices = [];
     let newIndices = [];
 
-    function generateSmoothBranch(vertsArr, indicesArr, baseVertOffset, evalPath, baseRadius, numSegs) {
-      let sides = 32; // Increased for smooth organic roundness
+    function generateSmoothBranch(vertsArr, indicesArr, baseVertOffset, evalPath, baseRadius, numSegs, surfaceNormal) {
+      let sides = 32; 
       let baseCenter = evalPath(0);
       let curCenter = baseCenter;
       
@@ -1376,13 +1376,25 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
       let len = Math.sqrt(lastDir.x*lastDir.x + lastDir.y*lastDir.y + lastDir.z*lastDir.z);
       if (len > 0.0001) { lastDir.x/=len; lastDir.y/=len; lastDir.z/=len; } else { lastDir = {x:0, y:1, z:0}; }
       
-      let lastRight = {x:1, y:0, z:0};
-      if (Math.abs(lastDir.x) > 0.9) lastRight = {x:0, y:1, z:0};
-      let cross1 = { x: lastDir.y*lastRight.z - lastDir.z*lastRight.y, y: lastDir.z*lastRight.x - lastDir.x*lastRight.z, z: lastDir.x*lastRight.y - lastDir.y*lastRight.x };
-      let cLen1 = Math.sqrt(cross1.x*cross1.x + cross1.y*cross1.y + cross1.z*cross1.z);
-      cross1.x/=cLen1; cross1.y/=cLen1; cross1.z/=cLen1;
-      let lastUp = cross1;
-      lastRight = { x: lastUp.y*lastDir.z - lastUp.z*lastDir.y, y: lastUp.z*lastDir.x - lastUp.x*lastDir.z, z: lastUp.x*lastDir.y - lastUp.y*lastDir.x };
+      let lastUp, lastRight;
+      if (surfaceNormal) {
+         lastUp = {x: surfaceNormal.nx, y: surfaceNormal.ny, z: surfaceNormal.nz};
+         lastRight = { 
+            x: lastUp.y * lastDir.z - lastUp.z * lastDir.y, 
+            y: lastUp.z * lastDir.x - lastUp.x * lastDir.z, 
+            z: lastUp.x * lastDir.y - lastUp.y * lastDir.x 
+         };
+         let rLen = Math.sqrt(lastRight.x*lastRight.x + lastRight.y*lastRight.y + lastRight.z*lastRight.z);
+         if (rLen > 0.0001) { lastRight.x/=rLen; lastRight.y/=rLen; lastRight.z/=rLen; }
+      } else {
+         lastRight = {x:1, y:0, z:0};
+         if (Math.abs(lastDir.x) > 0.9) lastRight = {x:0, y:1, z:0};
+         let cross1 = { x: lastDir.y*lastRight.z - lastDir.z*lastRight.y, y: lastDir.z*lastRight.x - lastDir.x*lastRight.z, z: lastDir.x*lastRight.y - lastDir.y*lastRight.x };
+         let cLen1 = Math.sqrt(cross1.x*cross1.x + cross1.y*cross1.y + cross1.z*cross1.z);
+         cross1.x/=cLen1; cross1.y/=cLen1; cross1.z/=cLen1;
+         lastUp = cross1;
+         lastRight = { x: lastUp.y*lastDir.z - lastUp.z*lastDir.y, y: lastUp.z*lastDir.x - lastUp.x*lastDir.z, z: lastUp.x*lastDir.y - lastUp.y*lastDir.x };
+      }
 
       let baseCenterIdx = baseVertOffset + vertsArr.length / 3;
       vertsArr.push(baseCenter.x, baseCenter.y, baseCenter.z);
@@ -1423,8 +1435,12 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
 
         for (let s = 0; s < sides; s++) {
           let angle = (s / sides) * Math.PI * 2;
-          let rCos = Math.cos(angle) * currentRadius;
-          let rSin = Math.sin(angle) * currentRadius;
+          let widenFactor = surfaceNormal ? 2.5 : 1.0;
+          let squashFactor = surfaceNormal ? 0.2 : 1.0;
+          
+          let rCos = Math.cos(angle) * currentRadius * widenFactor;
+          let rSin = Math.sin(angle) * currentRadius * squashFactor;
+          
           vertsArr.push(curCenter.x + lastRight.x * rCos + lastUp.x * rSin, curCenter.y + lastRight.y * rCos + lastUp.y * rSin, curCenter.z + lastRight.z * rCos + lastUp.z * rSin);
           newRingIndices.push(ringStartIdx + s);
         }
@@ -1542,7 +1558,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
                 z: uT3*P0.z + 3*uT2*t*P1.z + 3*uT*t2*P2.z + t3*P3.z
              };
          };
-         generateSmoothBranch(newVertices, newIndices, temp.length / 3, evalPath, branchBaseRadius, numSegments);
+         generateSmoothBranch(newVertices, newIndices, temp.length / 3, evalPath, branchBaseRadius * 2.0, numSegments, {nx, ny, nz});
       }
     }
 
@@ -1612,7 +1628,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
                 z: uT3*P0.z + 3*uT2*t*P1.z + 3*uT*t2*P2.z + t3*P3.z
              };
          };
-         generateSmoothBranch(newVertices, newIndices, temp.length / 3, evalPath, growthBaseRadius, numSegments);
+         generateSmoothBranch(newVertices, newIndices, temp.length / 3, evalPath, growthBaseRadius * 2.0, numSegments, {nx, ny, nz});
       }
     }
 
