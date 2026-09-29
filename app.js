@@ -16,7 +16,6 @@ let threeControls = null;
 let meshGroup = new THREE.Group();
 let curveGroup = new THREE.Group();
 let cageGroup = new THREE.Group();
-let addedGeometryGroup = new THREE.Group();
 
 // Memory Store for Original Imported Geometry & Bounds
 let originalMeshes = [];
@@ -157,7 +156,6 @@ function initThreeJS() {
   threeScene.add(meshGroup);
   threeScene.add(curveGroup);
   threeScene.add(cageGroup);
-  threeScene.add(addedGeometryGroup);
 
   // Window Resize
   function handleResize() {
@@ -618,12 +616,9 @@ function restoreOriginalImportedGeometry() {
           ptAttr.array[i] = item.originalPtPositions[i];
         }
         ptAttr.needsUpdate = true;
+      }
     }
   });
-
-  if (addedGeometryGroup) {
-    addedGeometryGroup.clear();
-  }
 
   // 8. Update DNA UI and stats
   if (window.updateDnaUIAndViewport) {
@@ -1354,6 +1349,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
     const activeG = G * scale;
 
     const temp = new Float32Array(positions);
+    let newVertices = [];
 
     // 1. CONTINUITY (C)
     // S(t) = 3t^2 - 2t^3 smooth interpolation
@@ -1374,60 +1370,84 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
       }
     }
 
-    // 2. ORGANIC ART NOUVEAU BRANCHING (B)
-    // Continuous spatial bifurcation along natural botanical parabolic tendril curves
+    // 2. ORGANIC ART NOUVEAU BRANCHING (B) - CREATE NEW GEOMETRY
     if (activeB > 0.05) {
       const bSettings = (window.domainState && window.domainState.branchSettings) || {};
       const customForks = bSettings.count ? parseInt(bSettings.count) : null;
       const numForks = customForks || (activeB >= 0.55 ? 3 : 2);
       const customNodeU = (bSettings.pos !== undefined) ? (bSettings.pos / 100) : null;
-      const nodeStartU = customNodeU !== null ? Math.min(0.85, Math.max(0.05, customNodeU)) : Math.max(0.10, 0.38 - activeB * 0.25);
+      const nodeStartU = customNodeU !== null ? Math.min(0.85, Math.max(0.05, customNodeU)) : 0.40;
       const lenMult = (bSettings.length !== undefined) ? (bSettings.length / 100) : 1.0;
       const widthMult = (bSettings.width !== undefined) ? (bSettings.width / 100) : 1.0;
       const hAngleRad = (bSettings.hAngle !== undefined) ? (bSettings.hAngle * Math.PI / 180) : 0;
       const vAngleRad = (bSettings.vAngle !== undefined) ? (bSettings.vAngle * Math.PI / 180) : 0;
 
-      const maxBranchReach = activeB * 0.75 * domSpan * lenMult;
-      const forkAngle = ((25 + activeB * 70) * (Math.PI / 180)) * widthMult;
+      const maxBranchReach = 0.5 * domSpan * lenMult;
+      const forkAngle = (60 * (Math.PI / 180)) * widthMult;
+      const numSegments = 6; 
 
-      for (let i = 0; i < temp.length; i += 3) {
-        let x = temp[i], y = temp[i+1], z = temp[i+2];
-        let domVal = (domAxis === 'X') ? x : ((domAxis === 'Z') ? z : y);
-        let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
+      for (let f = 0; f < numForks; f++) {
+        let spreadAngle = (f - (numForks - 1) / 2.0) * forkAngle;
+        
+        for (let i = 0; i < temp.length; i += 9) {
+          if (i + 8 >= temp.length) break;
 
-        if (u > nodeStartU) {
-          let tBranch = (u - nodeStartU) / Math.max(0.001, (1 - nodeStartU));
-          // C1/C2 continuous organic botanical growth envelope (smooth S-curve launch)
-          let smoothLaunch = 0.5 * (1 - Math.cos(Math.PI * tBranch));
-          let growthEnvelope = Math.pow(smoothLaunch, 1.35) * (1.0 + 0.30 * Math.sin(Math.PI * tBranch));
-
-          // Calculate spatial radial angle from central axis for seamless organic clustering
-          let dx = x - centerX;
-          let dz = z - centerZ;
-          let spatialAngle = Math.atan2(dz, dx);
-
-          // Sector allocation based on spatial angle (0.0 -> 1.0)
-          let normalizedAngle = (spatialAngle + Math.PI) / (2 * Math.PI);
-          let forkSector = Math.floor(normalizedAngle * numForks) % numForks;
-
-          let spreadAngle = (forkSector - (numForks - 1) / 2.0) * forkAngle;
-          let dispMagnitude = growthEnvelope * maxBranchReach;
-
-          // Sinuous Art Nouveau organic wave along branch path
-          let sinuousWave = 0.25 * Math.sin(2 * Math.PI * tBranch);
-
-          let branchDx = dispMagnitude * Math.cos(spatialAngle + spreadAngle * 0.6 + sinuousWave + hAngleRad);
-          let branchDz = dispMagnitude * Math.sin(spatialAngle + spreadAngle * 0.6 + sinuousWave + hAngleRad);
-          let branchDy = dispMagnitude * (0.35 + 0.35 * Math.sin(vAngleRad)) * tBranch; // Organic upward botanical reach
-
-          temp[i] += branchDx;
-          temp[i+2] += branchDz;
-          if (domAxis === 'Y') {
-            temp[i+1] += branchDy;
-          } else if (domAxis === 'X') {
-            temp[i] += branchDy;
-          } else {
-            temp[i+2] += branchDy;
+          let cx = (temp[i] + temp[i+3] + temp[i+6]) / 3;
+          let cy = (temp[i+1] + temp[i+4] + temp[i+7]) / 3;
+          let cz = (temp[i+2] + temp[i+5] + temp[i+8]) / 3;
+          
+          let domVal = (domAxis === 'X') ? cx : ((domAxis === 'Z') ? cz : cy);
+          let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
+          
+          if (u > nodeStartU && u < nodeStartU + 0.08) {
+            let dx = cx - centerX;
+            let dz = cz - centerZ;
+            let spatialAngle = Math.atan2(dz, dx);
+            let angleDiff = Math.abs(spatialAngle - ((f * Math.PI * 2 / numForks) - Math.PI));
+            if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+            
+            if (angleDiff < 0.25) { 
+              let prevVerts = [
+                {x: temp[i], y: temp[i+1], z: temp[i+2]},
+                {x: temp[i+3], y: temp[i+4], z: temp[i+5]},
+                {x: temp[i+6], y: temp[i+7], z: temp[i+8]}
+              ];
+              for (let seg = 1; seg <= numSegments; seg++) {
+                let tBranch = seg / numSegments;
+                let smoothLaunch = 0.5 * (1 - Math.cos(Math.PI * tBranch));
+                let dispMagnitude = Math.pow(smoothLaunch, 1.2) * maxBranchReach * (0.5 + activeB);
+                let branchDx = dispMagnitude * Math.cos(spatialAngle + spreadAngle + hAngleRad);
+                let branchDz = dispMagnitude * Math.sin(spatialAngle + spreadAngle + hAngleRad);
+                let branchDy = dispMagnitude * (0.2 + Math.sin(vAngleRad)) * tBranch;
+                
+                let scale = 1.0 - (0.6 * tBranch); 
+                
+                let nextVerts = [];
+                for(let v = 0; v < 3; v++) {
+                  let bx = temp[i + v*3]; let by = temp[i + v*3 + 1]; let bz = temp[i + v*3 + 2];
+                  let nx = cx + (bx - cx) * scale + branchDx;
+                  let ny = cy + (by - cy) * scale + (domAxis === 'Y' ? branchDy : 0);
+                  let nz = cz + (bz - cz) * scale + branchDz;
+                  if (domAxis === 'X') nx += branchDy;
+                  if (domAxis === 'Z') nz += branchDy;
+                  nextVerts.push({x: nx, y: ny, z: nz});
+                }
+                
+                newVertices.push(
+                  prevVerts[0].x, prevVerts[0].y, prevVerts[0].z, nextVerts[0].x, nextVerts[0].y, nextVerts[0].z, nextVerts[1].x, nextVerts[1].y, nextVerts[1].z,
+                  prevVerts[0].x, prevVerts[0].y, prevVerts[0].z, nextVerts[1].x, nextVerts[1].y, nextVerts[1].z, prevVerts[1].x, prevVerts[1].y, prevVerts[1].z,
+                  prevVerts[1].x, prevVerts[1].y, prevVerts[1].z, nextVerts[1].x, nextVerts[1].y, nextVerts[1].z, nextVerts[2].x, nextVerts[2].y, nextVerts[2].z,
+                  prevVerts[1].x, prevVerts[1].y, prevVerts[1].z, nextVerts[2].x, nextVerts[2].y, nextVerts[2].z, prevVerts[2].x, prevVerts[2].y, prevVerts[2].z,
+                  prevVerts[2].x, prevVerts[2].y, prevVerts[2].z, nextVerts[2].x, nextVerts[2].y, nextVerts[2].z, nextVerts[0].x, nextVerts[0].y, nextVerts[0].z,
+                  prevVerts[2].x, prevVerts[2].y, prevVerts[2].z, nextVerts[0].x, nextVerts[0].y, nextVerts[0].z, prevVerts[0].x, prevVerts[0].y, prevVerts[0].z
+                );
+                
+                if (seg === numSegments) {
+                  newVertices.push(nextVerts[0].x, nextVerts[0].y, nextVerts[0].z, nextVerts[1].x, nextVerts[1].y, nextVerts[1].z, nextVerts[2].x, nextVerts[2].y, nextVerts[2].z);
+                }
+                prevVerts = nextVerts;
+              }
+            }
           }
         }
       }
@@ -1497,40 +1517,81 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75) {
       }
     }
 
-    // 6. ORGANIC BOTANICAL GROWTH & LOGARITHMIC SPIRAL PROLIFERATION (G)
-    if (activeG > 0) {
-      for (let i = 0; i < temp.length; i += 3) {
-        let x = temp[i], y = temp[i+1], z = temp[i+2];
-        let domVal = (domAxis === 'X') ? x : ((domAxis === 'Z') ? z : y);
-        let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
+    // 6. GROWTH / AGGREGATION (G) - CREATE NEW EXTENSIONS
+    if (activeG > 0.05) {
+      const numOrigins = 3;
+      const numSegments = Math.floor(3 + activeG * 8); 
+      const growthReach = activeG * 0.8 * domSpan;
 
-        let dx = x - centerX;
-        let dz = z - centerZ;
-        let r = Math.sqrt(dx * dx + dz * dz);
-        let theta = Math.atan2(dz, dx);
-
-        // Continuous spatial logarithmic spiral twist & unfurling envelope
-        let spiralTwist = activeG * 1.25 * Math.PI * Math.pow(u, 1.35);
-        let radialExpansion = 1.0 + activeG * 0.55 * Math.pow(u, 1.2) * (1.0 + 0.35 * Math.cos(3 * theta + 2.5 * Math.PI * u));
-        let verticalStretch = activeG * 0.48 * domSpan * Math.pow(u, 1.6) * (1.0 + 0.22 * Math.sin(4 * theta));
-
-        let newTheta = theta + spiralTwist;
-        let newR = r * radialExpansion;
-
-        let rx = newR * Math.cos(newTheta);
-        let rz = newR * Math.sin(newTheta);
-
-        temp[i] = centerX + rx;
-        temp[i+2] = centerZ + rz;
-
-        if (domAxis === 'Y') {
-          temp[i+1] += verticalStretch;
-        } else if (domAxis === 'X') {
-          temp[i] += verticalStretch;
-        } else {
-          temp[i+2] += verticalStretch;
+      for (let g = 0; g < numOrigins; g++) {
+        let targetU = 0.2 + (g / numOrigins) * 0.6; 
+        
+        for (let i = 0; i < temp.length; i += 9) {
+          if (i + 8 >= temp.length) break;
+          let cx = (temp[i] + temp[i+3] + temp[i+6]) / 3;
+          let cy = (temp[i+1] + temp[i+4] + temp[i+7]) / 3;
+          let cz = (temp[i+2] + temp[i+5] + temp[i+8]) / 3;
+          
+          let domVal = (domAxis === 'X') ? cx : ((domAxis === 'Z') ? cz : cy);
+          let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
+          
+          if (u > targetU && u < targetU + 0.05) {
+            let dx = cx - centerX; let dz = cz - centerZ;
+            let spatialAngle = Math.atan2(dz, dx);
+            let angleDiff = Math.abs(spatialAngle - (g * Math.PI * 2 / numOrigins));
+            if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+            
+            if (angleDiff < 0.2) { 
+              let prevVerts = [
+                {x: temp[i], y: temp[i+1], z: temp[i+2]},
+                {x: temp[i+3], y: temp[i+4], z: temp[i+5]},
+                {x: temp[i+6], y: temp[i+7], z: temp[i+8]}
+              ];
+              for (let seg = 1; seg <= numSegments; seg++) {
+                let t = seg / numSegments;
+                let dispMagnitude = t * growthReach;
+                let spiralDx = dispMagnitude * Math.cos(spatialAngle + t * Math.PI);
+                let spiralDz = dispMagnitude * Math.sin(spatialAngle + t * Math.PI);
+                let spiralDy = dispMagnitude * 0.5 * t;
+                
+                let scale = 1.0 - (0.4 * t); 
+                
+                let nextVerts = [];
+                for(let v = 0; v < 3; v++) {
+                  let bx = temp[i + v*3]; let by = temp[i + v*3 + 1]; let bz = temp[i + v*3 + 2];
+                  let nx = cx + (bx - cx) * scale + spiralDx;
+                  let ny = cy + (by - cy) * scale + (domAxis === 'Y' ? spiralDy : 0);
+                  let nz = cz + (bz - cz) * scale + spiralDz;
+                  if (domAxis === 'X') nx += spiralDy;
+                  if (domAxis === 'Z') nz += spiralDy;
+                  nextVerts.push({x: nx, y: ny, z: nz});
+                }
+                
+                newVertices.push(
+                  prevVerts[0].x, prevVerts[0].y, prevVerts[0].z, nextVerts[0].x, nextVerts[0].y, nextVerts[0].z, nextVerts[1].x, nextVerts[1].y, nextVerts[1].z,
+                  prevVerts[0].x, prevVerts[0].y, prevVerts[0].z, nextVerts[1].x, nextVerts[1].y, nextVerts[1].z, prevVerts[1].x, prevVerts[1].y, prevVerts[1].z,
+                  prevVerts[1].x, prevVerts[1].y, prevVerts[1].z, nextVerts[1].x, nextVerts[1].y, nextVerts[1].z, nextVerts[2].x, nextVerts[2].y, nextVerts[2].z,
+                  prevVerts[1].x, prevVerts[1].y, prevVerts[1].z, nextVerts[2].x, nextVerts[2].y, nextVerts[2].z, prevVerts[2].x, prevVerts[2].y, prevVerts[2].z,
+                  prevVerts[2].x, prevVerts[2].y, prevVerts[2].z, nextVerts[2].x, nextVerts[2].y, nextVerts[2].z, nextVerts[0].x, nextVerts[0].y, nextVerts[0].z,
+                  prevVerts[2].x, prevVerts[2].y, prevVerts[2].z, nextVerts[0].x, nextVerts[0].y, nextVerts[0].z, prevVerts[0].x, prevVerts[0].y, prevVerts[0].z
+                );
+                
+                if (seg === numSegments) {
+                  newVertices.push(nextVerts[0].x, nextVerts[0].y, nextVerts[0].z, nextVerts[1].x, nextVerts[1].y, nextVerts[1].z, nextVerts[2].x, nextVerts[2].y, nextVerts[2].z);
+                }
+                prevVerts = nextVerts;
+              }
+            }
+          }
         }
       }
+    }
+
+    if (newVertices.length > 0) {
+      let combined = new Float32Array(temp.length + newVertices.length);
+      combined.set(temp);
+      combined.set(newVertices, temp.length);
+      return combined;
     }
 
     return temp;
@@ -1771,10 +1832,6 @@ function renderIterationGeometry(recipeOrDna, explicitMode) {
   if (meshGroup) meshGroup.visible = true;
   if (curveGroup) curveGroup.visible = true;
   if (cageGroup) cageGroup.visible = true;
-  if (addedGeometryGroup) {
-    addedGeometryGroup.visible = true;
-    addedGeometryGroup.clear(); // Clear previously generated new geometry
-  }
 
   // Deform or Restore SubD / Standard Meshes
   originalMeshes.forEach(item => {
@@ -1812,93 +1869,6 @@ function renderIterationGeometry(recipeOrDna, explicitMode) {
       }
     }
   });
-
-  // Generate NEW geometry based on DNA values to complement original geometry
-  if (!isSeedDna && addedGeometryGroup && Array.isArray(recipeOrDna)) {
-    const c = recipeOrDna[0] || 0;
-    const b = recipeOrDna[1] || 0;
-    const w = recipeOrDna[2] || 0;
-    const m = recipeOrDna[3] || 0;
-    const v = recipeOrDna[4] || 0;
-    const g = recipeOrDna[5] || 0;
-    
-    const mat = new THREE.MeshStandardMaterial({ 
-      color: 0xdfb15b, 
-      metalness: 0.7, 
-      roughness: 0.2, 
-      wireframe: (compMode === 'OVERLAY') 
-    });
-
-    const boxSize = Math.max((modelBounds.maxX - modelBounds.minX), (modelBounds.maxY - modelBounds.minY), (modelBounds.maxZ - modelBounds.minZ));
-    const rad = boxSize * 0.05; // Base radius scale
-    
-    // BRANCHING (b): Sprout new branching tubes outwards
-    if (b > 0.05) {
-      const branches = Math.floor(b * 5) + 1;
-      for (let i = 0; i < branches; i++) {
-        const hAngle = (i / branches) * Math.PI * 2;
-        const curve = new THREE.CatmullRomCurve3([
-          new THREE.Vector3(modelBounds.centerX, modelBounds.centerY, modelBounds.centerZ),
-          new THREE.Vector3(
-            modelBounds.centerX + Math.cos(hAngle) * boxSize * 0.5 * b, 
-            modelBounds.maxY + (Math.random() * boxSize * 0.3) * b, 
-            modelBounds.centerZ + Math.sin(hAngle) * boxSize * 0.5 * b
-          ),
-          new THREE.Vector3(
-            modelBounds.centerX + Math.cos(hAngle) * boxSize * b, 
-            modelBounds.maxY + (Math.random() * boxSize * 0.6) * b, 
-            modelBounds.centerZ + Math.sin(hAngle) * boxSize * b
-          )
-        ]);
-        const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 20, rad * b, 8, false), mat);
-        addedGeometryGroup.add(tube);
-      }
-    }
-
-    // WHIPLASH (w): Create looping elegant ribbons
-    if (w > 0.05) {
-      const loops = Math.floor(w * 3) + 1;
-      for (let i = 0; i < loops; i++) {
-        const curve2 = new THREE.CatmullRomCurve3([
-          new THREE.Vector3(modelBounds.minX, modelBounds.minY, modelBounds.minZ),
-          new THREE.Vector3(modelBounds.maxX * 1.5 * w, modelBounds.maxY * Math.random(), modelBounds.centerZ),
-          new THREE.Vector3(modelBounds.centerX, modelBounds.maxY * 1.2 * w, modelBounds.maxZ * 1.5 * w),
-          new THREE.Vector3(modelBounds.minX * 1.2 * w, modelBounds.centerY, modelBounds.minZ * 1.2 * w)
-        ]);
-        const ribbon = new THREE.Mesh(new THREE.TubeGeometry(curve2, 30, rad * 0.5 * w, 4, true), mat);
-        addedGeometryGroup.add(ribbon);
-      }
-    }
-
-    // GROWTH (g): Add aggregating cubic/organic modules extending upward
-    if (g > 0.05) {
-      const segments = Math.floor(g * 12);
-      let currentY = modelBounds.maxY;
-      for(let i=0; i<segments; i++) {
-        const s = rad * 2 * (1 - (i/segments)*0.3);
-        const geom = (i % 2 === 0) ? new THREE.BoxGeometry(s, s, s) : new THREE.SphereGeometry(s*0.6, 16, 16);
-        const blob = new THREE.Mesh(geom, mat);
-        blob.position.set(
-          modelBounds.centerX + Math.sin(i*0.8) * boxSize * 0.2 * g,
-          currentY + s * 0.5,
-          modelBounds.centerZ + Math.cos(i*0.8) * boxSize * 0.2 * g
-        );
-        currentY += s * 0.8; // overlap slightly
-        addedGeometryGroup.add(blob);
-      }
-    }
-    
-    // MERGING (m): Create bridges between bounding box extremities
-    if (m > 0.05) {
-      const curve3 = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(modelBounds.minX, modelBounds.centerY, modelBounds.centerZ),
-        new THREE.Vector3(modelBounds.centerX, modelBounds.maxY + (boxSize * 0.2 * m), modelBounds.centerZ),
-        new THREE.Vector3(modelBounds.maxX, modelBounds.centerY, modelBounds.centerZ)
-      ]);
-      const bridge = new THREE.Mesh(new THREE.TubeGeometry(curve3, 20, rad * 1.5 * m, 12, false), mat);
-      addedGeometryGroup.add(bridge);
-    }
-  }
 
   // Deform or Restore Curves
   originalCurves.forEach(item => {
