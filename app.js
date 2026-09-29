@@ -567,13 +567,23 @@ function restoreOriginalImportedGeometry() {
     targetMesh.visible = true;
     const attr = targetMesh.geometry.attributes.position;
     if (attr) {
-      for (let i = 0; i < item.originalPositions.length; i++) {
-        attr.array[i] = item.originalPositions[i];
+      if (attr.array.length !== item.originalPositions.length) {
+        const newGeom = new THREE.BufferGeometry();
+        newGeom.setAttribute('position', new THREE.Float32BufferAttribute(item.originalPositions, 3));
+        newGeom.computeVertexNormals();
+        newGeom.computeBoundingBox();
+        newGeom.computeBoundingSphere();
+        targetMesh.geometry.dispose();
+        targetMesh.geometry = newGeom;
+      } else {
+        for (let i = 0; i < item.originalPositions.length; i++) {
+          attr.array[i] = item.originalPositions[i];
+        }
+        attr.needsUpdate = true;
+        targetMesh.geometry.computeVertexNormals();
+        targetMesh.geometry.computeBoundingBox();
+        targetMesh.geometry.computeBoundingSphere();
       }
-      attr.needsUpdate = true;
-      targetMesh.geometry.computeVertexNormals();
-      targetMesh.geometry.computeBoundingBox();
-      targetMesh.geometry.computeBoundingSphere();
     }
     if (targetMesh.material) {
       targetMesh.material.wireframe = false;
@@ -1351,7 +1361,97 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     const temp = new Float32Array(positions);
     let newVertices = [];
 
-    // generateSmoothBranch removed to satisfy rules
+    function generateSmoothBranch(vertsArr, evalPath, baseRadius, numSegs) {
+      let sides = 32; // Increased for smooth organic roundness
+      let prevRing = [];
+      let lastDir = null, lastUp = null, lastRight = null;
+      let baseCenter = evalPath(0);
+      
+      for (let seg = 0; seg <= numSegs; seg++) {
+        let t = seg / numSegs;
+        let curCenter = evalPath(t);
+        
+        let tNext = Math.min(1.0, t + 0.05);
+        let nextCenter = evalPath(tNext);
+        if (t === 1.0) {
+           let tPrev = Math.max(0.0, t - 0.05);
+           let prevCenter = evalPath(tPrev);
+           nextCenter = curCenter;
+           curCenter = prevCenter; 
+        }
+        let dir = { x: nextCenter.x - curCenter.x, y: nextCenter.y - curCenter.y, z: nextCenter.z - curCenter.z };
+        let dLen = Math.sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
+        if(dLen < 0.0001) dir = {x:0,y:1,z:0}; else {dir.x/=dLen; dir.y/=dLen; dir.z/=dLen;}
+        
+        if (!lastDir) {
+          let up = Math.abs(dir.y) < 0.99 ? {x:0, y:1, z:0} : {x:1, y:0, z:0};
+          let right = { x: up.y*dir.z - up.z*dir.y, y: up.z*dir.x - up.x*dir.z, z: up.x*dir.y - up.y*dir.x };
+          let rLen = Math.sqrt(right.x*right.x + right.y*right.y + right.z*right.z);
+          if(rLen < 0.0001) { right = {x:1,y:0,z:0}; } else { right.x/=rLen; right.y/=rLen; right.z/=rLen; }
+          let up2 = { x: dir.y*right.z - dir.z*right.y, y: dir.z*right.x - dir.x*right.z, z: dir.x*right.y - dir.y*right.x };
+          lastDir = dir; lastUp = up2; lastRight = right;
+        } else {
+          let cross = { x: lastDir.y*dir.z - lastDir.z*dir.y, y: lastDir.z*dir.x - lastDir.x*dir.z, z: lastDir.x*dir.y - lastDir.y*dir.x };
+          let dot = lastDir.x*dir.x + lastDir.y*dir.y + lastDir.z*dir.z;
+          let cLen = Math.sqrt(cross.x*cross.x + cross.y*cross.y + cross.z*cross.z);
+          if (cLen > 0.0001) {
+            cross.x/=cLen; cross.y/=cLen; cross.z/=cLen;
+            let angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+            let C = Math.cos(angle), S = Math.sin(angle), t_mat = 1 - C;
+            let R = (v, k) => ({
+                 x: v.x*(C + k.x*k.x*t_mat) + v.y*(k.x*k.y*t_mat - k.z*S) + v.z*(k.x*k.z*t_mat + k.y*S),
+                 y: v.x*(k.y*k.x*t_mat + k.z*S) + v.y*(C + k.y*k.y*t_mat) + v.z*(k.y*k.z*t_mat - k.x*S),
+                 z: v.x*(k.z*k.x*t_mat - k.y*S) + v.y*(k.z*k.y*t_mat + k.x*S) + v.z*(C + k.z*k.z*t_mat)
+            });
+            lastRight = R(lastRight, cross);
+            lastUp = R(lastUp, cross);
+          }
+          lastDir = dir;
+        }
+        
+        // Smooth rounded dome tip instead of sharp cone
+        let radiusScale = Math.cos(t * Math.PI / 2);
+        let currentRadius = Math.max(0.08 * baseRadius, baseRadius * radiusScale); 
+        
+        curCenter = evalPath(t); 
+        
+        let currentRing = [];
+        for (let s = 0; s < sides; s++) {
+          let angle = (s / sides) * Math.PI * 2;
+          let rCos = Math.cos(angle) * currentRadius;
+          let rSin = Math.sin(angle) * currentRadius;
+          currentRing.push({
+            x: curCenter.x + lastRight.x * rCos + lastUp.x * rSin,
+            y: curCenter.y + lastRight.y * rCos + lastUp.y * rSin,
+            z: curCenter.z + lastRight.z * rCos + lastUp.z * rSin
+          });
+        }
+
+        if (seg === 1) {
+          // Bottom cap to ensure a closed, manifold mesh
+          for (let s = 0; s < sides; s++) {
+            let sNext = (s + 1) % sides;
+            vertsArr.push(baseCenter.x, baseCenter.y, baseCenter.z, prevRing[s].x, prevRing[s].y, prevRing[s].z, prevRing[sNext].x, prevRing[sNext].y, prevRing[sNext].z);
+          }
+        }
+        
+        if (seg > 0) {
+          for (let s = 0; s < sides; s++) {
+            let sNext = (s + 1) % sides;
+            let p0 = prevRing[s], p1 = currentRing[s];
+            let p2 = currentRing[sNext], p3 = prevRing[sNext];
+            
+            if (seg === numSegs) {
+              vertsArr.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p3.x, p3.y, p3.z);
+            } else {
+              vertsArr.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+              vertsArr.push(p0.x, p0.y, p0.z, p2.x, p2.y, p2.z, p3.x, p3.y, p3.z);
+            }
+          }
+        }
+        prevRing = currentRing;
+      }
+    }
 
     function getNormal(i, arr) {
        let p0 = {x: arr[i], y: arr[i+1], z: arr[i+2]};
@@ -1371,7 +1471,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
        if (nx*(cx-centerX) + ny*(cy-centerY) + nz*(cz-centerZ) < 0) {
           nx = -nx; ny = -ny; nz = -nz;
        }
-       return {nx, ny, nz, cx, cy, cz};
+       return {nx, ny, nz};
     }
 
     // 2. BRANCHING - Controls offshoot COUNT
@@ -1459,56 +1559,87 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
       }
     }
 
-    // 6. GROWTH - Continue the existing surface flow broadly
+    // 6. GROWTH - Controls extension LENGTH
     if (G > 0.05 && isMesh) {
       const gSettings = (window.domainState && window.domainState.growthSettings) || {};
       const numOrigins = gSettings.count ? parseInt(gSettings.count) : 4;
-      const growthReach = 0.8 * domSpan * activeG; 
-      const influenceRadius = domSpan * 0.3;
+      const numSegments = Math.floor(12 + activeG * 8); 
+      const growthReach = Math.max(0.1, activeG) * 1.2 * domSpan; 
+      const growthBaseRadius = domSpan * 0.04; 
 
       for (let g = 0; g < numOrigins; g++) {
-        let isEnd = (g % 2 === 0);
-        let targetU = isEnd ? 0.9 : 0.1;
-        targetU += (g * 0.02); // slight offset
+        let targetU = ((g + 0.7) / numOrigins) % 1.0;
         let spawned = false;
         
         for (let i = 0; i < temp.length; i += 9) {
           if (i + 8 >= temp.length) break;
-          let {nx, ny, nz, cx, cy, cz} = getNormal(i, temp);
+          let cx = (temp[i] + temp[i+3] + temp[i+6]) / 3;
+          let cy = (temp[i+1] + temp[i+4] + temp[i+7]) / 3;
+          let cz = (temp[i+2] + temp[i+5] + temp[i+8]) / 3;
+          
           let domVal = (domAxis === 'X') ? cx : ((domAxis === 'Z') ? cz : cy);
           let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
           
-          if (Math.abs(u - targetU) < 0.08 && !spawned) {
+          if (Math.abs(u - targetU) < 0.1 && !spawned) {
+             let {nx, ny, nz} = getNormal(i, temp);
              spawned = true;
              
-             let dotUP = ny;
-             let tx = -dotUP*nx, ty = 1 - dotUP*ny, tz = -dotUP*nz;
-             let tLen = Math.sqrt(tx*tx + ty*ty + tz*tz);
-             if (tLen < 0.001) { let dF = nz; tx = -dF*nx; ty = -dF*ny; tz = 1 - dF*nz; tLen = Math.sqrt(tx*tx + ty*ty + tz*tz); }
-             if (tLen > 0.001) { tx/=tLen; ty/=tLen; tz/=tLen; } else { tx=1; ty=0; tz=0; }
-             
-             if (isEnd && ty < 0) { tx = -tx; ty = -ty; tz = -tz; }
-             if (!isEnd && ty > 0) { tx = -tx; ty = -ty; tz = -tz; }
-             
-             // Curve direction
-             let curlAngle = (g * Math.PI / numOrigins);
-             let curveX = Math.cos(curlAngle), curveZ = Math.sin(curlAngle);
+             let evalPath = (t) => {
+                 let reach = growthReach;
+                 let P0 = {x: cx, y: cy, z: cz};
+                 
+                 // Calculate local tangent to follow existing surface flow
+                 let dotUP = ny;
+                 let tx = -dotUP*nx, ty = 1 - dotUP*ny, tz = -dotUP*nz;
+                 let tLen = Math.sqrt(tx*tx + ty*ty + tz*tz);
+                 if (tLen < 0.001) {
+                   let dotFwd = nz;
+                   tx = -dotFwd*nx; ty = -dotFwd*ny; tz = 1 - dotFwd*nz;
+                   tLen = Math.sqrt(tx*tx + ty*ty + tz*tz);
+                 }
+                 if (tLen > 0.001) { tx/=tLen; ty/=tLen; tz/=tLen; } else { tx=1; ty=0; tz=0; }
+                 
+                 // Orient tangent properly based on position
+                 let isEnd = (g % 2 === 0);
+                 if (isEnd && ty < 0) { tx = -tx; ty = -ty; tz = -tz; }
+                 if (!isEnd && ty > 0) { tx = -tx; ty = -ty; tz = -tz; }
+                 
+                 // P1: Continue in approx that same tangent direction
+                 let P1 = {
+                   x: cx + tx * reach * 0.35, 
+                   y: cy + ty * reach * 0.35, 
+                   z: cz + tz * reach * 0.35
+                 };
+                 
+                 // P2: Gradually curve away from the trajectory
+                 let P2 = {
+                    x: cx + tx * reach * 0.75 + nx * reach * 0.1,
+                    y: cy + ty * reach * 0.75 + ny * reach * 0.1,
+                    z: cz + tz * reach * 0.75 + nz * reach * 0.1
+                 };
 
-             // Apply sweeping stretching to the region
-             for (let j = 0; j < temp.length; j += 3) {
-               let dx = temp[j] - cx, dy = temp[j+1] - cy, dz = temp[j+2] - cz;
-               let dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-               if (dist < influenceRadius) {
-                 let w = Math.pow(1 - dist/influenceRadius, 2); 
+                 // P3: Tapering/expanding end point
+                 let curlAngle = (g * Math.PI / numOrigins);
+                 let sx = Math.cos(curlAngle), sz = Math.sin(curlAngle);
                  
-                 let pullFactor = w * growthReach;
-                 let curveFactor = Math.pow(w, 2) * growthReach * 0.4; // Curve strongly at the tips
+                 let P3 = {
+                    x: cx + tx * reach * 1.1 + nx * reach * 0.2 + sx * reach * 0.1,
+                    y: cy + ty * reach * 1.1 + ny * reach * 0.2,
+                    z: cz + tz * reach * 1.1 + nz * reach * 0.2 + sz * reach * 0.1
+                 };
                  
-                 temp[j]   += tx * pullFactor + curveX * curveFactor;
-                 temp[j+1] += ty * pullFactor;
-                 temp[j+2] += tz * pullFactor + curveZ * curveFactor;
-               }
-             }
+                 let uT = 1 - t;
+                 let uT2 = uT * uT;
+                 let uT3 = uT2 * uT;
+                 let t2 = t * t;
+                 let t3 = t2 * t;
+                 return {
+                    x: uT3*P0.x + 3*uT2*t*P1.x + 3*uT*t2*P2.x + t3*P3.x,
+                    y: uT3*P0.y + 3*uT2*t*P1.y + 3*uT*t2*P2.y + t3*P3.y,
+                    z: uT3*P0.z + 3*uT2*t*P1.z + 3*uT*t2*P2.z + t3*P3.z
+                 };
+             };
+             generateSmoothBranch(newVertices, evalPath, growthBaseRadius, numSegments);
           }
         }
       }
@@ -1516,6 +1647,11 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
 
     // COMBINE MESHES BEFORE DEFORMATIONS
     let fullMesh = temp;
+    if (newVertices.length > 0) {
+      fullMesh = new Float32Array(temp.length + newVertices.length);
+      fullMesh.set(temp);
+      fullMesh.set(newVertices, temp.length);
+    }
 
     // 3. WHIPLASH (W) - Curves the branches
     if (activeW > 0) {
