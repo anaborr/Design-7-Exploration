@@ -1401,8 +1401,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
         
         // Smooth rounded dome tip instead of sharp cone
         let radiusScale = Math.cos(t * Math.PI / 2);
-        let currentRadius = baseRadius * radiusScale; 
-        if (seg === numSegs) currentRadius = 0; 
+        let currentRadius = Math.max(0.08 * baseRadius, baseRadius * radiusScale); 
         
         curCenter = evalPath(t); 
         
@@ -1497,22 +1496,28 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
              let evalPath = (t) => {
                  let reach = branchLength;
                  let P0 = {x: cx, y: cy, z: cz};
-                 let P1 = {x: cx + nx * reach * 0.4, y: cy + ny * reach * 0.4, z: cz + nz * reach * 0.4};
                  
-                 let spreadAngle = (f * Math.PI * 2 / numForks);
-                 let spreadDirX = Math.cos(spreadAngle);
-                 let spreadDirZ = Math.sin(spreadAngle);
+                 // Flow gently outward, then immediately sweep UP
+                 let P1 = {
+                   x: cx + nx * reach * 0.2, 
+                   y: cy + reach * 0.3, 
+                   z: cz + nz * reach * 0.2
+                 };
+                 
+                 // Wrap around the bounding box center to hug the geometry
+                 let wrapX = (cx > centerX) ? -1 : 1;
+                 let wrapZ = (cz > centerZ) ? -1 : 1;
                  
                  let P2 = {
-                    x: cx + spreadDirX * reach * 0.8,
-                    y: cy + ny * reach * 0.6,
-                    z: cz + spreadDirZ * reach * 0.8
+                    x: cx + wrapX * reach * 0.3,
+                    y: cy + reach * 0.7,
+                    z: cz + wrapZ * reach * 0.3
                  };
 
                  let P3 = {
-                    x: cx + spreadDirX * reach * 1.3,
-                    y: cy + ny * reach * 0.2 - reach * 0.4,
-                    z: cz + spreadDirZ * reach * 1.3
+                    x: cx + wrapX * reach * 0.5,
+                    y: cy + reach * 1.2,
+                    z: cz + wrapZ * reach * 0.5
                  };
                  
                  let uT = 1 - t;
@@ -1560,22 +1565,27 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
              let evalPath = (t) => {
                  let reach = growthReach;
                  let P0 = {x: cx, y: cy, z: cz};
-                 let P1 = {x: cx + nx * reach * 0.4, y: cy + ny * reach * 0.4, z: cz + nz * reach * 0.4};
                  
-                 let curlAngle = (g * Math.PI * 2 / numOrigins) + Math.PI / 4;
-                 let cxDir = Math.cos(curlAngle);
-                 let czDir = Math.sin(curlAngle);
+                 // Growth flows downwards and outwards like roots, or upwards like stems
+                 let flowY = (cy < centerY) ? -1 : 1; 
                  
+                 let P1 = {
+                   x: cx + nx * reach * 0.2, 
+                   y: cy + flowY * reach * 0.4, 
+                   z: cz + nz * reach * 0.2
+                 };
+                 
+                 let sweepAngle = (g / numOrigins) * Math.PI * 2;
                  let P2 = {
-                    x: cx + cxDir * reach * 0.7,
-                    y: cy + ny * reach * 0.8,
-                    z: cz + czDir * reach * 0.7
+                    x: cx + Math.cos(sweepAngle) * reach * 0.5,
+                    y: cy + flowY * reach * 0.8,
+                    z: cz + Math.sin(sweepAngle) * reach * 0.5
                  };
 
                  let P3 = {
-                    x: cx + cxDir * reach * 1.2,
-                    y: cy + ny * reach * 1.2 + reach * 0.3,
-                    z: cz + czDir * reach * 1.2
+                    x: cx + Math.cos(sweepAngle + Math.PI/4) * reach * 0.8,
+                    y: cy + flowY * reach * 1.3,
+                    z: cz + Math.sin(sweepAngle + Math.PI/4) * reach * 0.8
                  };
                  
                  let uT = 1 - t;
