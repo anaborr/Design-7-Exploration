@@ -143,6 +143,15 @@
             <details style="margin-bottom: 12px; border: 1px solid #444; padding: 10px; background: transparent; cursor: pointer;">
               <summary style="font-weight: 500; opacity: 0.9; outline: none;">MANUAL SHAPE SLIDERS</summary>
               <div style="margin-top: 10px; cursor: default;" class="dna-sliders-container">
+                <!-- HOW THEY WORK TOGETHER -->
+                <details style="margin-bottom: 10px; background: #111; padding: 6px; border: 1px solid #333;">
+                  <summary style="font-size:8.5px; color:#bbb; cursor:pointer; outline:none; font-weight:bold;">HOW THE RULES WORK TOGETHER</summary>
+                  <div style="font-size:7.5px; color:#aaa; padding-top:4px; line-height:1.3;">
+                    A surface grows outward → branches into offshoots → Whiplash curves them → Merging connects nearby pieces → Positive / Negative shapes the resulting openings. Continuity keeps the attachments smooth throughout.<br><br>
+                    <i>Key distinction: Branching controls how many new offshoots appear; Growth controls how far those extensions develop.</i>
+                  </div>
+                </details>
+
                 <!-- CONTINUITY -->
                 <div class="slider-group-dna">
                   <div class="slider-label-dna">
@@ -150,6 +159,12 @@
                     <span class="val-dna" id="val-dna-c">0%</span>
                   </div>
                   <input type="range" id="slider-dna-c" min="0" max="100" value="0" class="slider slider-gold">
+                  <details style="margin-top:4px;">
+                    <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Description</summary>
+                    <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
+                      Make connections flow smoothly. Controls how smoothly a new branch, growth extension, or bridge joins the existing surface. New geometry inherits the direction of the surface where it attaches. The connection transitions gradually, without an abrupt kink. Changes stay near the connection.<br><br><i>Slider: low = a more distinct junction; high = a longer, smoother transition.</i>
+                    </div>
+                  </details>
                 </div>
 
                 <!-- BRANCHING -->
@@ -159,6 +174,12 @@
                     <span class="val-dna" id="val-dna-b">0%</span>
                   </div>
                   <input type="range" id="slider-dna-b" min="0" max="100" value="0" class="slider slider-gold">
+                  <details style="margin-top:4px;">
+                    <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Description</summary>
+                    <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
+                      Add new offshoots. Creates new geometry attached to the existing form. A surface can produce a curved, tapered offshoot, and that offshoot can later produce smaller branches. Select attachment locations on existing surfaces. Create new surfaces or volumes extending from those locations. Keep branches connected and smaller than their parent.<br><br><i>Slider: low = a few branches; high = more branches. (Branch length and thickness have separate controls below).</i>
+                    </div>
+                  </details>
                 </div>
 
                 <!-- WHIPLASH -->
@@ -168,6 +189,12 @@
                     <span class="val-dna" id="val-dna-w">0%</span>
                   </div>
                   <input type="range" id="slider-dna-w" min="0" max="100" value="0" class="slider slider-gold">
+                  <details style="margin-top:4px;">
+                    <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Description</summary>
+                    <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
+                      Control the curvature. Gives selected surfaces or generated extensions the characteristic Art Nouveau bend: one dominant curve with a smaller counter-curve. Curves a branch, extension, or selected surface region. Maintains its attachments. Avoids repeated, uniform waves.<br><br><i>Slider: low = gentle bending; high = a stronger asymmetric sweep.</i>
+                    </div>
+                  </details>
                 </div>
 
                 <!-- MERGING -->
@@ -177,6 +204,12 @@
                     <span class="val-dna" id="val-dna-m">0%</span>
                   </div>
                   <input type="range" id="slider-dna-m" min="0" max="100" value="0" class="slider slider-gold">
+                  <details style="margin-top:4px;">
+                    <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Description</summary>
+                    <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
+                      Connect surfaces together. Creates local bridges between nearby surfaces, including surfaces belonging to different objects. Finds suitable pairs of surface regions. Grows a connecting surface between them. Smooths the two connection areas. Preserves the overall size of the model.<br><br><i>Slider: low = a few connections; high = more connections between eligible surfaces.</i>
+                    </div>
+                  </details>
                 </div>
 
                 <!-- POS/NEG SPACE -->
@@ -186,6 +219,12 @@
                     <span class="val-dna" id="val-dna-v">0%</span>
                   </div>
                   <input type="range" id="slider-dna-v" min="0" max="100" value="0" class="slider slider-gold">
+                  <details style="margin-top:4px;">
+                    <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Description</summary>
+                    <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
+                      Shape the spaces between surfaces. Controls the balance between solid geometry and the openings, gaps, and cavities defined by it. Selects a local gap between surfaces. Opens or widens that gap by moving its surrounding surfaces apart. Narrows or partially encloses it by extending surfaces around it. Preserves connections to the rest of the form.<br><br><i>Slider: toward positive = more solid enclosure and smaller openings; toward negative = larger, more open spaces.</i>
+                    </div>
+                  </details>
                 </div>
 
                 <!-- GROWTH -->
@@ -195,6 +234,12 @@
                     <span class="val-dna" id="val-dna-g">0%</span>
                   </div>
                   <input type="range" id="slider-dna-g" min="0" max="100" value="0" class="slider slider-gold">
+                  <details style="margin-top:4px;">
+                    <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Description</summary>
+                    <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
+                      Extend from local surface points. Makes selected surface locations sprout and extend through three-dimensional space. Selects points or small patches as growth origins. Creates new geometry extending outward from each origin. Gives each extension its own direction and curved path. Continues extending the tips through successive growth steps.<br><br><i>Slider: low = short, early extensions; high = longer, more developed extensions.</i>
+                    </div>
+                  </details>
                 </div>
               </div>
             </details>
