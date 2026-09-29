@@ -1351,6 +1351,67 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     const temp = new Float32Array(positions);
     let newVertices = [];
 
+    function generateSmoothBranch(vertsArr, evalPath, baseRadius, numSegs) {
+      let sides = 8;
+      let prevRing = [];
+      for (let seg = 0; seg <= numSegs; seg++) {
+        let t = seg / numSegs;
+        let curCenter = evalPath(t);
+        
+        let tNext = Math.min(1.0, t + 0.05);
+        let nextCenter = evalPath(tNext);
+        if (t === 1.0) {
+           let tPrev = Math.max(0.0, t - 0.05);
+           let prevCenter = evalPath(tPrev);
+           nextCenter = curCenter;
+           curCenter = prevCenter; 
+        }
+        let dir = { x: nextCenter.x - curCenter.x, y: nextCenter.y - curCenter.y, z: nextCenter.z - curCenter.z };
+        let dLen = Math.sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
+        if(dLen < 0.0001) dir = {x:0,y:1,z:0}; else {dir.x/=dLen; dir.y/=dLen; dir.z/=dLen;}
+        
+        let up = Math.abs(dir.y) < 0.99 ? {x:0, y:1, z:0} : {x:1, y:0, z:0};
+        let right = { x: up.y*dir.z - up.z*dir.y, y: up.z*dir.x - up.x*dir.z, z: up.x*dir.y - up.y*dir.x };
+        let rLen = Math.sqrt(right.x*right.x + right.y*right.y + right.z*right.z);
+        if(rLen < 0.0001) { right = {x:1,y:0,z:0}; } else { right.x/=rLen; right.y/=rLen; right.z/=rLen; }
+        
+        let up2 = { x: dir.y*right.z - dir.z*right.y, y: dir.z*right.x - dir.x*right.z, z: dir.x*right.y - dir.y*right.x };
+        
+        let currentRadius = baseRadius * (1.0 - 0.9 * t); 
+        if (seg === numSegs) currentRadius = 0; 
+        
+        curCenter = evalPath(t); 
+        
+        let currentRing = [];
+        for (let s = 0; s < sides; s++) {
+          let angle = (s / sides) * Math.PI * 2;
+          let cx = Math.cos(angle) * currentRadius;
+          let cy = Math.sin(angle) * currentRadius;
+          currentRing.push({
+            x: curCenter.x + right.x * cx + up2.x * cy,
+            y: curCenter.y + right.y * cx + up2.y * cy,
+            z: curCenter.z + right.z * cx + up2.z * cy
+          });
+        }
+        
+        if (seg > 0) {
+          for (let s = 0; s < sides; s++) {
+            let sNext = (s + 1) % sides;
+            let p0 = prevRing[s], p1 = currentRing[s];
+            let p2 = currentRing[sNext], p3 = prevRing[sNext];
+            
+            if (seg === numSegs) {
+              vertsArr.push(p0.x, p0.y, p0.z, p3.x, p3.y, p3.z, p1.x, p1.y, p1.z);
+            } else {
+              vertsArr.push(p0.x, p0.y, p0.z, p3.x, p3.y, p3.z, p2.x, p2.y, p2.z);
+              vertsArr.push(p0.x, p0.y, p0.z, p2.x, p2.y, p2.z, p1.x, p1.y, p1.z);
+            }
+          }
+        }
+        prevRing = currentRing;
+      }
+    }
+
     // 1. CONTINUITY (C)
     // S(t) = 3t^2 - 2t^3 smooth interpolation
     if (activeC > 0) {
@@ -1384,11 +1445,12 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
 
       const maxBranchReach = 0.5 * domSpan * lenMult;
       const forkAngle = (60 * (Math.PI / 180)) * widthMult;
-      const numSegments = 6; 
+      const numSegments = 10; 
+      const branchBaseRadius = domSpan * 0.012 * widthMult;
 
       for (let f = 0; f < numForks; f++) {
         let spreadAngle = (f - (numForks - 1) / 2.0) * forkAngle;
-        let trianglesFound = 0;
+        let branchesSpawned = 0;
         
         for (let i = 0; i < temp.length; i += 9) {
           if (i + 8 >= temp.length) break;
@@ -1407,48 +1469,25 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
             let angleDiff = Math.abs(spatialAngle - ((f * Math.PI * 2 / numForks) - Math.PI));
             if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
             
-            if (angleDiff < 0.8 && trianglesFound < 4) { 
-              trianglesFound++;
-              let prevVerts = [
-                {x: temp[i], y: temp[i+1], z: temp[i+2]},
-                {x: temp[i+3], y: temp[i+4], z: temp[i+5]},
-                {x: temp[i+6], y: temp[i+7], z: temp[i+8]}
-              ];
-              for (let seg = 1; seg <= numSegments; seg++) {
-                let tBranch = seg / numSegments;
-                let smoothLaunch = 0.5 * (1 - Math.cos(Math.PI * tBranch));
+            if (angleDiff < 0.8 && branchesSpawned < 3) { 
+              branchesSpawned++;
+              
+              let evalPath = (t) => {
+                let smoothLaunch = 0.5 * (1 - Math.cos(Math.PI * t));
                 let dispMagnitude = Math.pow(smoothLaunch, 1.2) * maxBranchReach * (0.5 + activeB);
                 let branchDx = dispMagnitude * Math.cos(spatialAngle + spreadAngle + hAngleRad);
                 let branchDz = dispMagnitude * Math.sin(spatialAngle + spreadAngle + hAngleRad);
-                let branchDy = dispMagnitude * (0.2 + Math.sin(vAngleRad)) * tBranch;
+                let branchDy = dispMagnitude * (0.2 + Math.sin(vAngleRad)) * t;
                 
-                let scale = 1.0 - (0.6 * tBranch); 
-                
-                let nextVerts = [];
-                for(let v = 0; v < 3; v++) {
-                  let bx = temp[i + v*3]; let by = temp[i + v*3 + 1]; let bz = temp[i + v*3 + 2];
-                  let nx = cx + (bx - cx) * scale + branchDx;
-                  let ny = cy + (by - cy) * scale + (domAxis === 'Y' ? branchDy : 0);
-                  let nz = cz + (bz - cz) * scale + branchDz;
-                  if (domAxis === 'X') nx += branchDy;
-                  if (domAxis === 'Z') nz += branchDy;
-                  nextVerts.push({x: nx, y: ny, z: nz});
-                }
-                
-                newVertices.push(
-                  prevVerts[0].x, prevVerts[0].y, prevVerts[0].z, nextVerts[0].x, nextVerts[0].y, nextVerts[0].z, nextVerts[1].x, nextVerts[1].y, nextVerts[1].z,
-                  prevVerts[0].x, prevVerts[0].y, prevVerts[0].z, nextVerts[1].x, nextVerts[1].y, nextVerts[1].z, prevVerts[1].x, prevVerts[1].y, prevVerts[1].z,
-                  prevVerts[1].x, prevVerts[1].y, prevVerts[1].z, nextVerts[1].x, nextVerts[1].y, nextVerts[1].z, nextVerts[2].x, nextVerts[2].y, nextVerts[2].z,
-                  prevVerts[1].x, prevVerts[1].y, prevVerts[1].z, nextVerts[2].x, nextVerts[2].y, nextVerts[2].z, prevVerts[2].x, prevVerts[2].y, prevVerts[2].z,
-                  prevVerts[2].x, prevVerts[2].y, prevVerts[2].z, nextVerts[2].x, nextVerts[2].y, nextVerts[2].z, nextVerts[0].x, nextVerts[0].y, nextVerts[0].z,
-                  prevVerts[2].x, prevVerts[2].y, prevVerts[2].z, nextVerts[0].x, nextVerts[0].y, nextVerts[0].z, prevVerts[0].x, prevVerts[0].y, prevVerts[0].z
-                );
-                
-                if (seg === numSegments) {
-                  newVertices.push(nextVerts[0].x, nextVerts[0].y, nextVerts[0].z, nextVerts[1].x, nextVerts[1].y, nextVerts[1].z, nextVerts[2].x, nextVerts[2].y, nextVerts[2].z);
-                }
-                prevVerts = nextVerts;
-              }
+                let nx = cx + branchDx;
+                let ny = cy + (domAxis === 'Y' ? branchDy : 0);
+                let nz = cz + branchDz;
+                if (domAxis === 'X') nx += branchDy;
+                if (domAxis === 'Z') nz += branchDy;
+                return { x: nx, y: ny, z: nz };
+              };
+              
+              generateSmoothBranch(newVertices, evalPath, branchBaseRadius, numSegments);
             }
           }
         }
@@ -1522,12 +1561,13 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     // 6. GROWTH / AGGREGATION (G) - CREATE NEW EXTENSIONS
     if (G > 0.05 && isMesh) {
       const numOrigins = 3;
-      const numSegments = Math.floor(3 + activeG * 8); 
+      const numSegments = Math.floor(6 + activeG * 8); 
       const growthReach = Math.max(0.1, activeG) * 0.8 * domSpan;
+      const growthBaseRadius = domSpan * 0.015 * Math.max(0.2, activeG);
 
       for (let g = 0; g < numOrigins; g++) {
         let targetU = 0.2 + (g / numOrigins) * 0.6; 
-        let trianglesFound = 0;
+        let growthsSpawned = 0;
         
         for (let i = 0; i < temp.length; i += 9) {
           if (i + 8 >= temp.length) break;
@@ -1544,47 +1584,23 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
             let angleDiff = Math.abs(spatialAngle - (g * Math.PI * 2 / numOrigins));
             if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
             
-            if (angleDiff < 0.8 && trianglesFound < 4) { 
-              trianglesFound++;
-              let prevVerts = [
-                {x: temp[i], y: temp[i+1], z: temp[i+2]},
-                {x: temp[i+3], y: temp[i+4], z: temp[i+5]},
-                {x: temp[i+6], y: temp[i+7], z: temp[i+8]}
-              ];
-              for (let seg = 1; seg <= numSegments; seg++) {
-                let t = seg / numSegments;
+            if (angleDiff < 0.8 && growthsSpawned < 3) { 
+              growthsSpawned++;
+              
+              let evalPath = (t) => {
                 let dispMagnitude = t * growthReach;
                 let spiralDx = dispMagnitude * Math.cos(spatialAngle + t * Math.PI);
                 let spiralDz = dispMagnitude * Math.sin(spatialAngle + t * Math.PI);
                 let spiralDy = dispMagnitude * 0.5 * t;
-                
-                let scale = 1.0 - (0.4 * t); 
-                
-                let nextVerts = [];
-                for(let v = 0; v < 3; v++) {
-                  let bx = temp[i + v*3]; let by = temp[i + v*3 + 1]; let bz = temp[i + v*3 + 2];
-                  let nx = cx + (bx - cx) * scale + spiralDx;
-                  let ny = cy + (by - cy) * scale + (domAxis === 'Y' ? spiralDy : 0);
-                  let nz = cz + (bz - cz) * scale + spiralDz;
-                  if (domAxis === 'X') nx += spiralDy;
-                  if (domAxis === 'Z') nz += spiralDy;
-                  nextVerts.push({x: nx, y: ny, z: nz});
-                }
-                
-                newVertices.push(
-                  prevVerts[0].x, prevVerts[0].y, prevVerts[0].z, nextVerts[0].x, nextVerts[0].y, nextVerts[0].z, nextVerts[1].x, nextVerts[1].y, nextVerts[1].z,
-                  prevVerts[0].x, prevVerts[0].y, prevVerts[0].z, nextVerts[1].x, nextVerts[1].y, nextVerts[1].z, prevVerts[1].x, prevVerts[1].y, prevVerts[1].z,
-                  prevVerts[1].x, prevVerts[1].y, prevVerts[1].z, nextVerts[1].x, nextVerts[1].y, nextVerts[1].z, nextVerts[2].x, nextVerts[2].y, nextVerts[2].z,
-                  prevVerts[1].x, prevVerts[1].y, prevVerts[1].z, nextVerts[2].x, nextVerts[2].y, nextVerts[2].z, prevVerts[2].x, prevVerts[2].y, prevVerts[2].z,
-                  prevVerts[2].x, prevVerts[2].y, prevVerts[2].z, nextVerts[2].x, nextVerts[2].y, nextVerts[2].z, nextVerts[0].x, nextVerts[0].y, nextVerts[0].z,
-                  prevVerts[2].x, prevVerts[2].y, prevVerts[2].z, nextVerts[0].x, nextVerts[0].y, nextVerts[0].z, prevVerts[0].x, prevVerts[0].y, prevVerts[0].z
-                );
-                
-                if (seg === numSegments) {
-                  newVertices.push(nextVerts[0].x, nextVerts[0].y, nextVerts[0].z, nextVerts[1].x, nextVerts[1].y, nextVerts[1].z, nextVerts[2].x, nextVerts[2].y, nextVerts[2].z);
-                }
-                prevVerts = nextVerts;
-              }
+                let nx = cx + spiralDx;
+                let ny = cy + (domAxis === 'Y' ? spiralDy : 0);
+                let nz = cz + spiralDz;
+                if (domAxis === 'X') nx += spiralDy;
+                if (domAxis === 'Z') nz += spiralDy;
+                return { x: nx, y: ny, z: nz };
+              };
+              
+              generateSmoothBranch(newVertices, evalPath, growthBaseRadius, numSegments);
             }
           }
         }
