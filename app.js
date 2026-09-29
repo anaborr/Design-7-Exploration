@@ -1485,99 +1485,212 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
        return {nx, ny, nz, tx, ty, tz};
     }
 
-    let useNoiseEmbossing = (B > 0.05 || G > 0.05) && isMesh;
-    if (useNoiseEmbossing) {
-        let hash = (n) => {
-            let res = Math.sin(n) * 43758.5453123;
-            return res - Math.floor(res);
-        };
-        let noise3D = (x, y, z) => {
-            let pX = Math.floor(x), pY = Math.floor(y), pZ = Math.floor(z);
-            let fX = x - pX, fY = y - pY, fZ = z - pZ;
-            let fX2 = fX*fX*(3-2*fX), fY2 = fY*fY*(3-2*fY), fZ2 = fZ*fZ*(3-2*fZ);
-            let n = pX + pY*57 + pZ*113;
-            let i1 = hash(n) + (hash(n+1) - hash(n)) * fX2;
-            let i2 = hash(n+57) + (hash(n+58) - hash(n+57)) * fX2;
-            let i3 = hash(n+113) + (hash(n+114) - hash(n+113)) * fX2;
-            let i4 = hash(n+170) + (hash(n+171) - hash(n+170)) * fX2;
-            let j1 = i1 + (i2 - i1) * fY2;
-            let j2 = i3 + (i4 - i3) * fY2;
-            return j1 + (j2 - j1) * fZ2;
-        };
+    let hasBranching = B > 0.05 && isMesh;
+    let hasGrowth = G > 0.05 && isMesh;
 
-        let ridgedNoise = (x, y, z, octaves) => {
-            let total = 0, freq = 1, amp = 1, maxAmp = 0;
-            for(let i=0; i<octaves; i++) {
-                let n = noise3D(x*freq, y*freq, z*freq);
-                n = 1.0 - Math.abs(n * 2.0 - 1.0);
-                n = n * n * (3 - 2 * n); // Smoothstep the ridge!
-                total += n * amp;
-                maxAmp += amp;
-                amp *= 0.5;
-                freq *= 1.5;
+    let newVertices = [];
+    let newIndices = [];
+
+    function generateSmoothBranch(vertsArr, indicesArr, baseVertOffset, pathPts, rStart, rEnd, sides) {
+        if (pathPts.length < 2) return;
+        
+        let ringIndices = [];
+        let numSegs = pathPts.length - 1;
+        let up = {x: 0, y: 1, z: 0};
+        
+        for (let seg = 0; seg <= numSegs; seg++) {
+            let t = seg / numSegs;
+            let currentRadius = rStart * (1 - t) + rEnd * t;
+            let pt = pathPts[seg];
+            
+            let dir;
+            if (seg < numSegs) {
+                let nextPt = pathPts[seg + 1];
+                dir = {x: nextPt.x - pt.x, y: nextPt.y - pt.y, z: nextPt.z - pt.z};
+            } else {
+                let prevPt = pathPts[seg - 1];
+                dir = {x: pt.x - prevPt.x, y: pt.y - prevPt.y, z: pt.z - prevPt.z};
             }
-            return total / maxAmp;
-        };
+            
+            let len = Math.sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
+            if (len > 0) { dir.x/=len; dir.y/=len; dir.z/=len; } else { dir = {x:0, y:1, z:0}; }
+            
+            let right = {x: up.y*dir.z - up.z*dir.y, y: up.z*dir.x - up.x*dir.z, z: up.x*dir.y - up.y*dir.x};
+            let rLen = Math.sqrt(right.x*right.x + right.y*right.y + right.z*right.z);
+            if (rLen < 0.001) {
+                up = {x: 1, y: 0, z: 0};
+                right = {x: up.y*dir.z - up.z*dir.y, y: up.z*dir.x - up.x*dir.z, z: up.x*dir.y - up.y*dir.x};
+                rLen = Math.sqrt(right.x*right.x + right.y*right.y + right.z*right.z);
+            }
+            right.x/=rLen; right.y/=rLen; right.z/=rLen;
+            up = {x: dir.y*right.z - dir.z*right.y, y: dir.z*right.x - dir.x*right.z, z: dir.x*right.y - dir.y*right.x};
+            
+            let newRingIndices = [];
+            let ringStartIdx = baseVertOffset + vertsArr.length / 3;
+            
+            for (let s = 0; s < sides; s++) {
+                let angle = (s / sides) * Math.PI * 2;
+                let rCos = Math.cos(angle) * currentRadius;
+                let rSin = Math.sin(angle) * currentRadius * 0.7; // slight squash for flow
+                
+                vertsArr.push(pt.x + right.x*rCos + up.x*rSin, pt.y + right.y*rCos + up.y*rSin, pt.z + right.z*rCos + up.z*rSin);
+                newRingIndices.push(ringStartIdx + s);
+            }
+            
+            if (seg > 0) {
+                for (let s = 0; s < sides; s++) {
+                    let sNext = (s + 1) % sides;
+                    indicesArr.push(ringIndices[s], newRingIndices[s], newRingIndices[sNext], ringIndices[s], newRingIndices[sNext], ringIndices[sNext]);
+                }
+            } else if (seg === 0) {
+                // Cap the start
+                let capIdx = baseVertOffset + vertsArr.length / 3;
+                vertsArr.push(pt.x, pt.y, pt.z);
+                for (let s = 0; s < sides; s++) {
+                    indicesArr.push(capIdx, newRingIndices[s], newRingIndices[(s + 1) % sides]);
+                }
+            }
+            
+            if (seg === numSegs) {
+                // Cap the end
+                let capIdx = baseVertOffset + vertsArr.length / 3;
+                vertsArr.push(pt.x, pt.y, pt.z);
+                for (let s = 0; s < sides; s++) {
+                    indicesArr.push(capIdx, newRingIndices[(s + 1) % sides], newRingIndices[s]);
+                }
+            }
+            
+            ringIndices = newRingIndices;
+        }
+    }
 
-        let vNormals = new Map();
-        let getKey = (x,y,z) => x + ',' + y + ',' + z;
+    if (hasBranching || hasGrowth) {
+        let adjacency = new Map();
+        let parseKey = (k) => { let p = k.split(','); return {x: parseFloat(p[0]), y: parseFloat(p[1]), z: parseFloat(p[2])}; };
+        let addEdge = (a, b) => {
+            if (!adjacency.has(a)) adjacency.set(a, new Set());
+            if (!adjacency.has(b)) adjacency.set(b, new Set());
+            adjacency.get(a).add(b);
+            adjacency.get(b).add(a);
+        };
         
         for (let i = 0; i < temp.length; i += 9) {
-            let {nx, ny, nz} = getNormal(i, temp);
-            for(let v=0; v<3; v++) {
-                let k = getKey(temp[i+v*3], temp[i+v*3+1], temp[i+v*3+2]);
-                let curr = vNormals.get(k);
-                if (!curr) vNormals.set(k, {x:nx, y:ny, z:nz});
-                else { curr.x += nx; curr.y += ny; curr.z += nz; }
+            let v1 = `${temp[i].toFixed(3)},${temp[i+1].toFixed(3)},${temp[i+2].toFixed(3)}`;
+            let v2 = `${temp[i+3].toFixed(3)},${temp[i+4].toFixed(3)},${temp[i+5].toFixed(3)}`;
+            let v3 = `${temp[i+6].toFixed(3)},${temp[i+7].toFixed(3)},${temp[i+8].toFixed(3)}`;
+            addEdge(v1, v2);
+            addEdge(v2, v3);
+            addEdge(v3, v1);
+        }
+        
+        let allKeys = Array.from(adjacency.keys());
+        
+        let buildMeshPath = (startKey, numSteps, momentumDir, splitChance, currentDepth, maxDepth) => {
+            let paths = [];
+            let pathKeys = [startKey];
+            let currKey = startKey;
+            let currentDir = momentumDir;
+            
+            for(let s=0; s<numSteps; s++) {
+                let neighbors = Array.from(adjacency.get(currKey) || []);
+                let unvisited = neighbors.filter(n => !pathKeys.includes(n));
+                if(unvisited.length === 0) unvisited = neighbors; 
+                if(unvisited.length === 0) break;
+                
+                let currPt = parseKey(currKey);
+                
+                let bestNeighbor = unvisited[0];
+                let bestScore = -Infinity;
+                let secondBest = null;
+                
+                for(let nKey of unvisited) {
+                    let nPt = parseKey(nKey);
+                    let dir = {x: nPt.x - currPt.x, y: nPt.y - currPt.y, z: nPt.z - currPt.z};
+                    let len = Math.sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
+                    if(len>0) { dir.x/=len; dir.y/=len; dir.z/=len; }
+                    
+                    let score = dir.x*currentDir.x + dir.y*currentDir.y + dir.z*currentDir.z;
+                    score += (Math.random() * 0.8 - 0.4); 
+                    
+                    if(score > bestScore) {
+                        secondBest = bestNeighbor;
+                        bestScore = score;
+                        bestNeighbor = nKey;
+                    }
+                }
+                
+                pathKeys.push(bestNeighbor);
+                
+                if (currentDepth < maxDepth && secondBest && Math.random() < splitChance) {
+                    let branchDir = {x: currentDir.y, y: currentDir.z, z: currentDir.x}; 
+                    let subPaths = buildMeshPath(currKey, Math.floor(numSteps/1.5), branchDir, splitChance * 0.5, currentDepth + 1, maxDepth);
+                    paths.push(...subPaths);
+                }
+                
+                let nextPt = parseKey(bestNeighbor);
+                currentDir = {x: nextPt.x - currPt.x, y: nextPt.y - currPt.y, z: nextPt.z - currPt.z};
+                let cLen = Math.sqrt(currentDir.x*currentDir.x + currentDir.y*currentDir.y + currentDir.z*currentDir.z);
+                if(cLen>0) { currentDir.x/=cLen; currentDir.y/=cLen; currentDir.z/=cLen; }
+                
+                currKey = bestNeighbor;
+            }
+            
+            paths.push(pathKeys.map(k => parseKey(k)));
+            return paths;
+        };
+
+        let branchPaths = [];
+        
+        if (hasGrowth) {
+            let numG = Math.floor(6 + activeG * 35);
+            let gRad = domSpan * 0.025;
+            let gSteps = Math.floor(20 + activeG * 50);
+            let flowDir = {x: domAxis==='X'?1:0, y: domAxis==='Y'?1:0, z: domAxis==='Z'?1:0}; 
+            
+            for(let i=0; i<numG; i++) {
+                if (allKeys.length === 0) break;
+                let startKey = allKeys[Math.floor(Math.random() * allKeys.length)];
+                let paths = buildMeshPath(startKey, gSteps, flowDir, 0.15, 0, 2);
+                for(let p of paths) {
+                    if(p.length > 2) branchPaths.push({path: p, rStart: gRad, rEnd: gRad*0.3, sides: 14});
+                }
             }
         }
         
-        for (let [k, n] of vNormals) {
-            let len = Math.sqrt(n.x*n.x + n.y*n.y + n.z*n.z);
-            if(len>0) { n.x/=len; n.y/=len; n.z/=len; }
+        if (hasBranching) {
+            let numB = Math.floor(15 + activeB * 80);
+            let bRad = domSpan * 0.012;
+            let bSteps = Math.floor(10 + activeB * 20);
+            let flowDir = {x: domAxis==='Z'?1:0, y: domAxis==='X'?1:0, z: domAxis==='Y'?1:0}; 
+            
+            for(let i=0; i<numB; i++) {
+                if (allKeys.length === 0) break;
+                let startKey = allKeys[Math.floor(Math.random() * allKeys.length)];
+                let paths = buildMeshPath(startKey, bSteps, flowDir, 0.25, 0, 3);
+                for(let p of paths) {
+                    if(p.length > 2) branchPaths.push({path: p, rStart: bRad, rEnd: bRad*0.1, sides: 10});
+                }
+            }
         }
 
-        let original = new Float32Array(temp);
-        let freqB = (1.5 + activeB * 4.0) / domSpan; 
-        let ampB = activeB * 0.20 * domSpan;
-        
-        let freqG = (0.5 + activeG * 2.0) / domSpan;
-        let ampG = activeG * 0.35 * domSpan;
-        
-        for (let i = 0; i < temp.length; i += 3) {
-            let x = original[i], y = original[i+1], z = original[i+2];
-            let k = getKey(x, y, z);
-            let n = vNormals.get(k) || {x:0, y:0, z:0};
-            
-            let dispB = 0;
-            if (activeB > 0.05) {
-                let maskB = noise3D(x*freqB*0.1, y*freqB*0.1, z*freqB*0.1);
-                if (maskB > 0.1) {
-                    let rawB = ridgedNoise(x*freqB, y*freqB, z*freqB, 4);
-                    dispB = Math.pow(rawB, 1.5) * ampB * ((maskB - 0.1) / 0.9);
-                }
-            }
-            
-            let dispG = 0;
-            if (activeG > 0.05) {
-                let maskG = noise3D(x*freqG*0.1 + 100, y*freqG*0.1, z*freqG*0.1);
-                if (maskG > 0.05) {
-                    let rawG = ridgedNoise(x*freqG, y*freqG, z*freqG, 3);
-                    dispG = Math.pow(rawG, 1.2) * ampG * ((maskG - 0.05) / 0.95);
-                }
-            }
-            
-            let totalDisp = dispB + dispG;
-            if (totalDisp > 0) {
-                temp[i] += n.x * totalDisp;
-                temp[i+1] += n.y * totalDisp;
-                temp[i+2] += n.z * totalDisp;
-            }
+        for(let bp of branchPaths) {
+            generateSmoothBranch(newVertices, newIndices, temp.length / 3, bp.path, bp.rStart, bp.rEnd, bp.sides);
         }
     }
 
     let fullMesh = temp;
-    window._lastComputedBranchIndices = new Uint32Array([]);
+    if (hasBranching || hasGrowth) {
+      if (newVertices.length > 0) {
+        fullMesh = new Float32Array(temp.length + newVertices.length);
+        fullMesh.set(temp);
+        fullMesh.set(newVertices, temp.length);
+        window._lastComputedBranchIndices = new Uint32Array(newIndices);
+      } else {
+        window._lastComputedBranchIndices = new Uint32Array([]);
+      }
+    } else {
+        window._lastComputedBranchIndices = new Uint32Array([]);
+    }
 
     // 3. WHIPLASH (W) - Curves the branches
     if (activeW > 0) {
