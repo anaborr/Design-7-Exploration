@@ -1352,9 +1352,10 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     let newVertices = [];
 
     function generateSmoothBranch(vertsArr, evalPath, baseRadius, numSegs) {
-      let sides = 16;
+      let sides = 32; // Increased for smooth organic roundness
       let prevRing = [];
       let lastDir = null, lastUp = null, lastRight = null;
+      let baseCenter = evalPath(0);
       
       for (let seg = 0; seg <= numSegs; seg++) {
         let t = seg / numSegs;
@@ -1398,7 +1399,8 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
           lastDir = dir;
         }
         
-        let radiusScale = Math.pow(1.0 - t, 0.65);
+        // Smooth rounded dome tip instead of sharp cone
+        let radiusScale = Math.cos(t * Math.PI / 2);
         let currentRadius = baseRadius * radiusScale; 
         if (seg === numSegs) currentRadius = 0; 
         
@@ -1414,6 +1416,14 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
             y: curCenter.y + lastRight.y * rCos + lastUp.y * rSin,
             z: curCenter.z + lastRight.z * rCos + lastUp.z * rSin
           });
+        }
+
+        if (seg === 1) {
+          // Bottom cap to ensure a closed, manifold mesh
+          for (let s = 0; s < sides; s++) {
+            let sNext = (s + 1) % sides;
+            vertsArr.push(baseCenter.x, baseCenter.y, baseCenter.z, prevRing[s].x, prevRing[s].y, prevRing[s].z, prevRing[sNext].x, prevRing[sNext].y, prevRing[sNext].z);
+          }
         }
         
         if (seg > 0) {
