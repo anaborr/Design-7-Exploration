@@ -1478,182 +1478,106 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
           nx = -nx; ny = -ny; nz = -nz;
        }
        
-       let len1 = e1.x*e1.x + e1.y*e1.y + e1.z*e1.z;
-       let len2 = e2.x*e2.x + e2.y*e2.y + e2.z*e2.z;
-       let tx, ty, tz;
-       if (len1 > len2) { tx = e1.x; ty = e1.y; tz = e1.z; }
-       else { tx = e2.x; ty = e2.y; tz = e2.z; }
+       let tx = v1.x, ty = v1.y, tz = v1.z;
        let tLen = Math.sqrt(tx*tx + ty*ty + tz*tz);
        if (tLen > 0.0001) { tx/=tLen; ty/=tLen; tz/=tLen; } else { tx=1; ty=0; tz=0; }
        
        return {nx, ny, nz, tx, ty, tz};
     }
 
-    let allSpinePoints = [];
-
-    let allSpineCurves = [];
-
-    function buildVine(pt, initialDir, normal, length, radius, depth, maxDepth, curlDir, isVerticalLattice) {
-        if (depth > maxDepth || radius < 0.001 * domSpan) return;
-        
-        let dirX = initialDir.x, dirY = initialDir.y, dirZ = initialDir.z;
-        if (isVerticalLattice) {
-            let dotN = normal.ny; 
-            dirX = 0 - dotN * normal.nx;
-            dirY = 1 - dotN * normal.ny;
-            dirZ = 0 - dotN * normal.nz;
-            let dLen = Math.sqrt(dirX*dirX + dirY*dirY + dirZ*dirZ);
-            if (dLen > 0.001) { dirX/=dLen; dirY/=dLen; dirZ/=dLen; }
-            else { dirX = initialDir.x; dirY = initialDir.y; dirZ = initialDir.z; }
-        }
-
-        let hugFactor = 0.3;
-        dirX -= normal.nx * hugFactor;
-        dirY -= normal.ny * hugFactor;
-        dirZ -= normal.nz * hugFactor;
-        let nLen = Math.sqrt(dirX*dirX + dirY*dirY + dirZ*dirZ);
-        if (nLen > 0) { dirX/=nLen; dirY/=nLen; dirZ/=nLen; }
-
-        let bx = normal.ny * dirZ - normal.nz * dirY;
-        let by = normal.nz * dirX - normal.nx * dirZ;
-        let bz = normal.nx * dirY - normal.ny * dirX;
-
-        let spread = length * 0.5 * curlDir;
-        let P0 = pt;
-        let P1 = { x: P0.x + dirX*length*0.3 + bx*spread, y: P0.y + dirY*length*0.3 + by*spread, z: P0.z + dirZ*length*0.3 + bz*spread };
-        let P2 = { x: P0.x + dirX*length*0.7 + bx*spread*1.2, y: P0.y + dirY*length*0.7 + by*spread*1.2, z: P0.z + dirZ*length*0.7 + bz*spread*1.2 };
-        let P3 = { x: P0.x + dirX*length + bx*spread*0.8, y: P0.y + dirY*length + by*spread*0.8, z: P0.z + dirZ*length + bz*spread*0.8 };
-
-        allSpineCurves.push({ P0, P1, P2, P3, rStart: radius, rEnd: radius * 0.7, normal, isRoot: depth === 0 });
-
-        let rotateDir = (d, angle) => {
-            let C = Math.cos(angle), S = Math.sin(angle), n = normal, t_mat = 1 - C;
-            return {
-                x: d.x*(C + n.nx*n.nx*t_mat) + d.y*(n.nx*n.ny*t_mat - n.nz*S) + d.z*(n.nx*n.nz*t_mat + n.ny*S),
-                y: d.x*(n.ny*n.nx*t_mat + n.nz*S) + d.y*(C + n.ny*n.ny*t_mat) + d.z*(n.ny*n.nz*t_mat - n.nx*S),
-                z: d.x*(n.nz*n.nx*t_mat - n.ny*S) + d.y*(n.nz*n.ny*t_mat + n.nx*S) + d.z*(C + n.nz*n.nz*t_mat)
-            };
+    let useNoiseEmbossing = (B > 0.05 || G > 0.05) && isMesh;
+    if (useNoiseEmbossing) {
+        let hash = (n) => {
+            let res = Math.sin(n) * 43758.5453123;
+            return res - Math.floor(res);
+        };
+        let noise3D = (x, y, z) => {
+            let pX = Math.floor(x), pY = Math.floor(y), pZ = Math.floor(z);
+            let fX = x - pX, fY = y - pY, fZ = z - pZ;
+            let fX2 = fX*fX*(3-2*fX), fY2 = fY*fY*(3-2*fY), fZ2 = fZ*fZ*(3-2*fZ);
+            let n = pX + pY*57 + pZ*113;
+            let i1 = hash(n) + (hash(n+1) - hash(n)) * fX2;
+            let i2 = hash(n+57) + (hash(n+58) - hash(n+57)) * fX2;
+            let i3 = hash(n+113) + (hash(n+114) - hash(n+113)) * fX2;
+            let i4 = hash(n+170) + (hash(n+171) - hash(n+170)) * fX2;
+            let j1 = i1 + (i2 - i1) * fY2;
+            let j2 = i3 + (i4 - i3) * fY2;
+            return j1 + (j2 - j1) * fZ2;
         };
 
-        let dir1 = rotateDir({x:dirX, y:dirY, z:dirZ}, 0.2 * curlDir);
-        let dir2 = rotateDir({x:dirX, y:dirY, z:dirZ}, -0.6 * curlDir);
+        let ridgedNoise = (x, y, z, octaves) => {
+            let total = 0, freq = 1, amp = 1, maxAmp = 0;
+            for(let i=0; i<octaves; i++) {
+                let n = noise3D(x*freq, y*freq, z*freq);
+                n = 1.0 - Math.abs(n * 2.0 - 1.0);
+                n *= n; 
+                total += n * amp;
+                maxAmp += amp;
+                amp *= 0.5;
+                freq *= 2.0;
+            }
+            return total / maxAmp;
+        };
 
-        buildVine(P3, dir1, normal, length * 0.85, radius * 0.75, depth + 1, maxDepth, curlDir, isVerticalLattice);
-        if ((depth * 13 + Math.floor(Math.abs(P3.x) * 100)) % 100 < 70) {
-            buildVine(P3, dir2, normal, length * 0.7, radius * 0.6, depth + 1, maxDepth, -curlDir, isVerticalLattice);
+        let vNormals = new Map();
+        let getKey = (x,y,z) => x + ',' + y + ',' + z;
+        
+        for (let i = 0; i < temp.length; i += 9) {
+            let {nx, ny, nz} = getNormal(i, temp);
+            for(let v=0; v<3; v++) {
+                let k = getKey(temp[i+v*3], temp[i+v*3+1], temp[i+v*3+2]);
+                let curr = vNormals.get(k);
+                if (!curr) vNormals.set(k, {x:nx, y:ny, z:nz});
+                else { curr.x += nx; curr.y += ny; curr.z += nz; }
+            }
         }
-    }
+        
+        for (let [k, n] of vNormals) {
+            let len = Math.sqrt(n.x*n.x + n.y*n.y + n.z*n.z);
+            if(len>0) { n.x/=len; n.y/=len; n.z/=len; }
+        }
 
-    // 2. BRANCHING - Controls offshoot COUNT
-    if (B > 0.05 && isMesh) {
-      const bSettings = (window.domainState && window.domainState.branchSettings) || {};
-      const numOrigins = Math.floor(6 + activeB * 40); 
-      const lenMult = (bSettings.length !== undefined) ? (bSettings.length / 100) : 1.0;
-      const widthMult = (bSettings.width !== undefined) ? (bSettings.width / 100) : 1.0;
-      
-      const branchLength = 0.05 * domSpan * lenMult;
-      const branchBaseRadius = domSpan * 0.01 * widthMult; 
-      const maxDepth = Math.floor(3 + activeB * 4);
-
-      let numTriangles = Math.floor(temp.length / 9);
-      for (let f = 0; f < numOrigins; f++) {
-         if (numTriangles <= 0) break;
-         let goldenRatio = 0.61803398875;
-         let triIndex = Math.floor((((f + 0.314159) * goldenRatio) % 1) * numTriangles);
-         let i = triIndex * 9;
-         let cx = (temp[i] + temp[i+3] + temp[i+6]) / 3;
-         let cy = (temp[i+1] + temp[i+4] + temp[i+7]) / 3;
-         let cz = (temp[i+2] + temp[i+5] + temp[i+8]) / 3;
-         let {nx, ny, nz, tx, ty, tz} = getNormal(i, temp);
-         
-         let dir = {x: tx, y: ty, z: tz};
-         buildVine({x: cx, y: cy, z: cz}, dir, {nx, ny, nz}, branchLength, branchBaseRadius, 0, maxDepth, (f % 2 === 0) ? 1 : -1, false);
-      }
-    }
-
-    // 6. GROWTH - Controls extension LENGTH
-    if (G > 0.05 && isMesh) {
-      const numOrigins = Math.floor(4 + activeG * 30); 
-      const growthReach = 0.08 * domSpan * (0.5 + activeG * 0.8); 
-      const growthBaseRadius = domSpan * 0.015; 
-      const maxDepth = Math.floor(4 + activeG * 5);
-
-      let numTriangles = Math.floor(temp.length / 9);
-      for (let g = 0; g < numOrigins; g++) {
-         if (numTriangles <= 0) break;
-         let goldenRatio = 0.61803398875;
-         let triIndex = Math.floor((((g + 0.785398) * goldenRatio) % 1) * numTriangles);
-         let i = triIndex * 9;
-         let cx = (temp[i] + temp[i+3] + temp[i+6]) / 3;
-         let cy = (temp[i+1] + temp[i+4] + temp[i+7]) / 3;
-         let cz = (temp[i+2] + temp[i+5] + temp[i+8]) / 3;
-         let {nx, ny, nz, tx, ty, tz} = getNormal(i, temp);
-         
-         let isEnd = (g % 2 === 0);
-         if (isEnd && ty < 0) { tx = -tx; ty = -ty; tz = -tz; }
-         if (!isEnd && ty > 0) { tx = -tx; ty = -ty; tz = -tz; }
-
-         let dir = {x: tx, y: ty, z: tz};
-         buildVine({x: cx, y: cy, z: cz}, dir, {nx, ny, nz}, growthReach, growthBaseRadius, 0, maxDepth, (g % 2 === 0) ? 1 : -1, true);
-      }
-    }
-
-    // ROOT MELTING ALGORITHM: Swell the base mesh at the roots to swallow intersections seamlessly
-    if (allSpineCurves.length > 0) {
-        let rootCurves = allSpineCurves.filter(c => c.isRoot);
+        let original = new Float32Array(temp);
+        let freqB = (5 + activeB * 25) / domSpan; 
+        let ampB = activeB * 0.05 * domSpan;
+        
+        let freqG = (2 + activeG * 10) / domSpan;
+        let ampG = activeG * 0.12 * domSpan;
+        
         for (let i = 0; i < temp.length; i += 3) {
-            let vx = temp[i], vy = temp[i+1], vz = temp[i+2];
-            let maxPull = 0, pullX = 0, pullY = 0, pullZ = 0;
-            for (let curve of rootCurves) {
-                let dx = curve.P1.x - vx;
-                let dy = curve.P1.y - vy;
-                let dz = curve.P1.z - vz;
-                let distSq = dx*dx + dy*dy + dz*dz;
-                let rSq = (curve.rStart * 4.5) * (curve.rStart * 4.5); 
-                if (distSq < rSq) {
-                    let dist = Math.sqrt(distSq);
-                    let normalizedDist = dist / (curve.rStart * 4.5);
-                    let factor = Math.cos(normalizedDist * Math.PI / 2);
-                    let pull = factor * factor * curve.rStart * 2.5; 
-                    if (pull > maxPull) {
-                        maxPull = pull;
-                        pullX = curve.normal.nx * maxPull;
-                        pullY = curve.normal.ny * maxPull;
-                        pullZ = curve.normal.nz * maxPull;
-                    }
+            let x = original[i], y = original[i+1], z = original[i+2];
+            let k = getKey(x, y, z);
+            let n = vNormals.get(k) || {x:0, y:0, z:0};
+            
+            let dispB = 0;
+            if (activeB > 0.05) {
+                let maskB = noise3D(x*freqB*0.1, y*freqB*0.1, z*freqB*0.1);
+                if (maskB > 0.3) {
+                    let rawB = ridgedNoise(x*freqB, y*freqB, z*freqB, 4);
+                    dispB = Math.pow(rawB, 2.0) * ampB * ((maskB - 0.3) / 0.7);
                 }
             }
-            if (maxPull > 0) {
-                temp[i] += pullX;
-                temp[i+1] += pullY;
-                temp[i+2] += pullZ;
+            
+            let dispG = 0;
+            if (activeG > 0.05) {
+                let maskG = noise3D(x*freqG*0.1 + 100, y*freqG*0.1, z*freqG*0.1);
+                if (maskG > 0.2) {
+                    let rawG = ridgedNoise(x*freqG, y*freqG, z*freqG, 3);
+                    dispG = Math.pow(rawG, 1.5) * ampG * ((maskG - 0.2) / 0.8);
+                }
             }
-        }
-    }
-
-    // Generate the vine geometry
-    if (allSpineCurves.length > 0) {
-        for (let curve of allSpineCurves) {
-            let evalP = (t) => {
-                let uT = 1 - t;
-                let uT2 = uT * uT, uT3 = uT2 * uT, t2 = t * t, t3 = t2 * t;
-                return {
-                    x: uT3*curve.P0.x + 3*uT2*t*curve.P1.x + 3*uT*t2*curve.P2.x + t3*curve.P3.x,
-                    y: uT3*curve.P0.y + 3*uT2*t*curve.P1.y + 3*uT*t2*curve.P2.y + t3*curve.P3.y,
-                    z: uT3*curve.P0.z + 3*uT2*t*curve.P1.z + 3*uT*t2*curve.P2.z + t3*curve.P3.z
-                };
-            };
-            generateSmoothBranch(newVertices, newIndices, temp.length / 3, evalP, curve.rStart, curve.rEnd, 6, curve.normal);
+            
+            let totalDisp = dispB + dispG;
+            if (totalDisp > 0) {
+                temp[i] += n.x * totalDisp;
+                temp[i+1] += n.y * totalDisp;
+                temp[i+2] += n.z * totalDisp;
+            }
         }
     }
 
     let fullMesh = temp;
-    if (newVertices.length > 0) {
-      fullMesh = new Float32Array(temp.length + newVertices.length);
-      fullMesh.set(temp);
-      fullMesh.set(newVertices, temp.length);
-      window._lastComputedBranchIndices = new Uint32Array(newIndices);
-    }
+    window._lastComputedBranchIndices = new Uint32Array([]);
 
     // 3. WHIPLASH (W) - Curves the branches
     if (activeW > 0) {
