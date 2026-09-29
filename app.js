@@ -1361,8 +1361,8 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     let newVertices = [];
     let newIndices = [];
 
-    function generateSmoothBranch(vertsArr, indicesArr, baseVertOffset, evalPath, baseRadius, numSegs, surfaceNormal) {
-      let sides = 32; 
+    function generateSmoothBranch(vertsArr, indicesArr, baseVertOffset, evalPath, rStart, rEnd, numSegs, surfaceNormal) {
+      let sides = 16; 
       let baseCenter = evalPath(0);
       let curCenter = baseCenter;
       
@@ -1419,9 +1419,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
           lastDir = dir;
         }
         
-        let flare = (t < 0.15) ? 1.0 + 2.5 * Math.pow((0.15 - t)/0.15, 2) : 1.0;
-        let radiusScale = Math.cos(t * Math.PI / 2) * flare;
-        let currentRadius = Math.max(0.04 * baseRadius, baseRadius * radiusScale); 
+        let currentRadius = rStart * (1 - t) + rEnd * t; 
         curCenter = evalPath(t); 
 
         let newRingIndices = [];
@@ -1489,71 +1487,86 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
 
     let allSpinePoints = [];
 
+    let allSpineCurves = [];
+
+    function buildVine(pt, dir, normal, length, radius, depth, maxDepth, curlDir) {
+        if (depth > maxDepth || radius < 0.001 * domSpan) return;
+        
+        let cx = centerX, cy = centerY, cz = centerZ;
+        let toCX = cx - pt.x, toCY = cy - pt.y, toCZ = cz - pt.z;
+        let cLen = Math.sqrt(toCX*toCX + toCY*toCY + toCZ*toCZ);
+        if (cLen > 0) { toCX/=cLen; toCY/=cLen; toCZ/=cLen; }
+
+        let wrapFactor = 0.2;
+        let nDirX = dir.x + toCX * wrapFactor;
+        let nDirY = dir.y + toCY * wrapFactor;
+        let nDirZ = dir.z + toCZ * wrapFactor;
+        let nLen = Math.sqrt(nDirX*nDirX + nDirY*nDirY + nDirZ*nDirZ);
+        if (nLen > 0) { nDirX/=nLen; nDirY/=nLen; nDirZ/=nLen; } else { nDirX=dir.x; nDirY=dir.y; nDirZ=dir.z; }
+
+        let bx = normal.ny * nDirZ - normal.nz * nDirY;
+        let by = normal.nz * nDirX - normal.nx * nDirZ;
+        let bz = normal.nx * nDirY - normal.ny * nDirX;
+
+        let spread = length * 0.4 * curlDir;
+        let P0 = pt;
+        let P1 = { x: P0.x + nDirX*length*0.3 + bx*spread, y: P0.y + nDirY*length*0.3 + by*spread, z: P0.z + nDirZ*length*0.3 + bz*spread };
+        let P2 = { x: P0.x + nDirX*length*0.7 + bx*spread*1.2, y: P0.y + nDirY*length*0.7 + by*spread*1.2, z: P0.z + nDirZ*length*0.7 + bz*spread*1.2 };
+        let P3 = { x: P0.x + nDirX*length + bx*spread*1.5, y: P0.y + nDirY*length + by*spread*1.5, z: P0.z + nDirZ*length + bz*spread*1.5 };
+
+        allSpineCurves.push({ P0, P1, P2, P3, rStart: radius, rEnd: radius * 0.75, normal });
+
+        let rotateDir = (d, angle) => {
+            let C = Math.cos(angle), S = Math.sin(angle), n = normal, t_mat = 1 - C;
+            return {
+                x: d.x*(C + n.nx*n.nx*t_mat) + d.y*(n.nx*n.ny*t_mat - n.nz*S) + d.z*(n.nx*n.nz*t_mat + n.ny*S),
+                y: d.x*(n.ny*n.nx*t_mat + n.nz*S) + d.y*(C + n.ny*n.ny*t_mat) + d.z*(n.ny*n.nz*t_mat - n.nx*S),
+                z: d.x*(n.nz*n.nx*t_mat - n.ny*S) + d.y*(n.nz*n.ny*t_mat + n.nx*S) + d.z*(C + n.nz*n.nz*t_mat)
+            };
+        };
+
+        let dir1 = rotateDir({x:nDirX, y:nDirY, z:nDirZ}, 0.3 * curlDir);
+        let dir2 = rotateDir({x:nDirX, y:nDirY, z:nDirZ}, -0.5 * curlDir);
+
+        buildVine(P3, dir1, normal, length * 0.85, radius * 0.75, depth + 1, maxDepth, curlDir);
+        if ((depth * 17 + Math.floor(Math.abs(P3.x) * 100)) % 100 < 65) {
+            buildVine(P3, dir2, normal, length * 0.7, radius * 0.6, depth + 1, maxDepth, -curlDir);
+        }
+    }
+
     // 2. BRANCHING - Controls offshoot COUNT
     if (B > 0.05 && isMesh) {
       const bSettings = (window.domainState && window.domainState.branchSettings) || {};
-      const numForks = Math.floor(10 + activeB * 150); // Up to 160 intricate branches!
+      const numOrigins = Math.floor(6 + activeB * 35); 
       const lenMult = (bSettings.length !== undefined) ? (bSettings.length / 100) : 1.0;
       const widthMult = (bSettings.width !== undefined) ? (bSettings.width / 100) : 1.0;
       
-      const branchLength = 0.22 * domSpan * lenMult;
+      const branchLength = 0.08 * domSpan * lenMult;
       const branchBaseRadius = domSpan * 0.015 * widthMult; 
+      const maxDepth = Math.floor(3 + activeB * 3);
 
       let numTriangles = Math.floor(temp.length / 9);
-      for (let f = 0; f < numForks; f++) {
+      for (let f = 0; f < numOrigins; f++) {
          if (numTriangles <= 0) break;
          let goldenRatio = 0.61803398875;
          let triIndex = Math.floor((((f + 0.314159) * goldenRatio) % 1) * numTriangles);
          let i = triIndex * 9;
-
          let cx = (temp[i] + temp[i+3] + temp[i+6]) / 3;
          let cy = (temp[i+1] + temp[i+4] + temp[i+7]) / 3;
          let cz = (temp[i+2] + temp[i+5] + temp[i+8]) / 3;
-          
          let {nx, ny, nz, tx, ty, tz} = getNormal(i, temp);
          
-         let isMajor = (f % 4 === 0);
-         let reach = isMajor ? branchLength * 1.5 : branchLength * (0.3 + 0.7 * ((f * 13) % 100) / 100);
-         let baseRad = isMajor ? branchBaseRadius * 2.0 : branchBaseRadius * 0.7;
-         let curlDir = (f % 2 === 0) ? 1 : -1;
-         let sCurve = (f % 3 === 0) ? -1 : 1; 
-
-         let evalPath = (t) => {
-             let P0 = {x: cx, y: cy, z: cz};
-             let bx = ny * tz - nz * ty;
-             let by = nz * tx - nx * tz;
-             let bz = nx * ty - ny * tx;
-             let spread = reach * 0.8;
-             let P1 = { x: cx + tx * reach * 0.3 + bx * spread * curlDir * 0.4, y: cy + ty * reach * 0.3 + by * spread * curlDir * 0.4, z: cz + tz * reach * 0.3 + bz * spread * curlDir * 0.4 };
-             let P2 = { x: cx + tx * reach * 0.7 + bx * spread * curlDir * 0.8 * sCurve, y: cy + ty * reach * 0.7 + by * spread * curlDir * 0.8 * sCurve, z: cz + tz * reach * 0.7 + bz * spread * curlDir * 0.8 * sCurve };
-             let P3 = { x: cx + tx * reach * 1.0 + bx * spread * curlDir * 1.5, y: cy + ty * reach * 1.0 + by * spread * curlDir * 1.5, z: cz + tz * reach * 1.0 + bz * spread * curlDir * 1.5 };
-             
-             let uT = 1 - t;
-             let uT2 = uT * uT, uT3 = uT2 * uT, t2 = t * t, t3 = t2 * t;
-             return {
-                x: uT3*P0.x + 3*uT2*t*P1.x + 3*uT*t2*P2.x + t3*P3.x,
-                y: uT3*P0.y + 3*uT2*t*P1.y + 3*uT*t2*P2.y + t3*P3.y,
-                z: uT3*P0.z + 3*uT2*t*P1.z + 3*uT*t2*P2.z + t3*P3.z
-             };
-         };
-         
-         for(let s=0; s<=12; s++) {
-             let t = s/12;
-             let pt = evalPath(t);
-             let flare = (t < 0.15) ? 1.0 + 2.5 * Math.pow((0.15 - t)/0.15, 2) : 1.0;
-             let taper = Math.pow(1 - t, 1.2); 
-             let rad = baseRad * 2.5 * taper * flare;
-             allSpinePoints.push({x: pt.x, y: pt.y, z: pt.z, r: rad, nx: nx, ny: ny, nz: nz});
-         }
+         let dir = {x: tx, y: ty, z: tz};
+         buildVine({x: cx, y: cy, z: cz}, dir, {nx, ny, nz}, branchLength, branchBaseRadius, 0, maxDepth, (f % 2 === 0) ? 1 : -1);
       }
     }
 
     // 6. GROWTH - Controls extension LENGTH
     if (G > 0.05 && isMesh) {
-      const gSettings = (window.domainState && window.domainState.growthSettings) || {};
-      const numOrigins = Math.floor(10 + activeG * 100); // Up to 110 intertwining vines
-      const growthReach = Math.max(0.1, activeG) * 0.6 * domSpan; 
-      const growthBaseRadius = domSpan * 0.02; 
+      const numOrigins = Math.floor(4 + activeG * 25); 
+      const growthReach = 0.1 * domSpan * (0.5 + activeG * 0.8); 
+      const growthBaseRadius = domSpan * 0.018; 
+      const maxDepth = Math.floor(4 + activeG * 4);
 
       let numTriangles = Math.floor(temp.length / 9);
       for (let g = 0; g < numOrigins; g++) {
@@ -1561,82 +1574,43 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
          let goldenRatio = 0.61803398875;
          let triIndex = Math.floor((((g + 0.785398) * goldenRatio) % 1) * numTriangles);
          let i = triIndex * 9;
-
          let cx = (temp[i] + temp[i+3] + temp[i+6]) / 3;
          let cy = (temp[i+1] + temp[i+4] + temp[i+7]) / 3;
          let cz = (temp[i+2] + temp[i+5] + temp[i+8]) / 3;
-          
          let {nx, ny, nz, tx, ty, tz} = getNormal(i, temp);
          
-         let isMajor = (g % 5 === 0);
-         let reach = isMajor ? growthReach * 1.5 : growthReach * (0.4 + 0.6 * ((g * 17) % 100) / 100);
-         let baseRad = isMajor ? growthBaseRadius * 2.0 : growthBaseRadius * 0.6;
-         let curlDir = (g % 3 === 0) ? 0 : (g % 2 === 0 ? 1 : -1);
-         let sCurve = (g % 4 === 0) ? -1 : 1; 
+         let isEnd = (g % 2 === 0);
+         if (isEnd && ty < 0) { tx = -tx; ty = -ty; tz = -tz; }
+         if (!isEnd && ty > 0) { tx = -tx; ty = -ty; tz = -tz; }
 
-         let evalPath = (t) => {
-             let P0 = {x: cx, y: cy, z: cz};
-             let bx = ny * tz - nz * ty;
-             let by = nz * tx - nx * tz;
-             let bz = nx * ty - ny * tx;
-             
-             let isEnd = (g % 2 === 0);
-             if (isEnd && ty < 0) { tx = -tx; ty = -ty; tz = -tz; }
-             if (!isEnd && ty > 0) { tx = -tx; ty = -ty; tz = -tz; }
-             
-             let spread = reach * 0.5;
-             let P1 = { x: cx + tx * reach * 0.4 + bx * spread * curlDir * 0.2, y: cy + ty * reach * 0.4 + by * spread * curlDir * 0.2, z: cz + tz * reach * 0.4 + bz * spread * curlDir * 0.2 };
-             let P2 = { x: cx + tx * reach * 0.8 + bx * spread * curlDir * 0.8 * sCurve, y: cy + ty * reach * 0.8 + by * spread * curlDir * 0.8 * sCurve, z: cz + tz * reach * 0.8 + bz * spread * curlDir * 0.8 * sCurve };
-             let P3 = { x: cx + tx * reach * 1.1 + bx * spread * curlDir * 1.2, y: cy + ty * reach * 1.1 + by * spread * curlDir * 1.2, z: cz + tz * reach * 1.1 + bz * spread * curlDir * 1.2 };
-             
-             let uT = 1 - t;
-             let uT2 = uT * uT, uT3 = uT2 * uT, t2 = t * t, t3 = t2 * t;
-             return {
-                x: uT3*P0.x + 3*uT2*t*P1.x + 3*uT*t2*P2.x + t3*P3.x,
-                y: uT3*P0.y + 3*uT2*t*P1.y + 3*uT*t2*P2.y + t3*P3.y,
-                z: uT3*P0.z + 3*uT2*t*P1.z + 3*uT*t2*P2.z + t3*P3.z
-             };
-         };
-         
-         for(let s=0; s<=16; s++) {
-             let t = s/16;
-             let pt = evalPath(t);
-             let taper = Math.pow(1 - t, 1.2);
-             let rad = baseRad * 2.5 * taper;
-             allSpinePoints.push({x: pt.x, y: pt.y, z: pt.z, r: rad, nx: nx, ny: ny, nz: nz});
-         }
+         let dir = {x: tx, y: ty, z: tz};
+         buildVine({x: cx, y: cy, z: cz}, dir, {nx, ny, nz}, growthReach, growthBaseRadius, 0, maxDepth, (g % 2 === 0) ? 1 : -1);
       }
     }
 
-    // EMBOSSING ALGORITHM: Deform the original mesh instead of creating disconnected geometry
-    if (allSpinePoints.length > 0) {
-        for (let i = 0; i < temp.length; i += 3) {
-            let vx = temp[i], vy = temp[i+1], vz = temp[i+2];
-            let totalPullX = 0, totalPullY = 0, totalPullZ = 0;
-            for (let sp of allSpinePoints) {
-                let dx = vx - sp.x;
-                let dy = vy - sp.y;
-                let dz = vz - sp.z;
-                let distSq = dx*dx + dy*dy + dz*dz;
-                let rSq = sp.r * sp.r;
-                if (distSq < rSq) {
-                    let dist = Math.sqrt(distSq);
-                    let normalizedDist = dist / sp.r;
-                    let factor = 1.0 - normalizedDist;
-                    let pull = factor * factor * sp.r * 2.5; 
-                    totalPullX += sp.nx * pull;
-                    totalPullY += sp.ny * pull;
-                    totalPullZ += sp.nz * pull;
-                }
-            }
-            temp[i] += totalPullX;
-            temp[i+1] += totalPullY;
-            temp[i+2] += totalPullZ;
+    // Generate the vine geometry
+    if (allSpineCurves.length > 0) {
+        for (let curve of allSpineCurves) {
+            let evalP = (t) => {
+                let uT = 1 - t;
+                let uT2 = uT * uT, uT3 = uT2 * uT, t2 = t * t, t3 = t2 * t;
+                return {
+                    x: uT3*curve.P0.x + 3*uT2*t*curve.P1.x + 3*uT*t2*curve.P2.x + t3*curve.P3.x,
+                    y: uT3*curve.P0.y + 3*uT2*t*curve.P1.y + 3*uT*t2*curve.P2.y + t3*curve.P3.y,
+                    z: uT3*curve.P0.z + 3*uT2*t*curve.P1.z + 3*uT*t2*curve.P2.z + t3*curve.P3.z
+                };
+            };
+            generateSmoothBranch(newVertices, newIndices, temp.length / 3, evalP, curve.rStart, curve.rEnd, 6, curve.normal);
         }
     }
 
     let fullMesh = temp;
-    window._lastComputedBranchIndices = new Uint32Array([]);
+    if (newVertices.length > 0) {
+      fullMesh = new Float32Array(temp.length + newVertices.length);
+      fullMesh.set(temp);
+      fullMesh.set(newVertices, temp.length);
+      window._lastComputedBranchIndices = new Uint32Array(newIndices);
+    }
 
     // 3. WHIPLASH (W) - Curves the branches
     if (activeW > 0) {
