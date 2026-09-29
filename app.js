@@ -1639,6 +1639,23 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
             return paths;
         };
 
+        let smoothPath = (pts, iterations) => {
+            if (pts.length < 3) return pts;
+            let result = pts;
+            for (let it = 0; it < iterations; it++) {
+                let smoothed = [];
+                smoothed.push(result[0]);
+                for (let i = 0; i < result.length - 1; i++) {
+                    let p0 = result[i], p1 = result[i+1];
+                    smoothed.push({x: p0.x*0.75 + p1.x*0.25, y: p0.y*0.75 + p1.y*0.25, z: p0.z*0.75 + p1.z*0.25});
+                    smoothed.push({x: p0.x*0.25 + p1.x*0.75, y: p0.y*0.25 + p1.y*0.75, z: p0.z*0.25 + p1.z*0.75});
+                }
+                smoothed.push(result[result.length - 1]);
+                result = smoothed;
+            }
+            return result;
+        };
+
         let branchPaths = [];
         
         if (hasGrowth) {
@@ -1652,7 +1669,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
                 let startKey = allKeys[Math.floor(Math.random() * allKeys.length)];
                 let paths = buildMeshPath(startKey, gSteps, flowDir, 0.15, 0, 2);
                 for(let p of paths) {
-                    if(p.length > 2) branchPaths.push({path: p, rStart: gRad, rEnd: gRad*0.3, sides: 14});
+                    if(p.length > 2) branchPaths.push({path: smoothPath(p, 2), rStart: gRad, rEnd: gRad*0.3, sides: 14});
                 }
             }
         }
@@ -1668,7 +1685,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
                 let startKey = allKeys[Math.floor(Math.random() * allKeys.length)];
                 let paths = buildMeshPath(startKey, bSteps, flowDir, 0.25, 0, 3);
                 for(let p of paths) {
-                    if(p.length > 2) branchPaths.push({path: p, rStart: bRad, rEnd: bRad*0.1, sides: 10});
+                    if(p.length > 2) branchPaths.push({path: smoothPath(p, 2), rStart: bRad, rEnd: bRad*0.1, sides: 10});
                 }
             }
         }
