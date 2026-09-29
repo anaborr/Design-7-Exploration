@@ -109,7 +109,7 @@ function initThreeJS() {
   threeCamera.position.set(40, 25, 50);
 
   // WebGL Renderer with soft shadow support
-  threeRenderer = new THREE.WebGLRenderer({ antialias: true });
+  threeRenderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   threeRenderer.setSize(width, height);
   threeRenderer.setPixelRatio(window.devicePixelRatio);
   threeRenderer.shadowMap.enabled = true;
@@ -2168,3 +2168,21 @@ window.originalCurves = originalCurves;
 window.originalCages = originalCages;
 window.fitCamera = fitCamera;
 
+window.exportViewportToPNG = function() {
+    if (!threeRenderer || !threeScene || !threeCamera) {
+        console.warn("Renderer not initialized yet.");
+        return;
+    }
+    
+    threeRenderer.render(threeScene, threeCamera);
+    const dataURL = threeRenderer.domElement.toDataURL("image/png");
+    
+    const a = document.createElement('a');
+    a.href = dataURL;
+    const now = new Date().toISOString().replace(/:/g, '-').slice(0, 19);
+    a.download = `iteration_capture_${now}.png`;
+    
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+};
