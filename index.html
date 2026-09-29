@@ -478,7 +478,6 @@
             <p id="population-tab-subtitle" class="pop-subtitle">Displaying all generated variations side-by-side without scrolling.</p>
           </div>
           <div class="pop-header-actions">
-            <button id="btn-tab-compare-selected" class="btn btn-compare-trigger" style="display:none;" onclick="openCompareModalFromTab()">📊 COMPARE SELECTED (<span id="tab-compare-count">0</span>)</button>
             <button id="btn-back-to-3d" class="btn btn-header-cyan" onclick="switchWorkspaceTab('viewport')">🧊 RETURN TO 3D VIEWPORT</button>
           </div>
         </div>
@@ -788,22 +787,7 @@
   <!-- ACTIVE SELECTION FLOATING READOUT BADGE -->
   <div id="selected-iter-readout" class="active-selection-badge" style="display:none;"></div>
 
-  <!-- MODAL 2: COMPARE SELECTED ITERATIONS OVERLAY -->
-  <div id="compare-modal-overlay" class="modal-overlay" style="display:none;">
-    <div class="modal-box modal-box-large">
-      <div class="modal-header">
-        <h2>📊 MULTI-ITERATION EXPERIMENT COMPARISON</h2>
-        <button id="btn-close-compare" class="btn-icon">✕</button>
-      </div>
 
-      <!-- SIDE-BY-SIDE CARDS GRID -->
-      <div id="compare-cards-grid" class="compare-cards-grid"></div>
-
-      <!-- PARAMETER COMPARISON TABLE -->
-      <div class="compare-table-title">PARAMETER & METRIC COMPARISON TABLE</div>
-      <div id="compare-table-container" class="compare-table-container"></div>
-    </div>
-  </div>
 
   <!-- MODAL 3: LIBRARY DETAIL VIEW OVERLAY -->
   <div id="library-detail-modal-overlay" class="modal-overlay" style="display:none;">

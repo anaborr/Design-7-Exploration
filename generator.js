@@ -2071,10 +2071,6 @@ function renderGalleryUI(genIndex, iterations) {
       <div class="pop-card-header">
         <span class="iter-id">${iter.id}</span>
         <span class="iter-gen-badge">GEN ${iter.generation}</span>
-        <label style="cursor:pointer; display:flex; align-items:center; gap:3px; margin-left:auto;">
-          <input type="checkbox" onchange="toggleCompareSelect('${iter.id}')" ${isChecked?'checked':''}>
-          <span style="font-size:9px; color:#b0b0b0; font-weight:700;">CMP</span>
-        </label>
       </div>
 
       <div class="iter-title-banner" style="font-size:10px; font-weight:800; color:#b0b0b0; letter-spacing:0.5px; padding:2px 4px; background:rgba(255, 255, 255, 0.05); border-radius:3px; border:1px solid rgba(255, 255, 255, 0.15); text-transform:uppercase;">${iter.title || iter.dominantPrinciple}</div>
@@ -2105,7 +2101,6 @@ function renderGalleryUI(genIndex, iterations) {
   });
 
   switchWorkspaceTab('population');
-  updateCompareCountUI();
 }
 
 function switchWorkspaceTab(tabName) {
@@ -2395,142 +2390,6 @@ function selectSeedParent() {
 }
 
 /**
- * COMPARE SELECTION LOGIC
- */
-function toggleCompareSelect(iterId) {
-  const idx = domainState.selectedForCompare.indexOf(iterId);
-  if (idx >= 0) {
-    domainState.selectedForCompare.splice(idx, 1);
-  } else {
-    if (domainState.selectedForCompare.length >= 4) {
-      alert('You can compare a maximum of 4 iterations simultaneously.');
-      return;
-    }
-    domainState.selectedForCompare.push(iterId);
-  }
-  updateCompareCountUI();
-}
-
-function updateCompareCountUI() {
-  const cnt = domainState.selectedForCompare.length;
-  const btn = document.getElementById('btn-compare-selected');
-  const cntSpan = document.getElementById('compare-count');
-  if (btn && cntSpan) {
-    cntSpan.textContent = cnt;
-    btn.style.display = cnt >= 2 ? 'inline-block' : 'none';
-  }
-
-  const tabBtn = document.getElementById('btn-tab-compare-selected');
-  const tabCntSpan = document.getElementById('tab-compare-count');
-  if (tabBtn && tabCntSpan) {
-    tabCntSpan.textContent = cnt;
-    tabBtn.style.display = cnt >= 2 ? 'inline-block' : 'none';
-  }
-}
-
-function openCompareModalFromTab() {
-  renderCompareModalUI();
-}
-
-window.openCompareModalFromTab = openCompareModalFromTab;
-
-/**
- * RENDER MULTI-ITERATION COMPARE MODAL
- */
-function renderCompareModal() {
-  const modal = document.getElementById('compare-modal-overlay');
-  const cardsGrid = document.getElementById('compare-cards-grid');
-  const tableContainer = document.getElementById('compare-table-container');
-
-  if (!modal || !cardsGrid || !tableContainer) return;
-
-  const compareItems = [];
-  domainState.selectedForCompare.forEach(id => {
-    let found = null;
-    for (const gen of domainState.lineage) {
-      found = gen.iterations.find(it => it.id === id);
-      if (found) break;
-    }
-    if (!found) found = domainState.savedLibrary.find(it => it.id === id);
-    if (found) compareItems.push(found);
-  });
-
-  if (compareItems.length < 2) {
-    alert('Select at least 2 iterations to compare.');
-    return;
-  }
-
-  modal.style.display = 'flex';
-  cardsGrid.innerHTML = '';
-
-  compareItems.forEach(iter => {
-    const card = document.createElement('div');
-    card.className = 'compare-card';
-    card.innerHTML = `
-      <div style="display:flex; justify-space-between; align-items:center;">
-        <strong style="color:#b0b0b0; font-family:monospace; font-size:12px;">${iter.id}</strong>
-        <span class="badge badge-seed">GEN ${iter.generation}</span>
-      </div>
-      <div style="font-size:9px; color:#b0b0b0; font-weight:700;">${iter.dominantPrinciple}</div>
-      <div style="font-size:8px; color:#888888;">FORM DNA: ${iter.dna.map(v=>Math.round(v*100)).join('/')}</div>
-      
-      <div class="iter-thumb-wrapper" style="height:90px;">
-        <canvas id="canvas-compare-${iter.id}" width="200" height="120" class="iter-canvas"></canvas>
-      </div>
-
-      <div style="font-size:9px; color:#b0b0b0;">Seed Identity: ${iter.seedSimilarity}%</div>
-      <div style="font-size:8px; color:#94a3b8; line-height:1.3;">Study: ${iter.studyVariable} = ${iter.studyValuePct}%</div>
-      <button class="btn btn-iter-select" style="margin-top:4px;" onclick="useAsParent('${iter.id}')">USE AS PARENT</button>
-    `;
-    cardsGrid.appendChild(card);
-
-    setTimeout(() => {
-      render3DMeshThumbnail(iter, `canvas-compare-${iter.id}`);
-    }, 40);
-  });
-
-  // Parameter Comparison Table
-  let tableHtml = `
-    <table class="compare-table">
-      <thead>
-        <tr>
-          <th>METRIC / PARAMETER</th>
-          ${compareItems.map(it => `<th>${it.id}</th>`).join('')}
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Dominant Principle</td>
-          ${compareItems.map(it => `<td>${it.dominantPrinciple}</td>`).join('')}
-        </tr>
-        <tr>
-          <td>Form DNA</td>
-          ${compareItems.map(it => `<td>${it.dna.map(v=>Math.round(v*100)).join('/')}</td>`).join('')}
-        </tr>
-        <tr>
-          <td>Studied Variable</td>
-          ${compareItems.map(it => `<td>${it.studyVariable} = ${it.studyValuePct}%</td>`).join('')}
-        </tr>
-        <tr>
-          <td>Seed Identity %</td>
-          ${compareItems.map(it => `<td style="color:#b0b0b0; font-weight:700;">${it.seedSimilarity}%</td>`).join('')}
-        </tr>
-        <tr>
-          <td>Verticality</td>
-          ${compareItems.map(it => `<td>${it.measuredOutput.verticality}</td>`).join('')}
-        </tr>
-        <tr>
-          <td>Asymmetry</td>
-          ${compareItems.map(it => `<td>${it.measuredOutput.asymmetry}%</td>`).join('')}
-        </tr>
-      </tbody>
-    </table>
-  `;
-
-  tableContainer.innerHTML = tableHtml;
-}
-
-/**
  * RENDER PERSISTENT ITERATION LIBRARY UI
  */
 function updateLibraryUI() {
@@ -2588,7 +2447,6 @@ function updateLibraryUI() {
 
       <div class="lib-card-actions">
         <button class="btn-lib-action highlight" onclick="openLibraryDetail('${iter.id}')">OPEN</button>
-        <button class="btn-lib-action" onclick="toggleCompareSelect('${iter.id}'); renderCompareModal();">COMPARE</button>
         <button class="btn-lib-action" onclick="useAsParent('${iter.id}')">USE PARENT</button>
         <button class="btn-lib-action" style="color:#888888;" onclick="deleteIterationFromDB('${iter.id}')">DELETE</button>
       </div>
