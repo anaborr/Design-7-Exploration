@@ -2003,7 +2003,16 @@ function renderIterationGeometry(recipeOrDna, explicitMode) {
       } else {
         newGeom.setAttribute('position', new THREE.Float32BufferAttribute(defPos, 3));
         if (item.originalIndices) {
-          newGeom.setIndex(new THREE.BufferAttribute(item.originalIndices, 1));
+          let baseLen = item.originalIndices.length;
+          let baseVerts = item.originalPositions.length / 3;
+          let addedVerts = (defPos.length - item.originalPositions.length) / 3;
+          
+          let combinedIndices = new Uint32Array(baseLen + addedVerts);
+          combinedIndices.set(item.originalIndices);
+          for (let i = 0; i < addedVerts; i++) {
+             combinedIndices[baseLen + i] = baseVerts + i;
+          }
+          newGeom.setIndex(new THREE.BufferAttribute(combinedIndices, 1));
         }
       }
       
