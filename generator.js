@@ -2115,6 +2115,7 @@ function switchWorkspaceTab(tabName) {
 
   const contentViewport = document.getElementById('tab-content-viewport');
   const contentPopulation = document.getElementById('tab-content-population');
+  const contentLibrary = document.getElementById('tab-content-library');
 
   if (tabName === 'viewport') {
     if (tabViewport) tabViewport.classList.add('active');
@@ -2123,6 +2124,7 @@ function switchWorkspaceTab(tabName) {
 
     if (contentViewport) contentViewport.classList.add('active');
     if (contentPopulation) contentPopulation.classList.remove('active');
+    if (contentLibrary) contentLibrary.classList.remove('active');
 
   } else if (tabName === 'population') {
     if (tabViewport) tabViewport.classList.remove('active');
@@ -2131,11 +2133,20 @@ function switchWorkspaceTab(tabName) {
 
     if (contentViewport) contentViewport.classList.remove('active');
     if (contentPopulation) contentPopulation.classList.add('active');
+    if (contentLibrary) contentLibrary.classList.remove('active');
 
   } else if (tabName === 'library') {
-    const modal = document.getElementById('library-modal-overlay');
-    if (modal) modal.style.display = 'flex';
+    if (tabViewport) tabViewport.classList.remove('active');
+    if (tabPopulation) tabPopulation.classList.remove('active');
+    if (tabLibrary) tabLibrary.classList.add('active');
+
+    if (contentViewport) contentViewport.classList.remove('active');
+    if (contentPopulation) contentPopulation.classList.remove('active');
+    if (contentLibrary) contentLibrary.classList.add('active');
+    
+    updateLibraryUI();
   }
+
 }
 
 function viewIterationIn3D(iterId) {
@@ -2831,26 +2842,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Open Library Button
-  const openLibBtn = document.getElementById('btn-open-library');
-  if (openLibBtn) {
-    openLibBtn.addEventListener('click', () => {
-      const modal = document.getElementById('library-modal-overlay');
-      if (modal) {
-        modal.style.display = 'flex';
-        updateLibraryUI();
-      }
-    });
-  }
-
-  // Close Library Button
-  const closeLibBtn = document.getElementById('btn-close-library');
-  if (closeLibBtn) {
-    closeLibBtn.addEventListener('click', () => {
-      const modal = document.getElementById('library-modal-overlay');
-      if (modal) modal.style.display = 'none';
-    });
-  }
+  // Open Library Button (now handled directly in HTML via onclick)
 
   // Library Filter & Sort Handlers
   const libFiltPrinc = document.getElementById('lib-filter-principle');

@@ -212,32 +212,7 @@ function setupUIEventListeners() {
   // Visibility Toggles
   setupToggleBtn('btn-toggle-mesh', meshGroup);
   setupToggleBtn('btn-toggle-curves', curveGroup);
-  const btnLimit = document.getElementById('btn-toggle-cage');
-  if (btnLimit) {
-    btnLimit.addEventListener('click', (e) => {
-      let isActive = e.target.classList.toggle('active');
-      if (isActive && typeof rootGroup !== 'undefined' && rootGroup) {
-         let box = new THREE.Box3().setFromObject(rootGroup);
-         let size = new THREE.Vector3();
-         box.getSize(size);
-         let vol = size.x * size.y * size.z;
-         if (vol > 8000) {
-             let scale = Math.pow(8000 / vol, 1/3);
-             rootGroup.scale.set(scale, scale, scale);
-             if (!window.limitBoxHelper) {
-                 window.limitBoxHelper = new THREE.BoxHelper(rootGroup, 0x00ff00);
-                 threeScene.add(window.limitBoxHelper);
-             } else {
-                 window.limitBoxHelper.update();
-                 window.limitBoxHelper.visible = true;
-             }
-         }
-      } else if (typeof rootGroup !== 'undefined' && rootGroup) {
-         rootGroup.scale.set(1, 1, 1);
-         if (window.limitBoxHelper) window.limitBoxHelper.visible = false;
-      }
-    });
-  }
+  setupToggleBtn('btn-toggle-cage', cageGroup);
 
   // Manual Sliders
   bindSlider('slider-whiplash', 'val-whiplash', 'whiplash', '%');

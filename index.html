@@ -50,7 +50,7 @@
         VERIFY RHINO IMPORT
       </button>
 
-      <button id="btn-open-library" class="btn btn-header-outline">
+      <button id="btn-open-library" class="btn btn-header-outline" onclick="switchWorkspaceTab('library')">
         EXPORT / LIBRARY (<span id="lib-count-badge">0</span>)
       </button>
     </div>
@@ -429,7 +429,7 @@
             <span class="vp-group-label">LAYERS</span>
             <div class="btn-group-segmented">
               <button id="btn-toggle-mesh" class="btn-vp-pill active">SubD Mesh</button>
-              <button id="btn-toggle-cage" class="btn-vp-pill">Limit 8k Vol</button>
+              <button id="btn-toggle-cage" class="btn-vp-pill active">Cage</button>
               <button id="btn-toggle-curves" class="btn-vp-pill active">Overlay</button>
             </div>
           </div>
@@ -483,6 +483,64 @@
             <p>No iterations generated yet. Configure Domain B parameters & click <strong>⚡ GENERATE CONTROLLED ITERATIONS</strong> in the right sidebar to generate design variations.</p>
           </div>
         </div>
+      </div>
+
+      <!-- TAB 3: ITERATION LIBRARY -->
+      <div id="tab-content-library" class="workspace-tab-content">
+        <div class="population-tab-header">
+          <div class="pop-header-title-group">
+            <h3 class="pop-title">★ ITERATION LIBRARY — CURATED DESIGN ALTERNATIVES</h3>
+            <p class="pop-subtitle">Your saved and exported design iterations.</p>
+          </div>
+          <div class="pop-header-actions">
+            <button class="btn btn-header-cyan" onclick="switchWorkspaceTab('viewport')">🧊 RETURN TO 3D VIEWPORT</button>
+          </div>
+        </div>
+
+        <div class="library-toolbar" style="margin: 0 20px 20px 20px; border: 1px solid #444; background: #111;">
+          <div class="toolbar-group">
+            <span class="ctrl-label">Filter Principle:</span>
+            <select id="lib-filter-principle" class="select-input">
+              <option value="ALL">ALL PRINCIPLES</option>
+              <option value="CONTINUITY">CONTINUITY</option>
+              <option value="BRANCHING">BRANCHING</option>
+              <option value="WHIPLASH">WHIPLASH CURVATURE</option>
+              <option value="MERGING">MERGING SURFACES</option>
+              <option value="POSITIVE_NEGATIVE">POSITIVE / NEGATIVE</option>
+              <option value="GROWTH">GROWTH / AGGREGATION</option>
+            </select>
+          </div>
+
+          <div class="toolbar-group">
+            <span class="ctrl-label">Filter Gen:</span>
+            <select id="lib-filter-gen" class="select-input">
+              <option value="ALL">ALL GENERATIONS</option>
+            </select>
+          </div>
+
+          <div class="toolbar-group">
+            <span class="ctrl-label">Sort By:</span>
+            <select id="lib-sort-by" class="select-input">
+              <option value="NEWEST">Newest</option>
+              <option value="HIGHEST_IDENTITY">Highest Identity</option>
+              <option value="HIGHEST_DIFFERENCE">Highest Difference</option>
+              <option value="PRINCIPLE">Principle</option>
+              <option value="GENERATION">Generation</option>
+            </select>
+          </div>
+
+          <button id="btn-toggle-favorites" class="btn btn-fav-toggle">★ FAVORITES ONLY</button>
+
+          <div class="toolbar-actions">
+            <button id="btn-export-library" class="btn btn-export">⬇ EXPORT LIBRARY</button>
+            <label class="btn btn-import-json">
+              ⬆ IMPORT LIBRARY
+              <input type="file" id="import-json-input" accept=".json" style="display:none;">
+            </label>
+          </div>
+        </div>
+
+        <div id="library-cards-grid" class="library-cards-grid"></div>
       </div>
 
     </main>
@@ -723,63 +781,6 @@
 
   <!-- ACTIVE SELECTION FLOATING READOUT BADGE -->
   <div id="selected-iter-readout" class="active-selection-badge" style="display:none;"></div>
-
-  <!-- MODAL 1: ITERATION LIBRARY OVERLAY -->
-  <div id="library-modal-overlay" class="modal-overlay" style="display:none;">
-    <div class="modal-box modal-box-large">
-      <div class="modal-header">
-        <h2>★ ITERATION LIBRARY — CURATED DESIGN ALTERNATIVES</h2>
-        <button id="btn-close-library" class="btn-icon">✕</button>
-      </div>
-
-      <!-- FILTER & TOOLBAR -->
-      <div class="library-toolbar">
-        <div class="toolbar-group">
-          <span class="ctrl-label">Filter Principle:</span>
-          <select id="lib-filter-principle" class="select-input">
-            <option value="ALL">ALL PRINCIPLES</option>
-            <option value="CONTINUITY">CONTINUITY</option>
-            <option value="BRANCHING">BRANCHING</option>
-            <option value="WHIPLASH">WHIPLASH CURVATURE</option>
-            <option value="MERGING">MERGING SURFACES</option>
-            <option value="POSITIVE_NEGATIVE">POSITIVE / NEGATIVE</option>
-            <option value="GROWTH">GROWTH / AGGREGATION</option>
-          </select>
-        </div>
-
-        <div class="toolbar-group">
-          <span class="ctrl-label">Filter Gen:</span>
-          <select id="lib-filter-gen" class="select-input">
-            <option value="ALL">ALL GENERATIONS</option>
-          </select>
-        </div>
-
-        <div class="toolbar-group">
-          <span class="ctrl-label">Sort By:</span>
-          <select id="lib-sort-by" class="select-input">
-            <option value="NEWEST">Newest</option>
-            <option value="HIGHEST_IDENTITY">Highest Identity</option>
-            <option value="HIGHEST_DIFFERENCE">Highest Difference</option>
-            <option value="PRINCIPLE">Principle</option>
-            <option value="GENERATION">Generation</option>
-          </select>
-        </div>
-
-        <button id="btn-toggle-favorites" class="btn btn-fav-toggle">★ FAVORITES ONLY</button>
-
-        <div class="toolbar-actions">
-          <button id="btn-export-library" class="btn btn-export">⬇ EXPORT LIBRARY</button>
-          <label class="btn btn-import-json">
-            ⬆ IMPORT LIBRARY
-            <input type="file" id="import-json-input" accept=".json" style="display:none;">
-          </label>
-        </div>
-      </div>
-
-      <!-- LIBRARY GRID -->
-      <div id="library-cards-grid" class="library-cards-grid"></div>
-    </div>
-  </div>
 
   <!-- MODAL 2: COMPARE SELECTED ITERATIONS OVERLAY -->
   <div id="compare-modal-overlay" class="modal-overlay" style="display:none;">
