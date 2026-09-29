@@ -1371,7 +1371,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     }
 
     // 2. ORGANIC ART NOUVEAU BRANCHING (B) - CREATE NEW GEOMETRY
-    if (B > 0.05 && isMesh) {
+    if (B > 0.05) {
       const bSettings = (window.domainState && window.domainState.branchSettings) || {};
       const customForks = bSettings.count ? parseInt(bSettings.count) : null;
       const numForks = customForks || (activeB >= 0.55 ? 3 : 2);
@@ -1386,9 +1386,42 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
       const forkAngle = (60 * (Math.PI / 180)) * widthMult;
       const numSegments = 6; 
 
-      for (let f = 0; f < numForks; f++) {
-        let spreadAngle = (f - (numForks - 1) / 2.0) * forkAngle;
-        let trianglesFound = 0;
+      // 2A. DISTORT ORIGINAL GEOMETRY
+      for (let i = 0; i < temp.length; i += 3) {
+        let x = temp[i], y = temp[i+1], z = temp[i+2];
+        let domVal = (domAxis === 'X') ? x : ((domAxis === 'Z') ? z : y);
+        let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
+
+        if (u > nodeStartU) {
+          let tBranch = (u - nodeStartU) / Math.max(0.001, (1 - nodeStartU));
+          let smoothLaunch = 0.5 * (1 - Math.cos(Math.PI * tBranch));
+          let growthEnvelope = Math.pow(smoothLaunch, 1.35) * (1.0 + 0.30 * Math.sin(Math.PI * tBranch));
+
+          let dx = x - centerX; let dz = z - centerZ;
+          let spatialAngle = Math.atan2(dz, dx);
+          let normalizedAngle = (spatialAngle + Math.PI) / (2 * Math.PI);
+          let forkSector = Math.floor(normalizedAngle * numForks) % numForks;
+
+          let spreadAngle = (forkSector - (numForks - 1) / 2.0) * forkAngle;
+          let dispMagnitude = growthEnvelope * maxBranchReach * activeB * 0.5;
+
+          let sinuousWave = 0.25 * Math.sin(2 * Math.PI * tBranch);
+          let branchDx = dispMagnitude * Math.cos(spatialAngle + spreadAngle * 0.6 + sinuousWave + hAngleRad);
+          let branchDz = dispMagnitude * Math.sin(spatialAngle + spreadAngle * 0.6 + sinuousWave + hAngleRad);
+          let branchDy = dispMagnitude * (0.35 + 0.35 * Math.sin(vAngleRad)) * tBranch;
+
+          temp[i] += branchDx; temp[i+2] += branchDz;
+          if (domAxis === 'Y') temp[i+1] += branchDy;
+          else if (domAxis === 'X') temp[i] += branchDy;
+          else temp[i+2] += branchDy;
+        }
+      }
+
+      // 2B. EXTRUDE NEW GEOMETRY FOR MESHES
+      if (isMesh) {
+        for (let f = 0; f < numForks; f++) {
+          let spreadAngle = (f - (numForks - 1) / 2.0) * forkAngle;
+          let trianglesFound = 0;
         
         for (let i = 0; i < temp.length; i += 9) {
           if (i + 8 >= temp.length) break;
@@ -1520,14 +1553,41 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     }
 
     // 6. GROWTH / AGGREGATION (G) - CREATE NEW EXTENSIONS
-    if (G > 0.05 && isMesh) {
-      const numOrigins = 3;
-      const numSegments = Math.floor(3 + activeG * 8); 
-      const growthReach = Math.max(0.1, activeG) * 0.8 * domSpan;
+    if (G > 0.05) {
+      // 6A. DISTORT ORIGINAL GEOMETRY
+      for (let i = 0; i < temp.length; i += 3) {
+        let x = temp[i], y = temp[i+1], z = temp[i+2];
+        let domVal = (domAxis === 'X') ? x : ((domAxis === 'Z') ? z : y);
+        let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
 
-      for (let g = 0; g < numOrigins; g++) {
-        let targetU = 0.2 + (g / numOrigins) * 0.6; 
-        let trianglesFound = 0;
+        let dx = x - centerX; let dz = z - centerZ;
+        let r = Math.sqrt(dx * dx + dz * dz);
+        let theta = Math.atan2(dz, dx);
+
+        let spiralTwist = activeG * 1.25 * Math.PI * Math.pow(u, 1.35);
+        let radialExpansion = 1.0 + activeG * 0.55 * Math.pow(u, 1.2) * (1.0 + 0.35 * Math.cos(3 * theta + 2.5 * Math.PI * u));
+        let verticalStretch = activeG * 0.48 * domSpan * Math.pow(u, 1.6) * (1.0 + 0.22 * Math.sin(4 * theta));
+
+        let newTheta = theta + spiralTwist;
+        let newR = r * radialExpansion;
+
+        temp[i] = centerX + newR * Math.cos(newTheta);
+        temp[i+2] = centerZ + newR * Math.sin(newTheta);
+
+        if (domAxis === 'Y') temp[i+1] += verticalStretch;
+        else if (domAxis === 'X') temp[i] += verticalStretch;
+        else temp[i+2] += verticalStretch;
+      }
+
+      // 6B. EXTRUDE NEW GEOMETRY FOR MESHES
+      if (isMesh) {
+        const numOrigins = 3;
+        const numSegments = Math.floor(3 + activeG * 8); 
+        const growthReach = Math.max(0.1, activeG) * 0.8 * domSpan;
+
+        for (let g = 0; g < numOrigins; g++) {
+          let targetU = 0.2 + (g / numOrigins) * 0.6; 
+          let trianglesFound = 0;
         
         for (let i = 0; i < temp.length; i += 9) {
           if (i + 8 >= temp.length) break;
@@ -1592,6 +1652,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     }
 
     if (newVertices.length > 0) {
+      console.log(`[ArtNouveauDNA] Generated ${newVertices.length / 3} new vertices for Branching/Growth!`);
       let combined = new Float32Array(temp.length + newVertices.length);
       combined.set(temp);
       combined.set(newVertices, temp.length);
