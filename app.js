@@ -395,7 +395,8 @@ function createSampleRhinoSeed() {
   originalMeshes.push({
     mesh: mesh,
     threeMesh: mesh,
-    originalPositions: new Float32Array(positions)
+    originalPositions: new Float32Array(positions),
+    originalIndices: new Uint32Array(indices)
   });
 
   window.originalMeshes = originalMeshes;
@@ -570,6 +571,9 @@ function restoreOriginalImportedGeometry() {
       if (attr.array.length !== item.originalPositions.length) {
         const newGeom = new THREE.BufferGeometry();
         newGeom.setAttribute('position', new THREE.Float32BufferAttribute(item.originalPositions, 3));
+        if (item.originalIndices) {
+          newGeom.setIndex(new THREE.BufferAttribute(item.originalIndices, 1));
+        }
         newGeom.computeVertexNormals();
         newGeom.computeBoundingBox();
         newGeom.computeBoundingSphere();
@@ -912,7 +916,7 @@ function buildThreeMesh(meshGeom) {
   mesh.receiveShadow = true;
   meshGroup.add(mesh);
 
-  originalMeshes.push({ mesh, threeMesh: mesh, originalPositions: new Float32Array(positions) });
+  originalMeshes.push({ mesh, threeMesh: mesh, originalPositions: new Float32Array(positions), originalIndices: new Uint32Array(indices) });
 }
 
 function buildThreeCurve(curveGeom) {
@@ -1153,7 +1157,7 @@ function processAndRenderSubDMesh(subdGeom, subdIndex) {
   mesh.visible = true;
 
   meshGroup.add(mesh);
-  originalMeshes.push({ mesh, threeMesh: mesh, originalPositions: new Float32Array(positions) });
+  originalMeshes.push({ mesh, threeMesh: mesh, originalPositions: new Float32Array(positions), originalIndices: new Uint32Array(indices) });
 
   const msg = `SubD ${subdIndex} | vertices: ${vertCount} | faces: ${faceCount} | triangles: ${triFaceCount} | THREE.Mesh added: YES`;
   console.log(msg);
@@ -1998,6 +2002,9 @@ function renderIterationGeometry(recipeOrDna, explicitMode) {
         newGeom.setIndex(new THREE.BufferAttribute(window._lastComputedIndices, 1));
       } else {
         newGeom.setAttribute('position', new THREE.Float32BufferAttribute(defPos, 3));
+        if (item.originalIndices) {
+          newGeom.setIndex(new THREE.BufferAttribute(item.originalIndices, 1));
+        }
       }
       
       newGeom.computeVertexNormals();
