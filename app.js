@@ -1488,62 +1488,55 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
       const numSegments = 16; 
       const branchBaseRadius = domSpan * 0.015 * widthMult; 
 
+      let numTriangles = Math.floor(temp.length / 9);
       for (let f = 0; f < numForks; f++) {
-        let targetU = (f + 0.5) / numForks;
-        let spawned = false;
-        
-        for (let i = 0; i < temp.length; i += 9) {
-          if (i + 8 >= temp.length) break;
+         if (numTriangles <= 0) break;
+         let triIndex = Math.floor(Math.abs(Math.sin(f * 13.37) * 43758.5453123) % numTriangles);
+         let i = triIndex * 9;
 
-          let cx = (temp[i] + temp[i+3] + temp[i+6]) / 3;
-          let cy = (temp[i+1] + temp[i+4] + temp[i+7]) / 3;
-          let cz = (temp[i+2] + temp[i+5] + temp[i+8]) / 3;
+         let cx = (temp[i] + temp[i+3] + temp[i+6]) / 3;
+         let cy = (temp[i+1] + temp[i+4] + temp[i+7]) / 3;
+         let cz = (temp[i+2] + temp[i+5] + temp[i+8]) / 3;
           
-          let domVal = (domAxis === 'X') ? cx : ((domAxis === 'Z') ? cz : cy);
-          let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
-          
-          if (Math.abs(u - targetU) < 0.1 && !spawned) {
-             let {nx, ny, nz, tx, ty, tz} = getNormal(i, temp);
-             spawned = true;
-             let evalPath = (t) => {
-                 let reach = branchLength;
-                 let P0 = {x: cx, y: cy, z: cz};
-                 
-                 let P1 = {
-                   x: cx + tx * reach * 0.45, 
-                   y: cy + ty * reach * 0.45, 
-                   z: cz + tz * reach * 0.45
-                 };
-                 
-                 let P2 = {
-                    x: cx + tx * reach * 0.8 + nx * reach * 0.15,
-                    y: cy + ty * reach * 0.8 + ny * reach * 0.15,
-                    z: cz + tz * reach * 0.8 + nz * reach * 0.15
-                 };
-
-                 let spreadAngle = (f * Math.PI * 2 / numForks);
-                 let sx = Math.cos(spreadAngle), sz = Math.sin(spreadAngle);
-                 
-                 let P3 = {
-                    x: cx + tx * reach * 1.0 + nx * reach * 0.3 + sx * reach * 0.2,
-                    y: cy + ty * reach * 1.0 + ny * reach * 0.3,
-                    z: cz + tz * reach * 1.0 + nz * reach * 0.3 + sz * reach * 0.2
-                 };
-                 
-                 let uT = 1 - t;
-                 let uT2 = uT * uT;
-                 let uT3 = uT2 * uT;
-                 let t2 = t * t;
-                 let t3 = t2 * t;
-                 return {
-                    x: uT3*P0.x + 3*uT2*t*P1.x + 3*uT*t2*P2.x + t3*P3.x,
-                    y: uT3*P0.y + 3*uT2*t*P1.y + 3*uT*t2*P2.y + t3*P3.y,
-                    z: uT3*P0.z + 3*uT2*t*P1.z + 3*uT*t2*P2.z + t3*P3.z
-                 };
+         let {nx, ny, nz, tx, ty, tz} = getNormal(i, temp);
+         
+         let evalPath = (t) => {
+             let reach = branchLength;
+             let P0 = {x: cx, y: cy, z: cz};
+             
+             let P1 = {
+               x: cx + tx * reach * 0.45, 
+               y: cy + ty * reach * 0.45, 
+               z: cz + tz * reach * 0.45
              };
-             generateSmoothBranch(newVertices, newIndices, temp.length / 3, evalPath, branchBaseRadius, numSegments);
-          }
-        }
+             
+             let P2 = {
+                x: cx + tx * reach * 0.8 + nx * reach * 0.15,
+                y: cy + ty * reach * 0.8 + ny * reach * 0.15,
+                z: cz + tz * reach * 0.8 + nz * reach * 0.15
+             };
+
+             let spreadAngle = (f * Math.PI * 2 / numForks);
+             let sx = Math.cos(spreadAngle), sz = Math.sin(spreadAngle);
+             
+             let P3 = {
+                x: cx + tx * reach * 1.0 + nx * reach * 0.3 + sx * reach * 0.2,
+                y: cy + ty * reach * 1.0 + ny * reach * 0.3,
+                z: cz + tz * reach * 1.0 + nz * reach * 0.3 + sz * reach * 0.2
+             };
+             
+             let uT = 1 - t;
+             let uT2 = uT * uT;
+             let uT3 = uT2 * uT;
+             let t2 = t * t;
+             let t3 = t2 * t;
+             return {
+                x: uT3*P0.x + 3*uT2*t*P1.x + 3*uT*t2*P2.x + t3*P3.x,
+                y: uT3*P0.y + 3*uT2*t*P1.y + 3*uT*t2*P2.y + t3*P3.y,
+                z: uT3*P0.z + 3*uT2*t*P1.z + 3*uT*t2*P2.z + t3*P3.z
+             };
+         };
+         generateSmoothBranch(newVertices, newIndices, temp.length / 3, evalPath, branchBaseRadius, numSegments);
       }
     }
 
@@ -1555,65 +1548,59 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
       const growthReach = Math.max(0.1, activeG) * 0.6 * domSpan; 
       const growthBaseRadius = domSpan * 0.02; 
 
+      let numTriangles = Math.floor(temp.length / 9);
       for (let g = 0; g < numOrigins; g++) {
-        let targetU = ((g + 0.7) / numOrigins) % 1.0;
-        let spawned = false;
-        
-        for (let i = 0; i < temp.length; i += 9) {
-          if (i + 8 >= temp.length) break;
-          let cx = (temp[i] + temp[i+3] + temp[i+6]) / 3;
-          let cy = (temp[i+1] + temp[i+4] + temp[i+7]) / 3;
-          let cz = (temp[i+2] + temp[i+5] + temp[i+8]) / 3;
-          
-          let domVal = (domAxis === 'X') ? cx : ((domAxis === 'Z') ? cz : cy);
-          let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
-          
-          if (Math.abs(u - targetU) < 0.1 && !spawned) {
-             let {nx, ny, nz, tx, ty, tz} = getNormal(i, temp);
-             spawned = true;
-             let evalPath = (t) => {
-                 let reach = growthReach;
-                 let P0 = {x: cx, y: cy, z: cz};
-                 
-                 let isEnd = (g % 2 === 0);
-                 if (isEnd && ty < 0) { tx = -tx; ty = -ty; tz = -tz; }
-                 if (!isEnd && ty > 0) { tx = -tx; ty = -ty; tz = -tz; }
-                 
-                 let P1 = {
-                   x: cx + tx * reach * 0.4, 
-                   y: cy + ty * reach * 0.4, 
-                   z: cz + tz * reach * 0.4
-                 };
-                 
-                 let P2 = {
-                    x: cx + tx * reach * 0.8 + nx * reach * 0.1,
-                    y: cy + ty * reach * 0.8 + ny * reach * 0.1,
-                    z: cz + tz * reach * 0.8 + nz * reach * 0.1
-                 };
+         if (numTriangles <= 0) break;
+         let triIndex = Math.floor(Math.abs(Math.sin(g * 99.123) * 43758.5453123) % numTriangles);
+         let i = triIndex * 9;
 
-                 let curlAngle = (g * Math.PI / numOrigins);
-                 let sx = Math.cos(curlAngle), sz = Math.sin(curlAngle);
-                 
-                 let P3 = {
-                    x: cx + tx * reach * 1.1 + nx * reach * 0.15 + sx * reach * 0.1,
-                    y: cy + ty * reach * 1.1 + ny * reach * 0.15,
-                    z: cz + tz * reach * 1.1 + nz * reach * 0.15 + sz * reach * 0.1
-                 };
-                 
-                 let uT = 1 - t;
-                 let uT2 = uT * uT;
-                 let uT3 = uT2 * uT;
-                 let t2 = t * t;
-                 let t3 = t2 * t;
-                 return {
-                    x: uT3*P0.x + 3*uT2*t*P1.x + 3*uT*t2*P2.x + t3*P3.x,
-                    y: uT3*P0.y + 3*uT2*t*P1.y + 3*uT*t2*P2.y + t3*P3.y,
-                    z: uT3*P0.z + 3*uT2*t*P1.z + 3*uT*t2*P2.z + t3*P3.z
-                 };
+         let cx = (temp[i] + temp[i+3] + temp[i+6]) / 3;
+         let cy = (temp[i+1] + temp[i+4] + temp[i+7]) / 3;
+         let cz = (temp[i+2] + temp[i+5] + temp[i+8]) / 3;
+          
+         let {nx, ny, nz, tx, ty, tz} = getNormal(i, temp);
+         
+         let evalPath = (t) => {
+             let reach = growthReach;
+             let P0 = {x: cx, y: cy, z: cz};
+             
+             let isEnd = (g % 2 === 0);
+             if (isEnd && ty < 0) { tx = -tx; ty = -ty; tz = -tz; }
+             if (!isEnd && ty > 0) { tx = -tx; ty = -ty; tz = -tz; }
+             
+             let P1 = {
+               x: cx + tx * reach * 0.4, 
+               y: cy + ty * reach * 0.4, 
+               z: cz + tz * reach * 0.4
              };
-             generateSmoothBranch(newVertices, newIndices, temp.length / 3, evalPath, growthBaseRadius, numSegments);
-          }
-        }
+             
+             let P2 = {
+                x: cx + tx * reach * 0.8 + nx * reach * 0.1,
+                y: cy + ty * reach * 0.8 + ny * reach * 0.1,
+                z: cz + tz * reach * 0.8 + nz * reach * 0.1
+             };
+
+             let curlAngle = (g * Math.PI / numOrigins);
+             let sx = Math.cos(curlAngle), sz = Math.sin(curlAngle);
+             
+             let P3 = {
+                x: cx + tx * reach * 1.1 + nx * reach * 0.15 + sx * reach * 0.1,
+                y: cy + ty * reach * 1.1 + ny * reach * 0.15,
+                z: cz + tz * reach * 1.1 + nz * reach * 0.15 + sz * reach * 0.1
+             };
+             
+             let uT = 1 - t;
+             let uT2 = uT * uT;
+             let uT3 = uT2 * uT;
+             let t2 = t * t;
+             let t3 = t2 * t;
+             return {
+                x: uT3*P0.x + 3*uT2*t*P1.x + 3*uT*t2*P2.x + t3*P3.x,
+                y: uT3*P0.y + 3*uT2*t*P1.y + 3*uT*t2*P2.y + t3*P3.y,
+                z: uT3*P0.z + 3*uT2*t*P1.z + 3*uT*t2*P2.z + t3*P3.z
+             };
+         };
+         generateSmoothBranch(newVertices, newIndices, temp.length / 3, evalPath, growthBaseRadius, numSegments);
       }
     }
 
