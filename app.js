@@ -1487,6 +1487,8 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
        return {nx, ny, nz, tx, ty, tz};
     }
 
+    let allSpinePoints = [];
+
     // 2. BRANCHING - Controls offshoot COUNT
     if (B > 0.05 && isMesh) {
       const bSettings = (window.domainState && window.domainState.branchSettings) || {};
@@ -1495,7 +1497,6 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
       const widthMult = (bSettings.width !== undefined) ? (bSettings.width / 100) : 1.0;
       
       const branchLength = 0.22 * domSpan * lenMult;
-      const numSegments = 16; 
       const branchBaseRadius = domSpan * 0.015 * widthMult; 
 
       let numTriangles = Math.floor(temp.length / 9);
@@ -1514,45 +1515,31 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
          let evalPath = (t) => {
              let reach = branchLength;
              let P0 = {x: cx, y: cy, z: cz};
-             
              let bx = ny * tz - nz * ty;
              let by = nz * tx - nx * tz;
              let bz = nx * ty - ny * tx;
-             
-             let offsetN = 0.015 * domSpan; 
              let curlDir = (f % 2 === 0) ? 1 : -1;
              let spread = reach * 0.5;
-             
-             let P1 = {
-               x: cx + tx * reach * 0.35 + nx * offsetN, 
-               y: cy + ty * reach * 0.35 + ny * offsetN, 
-               z: cz + tz * reach * 0.35 + nz * offsetN
-             };
-             
-             let P2 = {
-                x: cx + tx * reach * 0.7 + bx * spread * curlDir * 0.6 + nx * offsetN,
-                y: cy + ty * reach * 0.7 + by * spread * curlDir * 0.6 + ny * offsetN,
-                z: cz + tz * reach * 0.7 + bz * spread * curlDir * 0.6 + nz * offsetN
-             };
-
-             let P3 = {
-                x: cx + tx * reach * 1.0 + bx * spread * curlDir + nx * offsetN,
-                y: cy + ty * reach * 1.0 + by * spread * curlDir + ny * offsetN,
-                z: cz + tz * reach * 1.0 + bz * spread * curlDir + nz * offsetN
-             };
+             let P1 = { x: cx + tx * reach * 0.35, y: cy + ty * reach * 0.35, z: cz + tz * reach * 0.35 };
+             let P2 = { x: cx + tx * reach * 0.7 + bx * spread * curlDir * 0.6, y: cy + ty * reach * 0.7 + by * spread * curlDir * 0.6, z: cz + tz * reach * 0.7 + bz * spread * curlDir * 0.6 };
+             let P3 = { x: cx + tx * reach * 1.0 + bx * spread * curlDir, y: cy + ty * reach * 1.0 + by * spread * curlDir, z: cz + tz * reach * 1.0 + bz * spread * curlDir };
              
              let uT = 1 - t;
-             let uT2 = uT * uT;
-             let uT3 = uT2 * uT;
-             let t2 = t * t;
-             let t3 = t2 * t;
+             let uT2 = uT * uT, uT3 = uT2 * uT, t2 = t * t, t3 = t2 * t;
              return {
                 x: uT3*P0.x + 3*uT2*t*P1.x + 3*uT*t2*P2.x + t3*P3.x,
                 y: uT3*P0.y + 3*uT2*t*P1.y + 3*uT*t2*P2.y + t3*P3.y,
                 z: uT3*P0.z + 3*uT2*t*P1.z + 3*uT*t2*P2.z + t3*P3.z
              };
          };
-         generateSmoothBranch(newVertices, newIndices, temp.length / 3, evalPath, branchBaseRadius * 2.0, numSegments, {nx, ny, nz});
+         
+         for(let s=0; s<=12; s++) {
+             let t = s/12;
+             let pt = evalPath(t);
+             let flare = (t < 0.15) ? 1.0 + 2.5 * Math.pow((0.15 - t)/0.15, 2) : 1.0;
+             let rad = branchBaseRadius * 2.5 * Math.cos(t * Math.PI / 2) * flare;
+             allSpinePoints.push({x: pt.x, y: pt.y, z: pt.z, r: rad, nx: nx, ny: ny, nz: nz});
+         }
       }
     }
 
@@ -1560,7 +1547,6 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     if (G > 0.05 && isMesh) {
       const gSettings = (window.domainState && window.domainState.growthSettings) || {};
       const numOrigins = Math.floor(4 + activeG * 18);
-      const numSegments = Math.floor(12 + activeG * 8); 
       const growthReach = Math.max(0.1, activeG) * 0.6 * domSpan; 
       const growthBaseRadius = domSpan * 0.02; 
 
@@ -1580,7 +1566,6 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
          let evalPath = (t) => {
              let reach = growthReach;
              let P0 = {x: cx, y: cy, z: cz};
-             
              let bx = ny * tz - nz * ty;
              let by = nz * tx - nx * tz;
              let bz = nx * ty - ny * tx;
@@ -1589,50 +1574,57 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
              if (isEnd && ty < 0) { tx = -tx; ty = -ty; tz = -tz; }
              if (!isEnd && ty > 0) { tx = -tx; ty = -ty; tz = -tz; }
              
-             let offsetN = 0.015 * domSpan;
              let curlDir = (g % 3 === 0) ? 0 : (g % 2 === 0 ? 1 : -1);
              let spread = reach * 0.3;
              
-             let P1 = {
-               x: cx + tx * reach * 0.4 + nx * offsetN, 
-               y: cy + ty * reach * 0.4 + ny * offsetN, 
-               z: cz + tz * reach * 0.4 + nz * offsetN
-             };
-             
-             let P2 = {
-                x: cx + tx * reach * 0.8 + bx * spread * curlDir * 0.6 + nx * offsetN,
-                y: cy + ty * reach * 0.8 + by * spread * curlDir * 0.6 + ny * offsetN,
-                z: cz + tz * reach * 0.8 + bz * spread * curlDir * 0.6 + nz * offsetN
-             };
-             
-             let P3 = {
-                x: cx + tx * reach * 1.1 + bx * spread * curlDir + nx * offsetN,
-                y: cy + ty * reach * 1.1 + by * spread * curlDir + ny * offsetN,
-                z: cz + tz * reach * 1.1 + bz * spread * curlDir + nz * offsetN
-             };
+             let P1 = { x: cx + tx * reach * 0.4, y: cy + ty * reach * 0.4, z: cz + tz * reach * 0.4 };
+             let P2 = { x: cx + tx * reach * 0.8 + bx * spread * curlDir * 0.6, y: cy + ty * reach * 0.8 + by * spread * curlDir * 0.6, z: cz + tz * reach * 0.8 + bz * spread * curlDir * 0.6 };
+             let P3 = { x: cx + tx * reach * 1.1 + bx * spread * curlDir, y: cy + ty * reach * 1.1 + by * spread * curlDir, z: cz + tz * reach * 1.1 + bz * spread * curlDir };
              
              let uT = 1 - t;
-             let uT2 = uT * uT;
-             let uT3 = uT2 * uT;
-             let t2 = t * t;
-             let t3 = t2 * t;
+             let uT2 = uT * uT, uT3 = uT2 * uT, t2 = t * t, t3 = t2 * t;
              return {
                 x: uT3*P0.x + 3*uT2*t*P1.x + 3*uT*t2*P2.x + t3*P3.x,
                 y: uT3*P0.y + 3*uT2*t*P1.y + 3*uT*t2*P2.y + t3*P3.y,
                 z: uT3*P0.z + 3*uT2*t*P1.z + 3*uT*t2*P2.z + t3*P3.z
              };
          };
-         generateSmoothBranch(newVertices, newIndices, temp.length / 3, evalPath, growthBaseRadius * 2.0, numSegments, {nx, ny, nz});
+         
+         for(let s=0; s<=16; s++) {
+             let t = s/16;
+             let pt = evalPath(t);
+             let rad = growthBaseRadius * 2.5 * Math.cos(t * Math.PI / 2);
+             allSpinePoints.push({x: pt.x, y: pt.y, z: pt.z, r: rad, nx: nx, ny: ny, nz: nz});
+         }
       }
     }
 
-    let fullMesh = temp;
-    if (newVertices.length > 0) {
-      fullMesh = new Float32Array(temp.length + newVertices.length);
-      fullMesh.set(temp);
-      fullMesh.set(newVertices, temp.length);
-      window._lastComputedBranchIndices = new Uint32Array(newIndices);
+    // EMBOSSING ALGORITHM: Deform the original mesh instead of creating disconnected geometry
+    if (allSpinePoints.length > 0) {
+        for (let i = 0; i < temp.length; i += 3) {
+            let vx = temp[i], vy = temp[i+1], vz = temp[i+2];
+            let totalPullX = 0, totalPullY = 0, totalPullZ = 0;
+            for (let sp of allSpinePoints) {
+                let dx = vx - sp.x;
+                let dy = vy - sp.y;
+                let dz = vz - sp.z;
+                let dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                if (dist < sp.r) {
+                    let factor = Math.cos((dist / sp.r) * Math.PI / 2);
+                    let pull = factor * factor * sp.r * 1.5; 
+                    totalPullX += sp.nx * pull;
+                    totalPullY += sp.ny * pull;
+                    totalPullZ += sp.nz * pull;
+                }
+            }
+            temp[i] += totalPullX;
+            temp[i+1] += totalPullY;
+            temp[i+2] += totalPullZ;
+        }
     }
+
+    let fullMesh = temp;
+    window._lastComputedBranchIndices = new Uint32Array([]);
 
     // 3. WHIPLASH (W) - Curves the branches
     if (activeW > 0) {
