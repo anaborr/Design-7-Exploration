@@ -1505,25 +1505,30 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
              let reach = branchLength;
              let P0 = {x: cx, y: cy, z: cz};
              
+             let bx = ny * tz - nz * ty;
+             let by = nz * tx - nx * tz;
+             let bz = nx * ty - ny * tx;
+             
+             let offsetN = 0.015 * domSpan; 
+             let curlDir = (f % 2 === 0) ? 1 : -1;
+             let spread = reach * 0.5;
+             
              let P1 = {
-               x: cx + tx * reach * 0.45, 
-               y: cy + ty * reach * 0.45, 
-               z: cz + tz * reach * 0.45
+               x: cx + tx * reach * 0.35 + nx * offsetN, 
+               y: cy + ty * reach * 0.35 + ny * offsetN, 
+               z: cz + tz * reach * 0.35 + nz * offsetN
              };
              
              let P2 = {
-                x: cx + tx * reach * 0.8 + nx * reach * 0.15,
-                y: cy + ty * reach * 0.8 + ny * reach * 0.15,
-                z: cz + tz * reach * 0.8 + nz * reach * 0.15
+                x: cx + tx * reach * 0.7 + bx * spread * curlDir * 0.6 + nx * offsetN,
+                y: cy + ty * reach * 0.7 + by * spread * curlDir * 0.6 + ny * offsetN,
+                z: cz + tz * reach * 0.7 + bz * spread * curlDir * 0.6 + nz * offsetN
              };
 
-             let spreadAngle = (f * Math.PI * 2 / numForks);
-             let sx = Math.cos(spreadAngle), sz = Math.sin(spreadAngle);
-             
              let P3 = {
-                x: cx + tx * reach * 1.0 + nx * reach * 0.3 + sx * reach * 0.2,
-                y: cy + ty * reach * 1.0 + ny * reach * 0.3,
-                z: cz + tz * reach * 1.0 + nz * reach * 0.3 + sz * reach * 0.2
+                x: cx + tx * reach * 1.0 + bx * spread * curlDir + nx * offsetN,
+                y: cy + ty * reach * 1.0 + by * spread * curlDir + ny * offsetN,
+                z: cz + tz * reach * 1.0 + bz * spread * curlDir + nz * offsetN
              };
              
              let uT = 1 - t;
@@ -1566,29 +1571,34 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
              let reach = growthReach;
              let P0 = {x: cx, y: cy, z: cz};
              
+             let bx = ny * tz - nz * ty;
+             let by = nz * tx - nx * tz;
+             let bz = nx * ty - ny * tx;
+             
              let isEnd = (g % 2 === 0);
              if (isEnd && ty < 0) { tx = -tx; ty = -ty; tz = -tz; }
              if (!isEnd && ty > 0) { tx = -tx; ty = -ty; tz = -tz; }
              
+             let offsetN = 0.015 * domSpan;
+             let curlDir = (g % 3 === 0) ? 0 : (g % 2 === 0 ? 1 : -1);
+             let spread = reach * 0.3;
+             
              let P1 = {
-               x: cx + tx * reach * 0.4, 
-               y: cy + ty * reach * 0.4, 
-               z: cz + tz * reach * 0.4
+               x: cx + tx * reach * 0.4 + nx * offsetN, 
+               y: cy + ty * reach * 0.4 + ny * offsetN, 
+               z: cz + tz * reach * 0.4 + nz * offsetN
              };
              
              let P2 = {
-                x: cx + tx * reach * 0.8 + nx * reach * 0.1,
-                y: cy + ty * reach * 0.8 + ny * reach * 0.1,
-                z: cz + tz * reach * 0.8 + nz * reach * 0.1
+                x: cx + tx * reach * 0.8 + bx * spread * curlDir * 0.6 + nx * offsetN,
+                y: cy + ty * reach * 0.8 + by * spread * curlDir * 0.6 + ny * offsetN,
+                z: cz + tz * reach * 0.8 + bz * spread * curlDir * 0.6 + nz * offsetN
              };
-
-             let curlAngle = (g * Math.PI / numOrigins);
-             let sx = Math.cos(curlAngle), sz = Math.sin(curlAngle);
              
              let P3 = {
-                x: cx + tx * reach * 1.1 + nx * reach * 0.15 + sx * reach * 0.1,
-                y: cy + ty * reach * 1.1 + ny * reach * 0.15,
-                z: cz + tz * reach * 1.1 + nz * reach * 0.15 + sz * reach * 0.1
+                x: cx + tx * reach * 1.1 + bx * spread * curlDir + nx * offsetN,
+                y: cy + ty * reach * 1.1 + by * spread * curlDir + ny * offsetN,
+                z: cz + tz * reach * 1.1 + bz * spread * curlDir + nz * offsetN
              };
              
              let uT = 1 - t;
