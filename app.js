@@ -1497,23 +1497,33 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
              let evalPath = (t) => {
                  let reach = branchLength;
                  let P0 = {x: cx, y: cy, z: cz};
-                 let P1 = {x: cx + nx * reach * 0.5, y: cy + ny * reach * 0.5, z: cz + nz * reach * 0.5};
+                 let P1 = {x: cx + nx * reach * 0.4, y: cy + ny * reach * 0.4, z: cz + nz * reach * 0.4};
                  
                  let spreadAngle = (f * Math.PI * 2 / numForks);
                  let spreadDirX = Math.cos(spreadAngle);
                  let spreadDirZ = Math.sin(spreadAngle);
                  
                  let P2 = {
-                    x: cx + spreadDirX * reach,
-                    y: cy + ny * reach - reach * 0.3,
-                    z: cz + spreadDirZ * reach
+                    x: cx + spreadDirX * reach * 0.8,
+                    y: cy + ny * reach * 0.6,
+                    z: cz + spreadDirZ * reach * 0.8
+                 };
+
+                 let P3 = {
+                    x: cx + spreadDirX * reach * 1.3,
+                    y: cy + ny * reach * 0.2 - reach * 0.4,
+                    z: cz + spreadDirZ * reach * 1.3
                  };
                  
                  let uT = 1 - t;
+                 let uT2 = uT * uT;
+                 let uT3 = uT2 * uT;
+                 let t2 = t * t;
+                 let t3 = t2 * t;
                  return {
-                    x: uT*uT*P0.x + 2*uT*t*P1.x + t*t*P2.x,
-                    y: uT*uT*P0.y + 2*uT*t*P1.y + t*t*P2.y,
-                    z: uT*uT*P0.z + 2*uT*t*P1.z + t*t*P2.z
+                    x: uT3*P0.x + 3*uT2*t*P1.x + 3*uT*t2*P2.x + t3*P3.x,
+                    y: uT3*P0.y + 3*uT2*t*P1.y + 3*uT*t2*P2.y + t3*P3.y,
+                    z: uT3*P0.z + 3*uT2*t*P1.z + 3*uT*t2*P2.z + t3*P3.z
                  };
              };
              generateSmoothBranch(newVertices, evalPath, branchBaseRadius, numSegments);
@@ -1531,7 +1541,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
       const growthBaseRadius = domSpan * 0.04; 
 
       for (let g = 0; g < numOrigins; g++) {
-        let targetU = (g + 0.5) / numOrigins;
+        let targetU = ((g + 0.7) / numOrigins) % 1.0;
         let spawned = false;
         
         for (let i = 0; i < temp.length; i += 9) {
@@ -1548,24 +1558,35 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
              spawned = true;
              
              let evalPath = (t) => {
+                 let reach = growthReach;
                  let P0 = {x: cx, y: cy, z: cz};
-                 let P1 = {x: cx + nx * growthReach * 0.4, y: cy + ny * growthReach * 0.4, z: cz + nz * growthReach * 0.4};
+                 let P1 = {x: cx + nx * reach * 0.4, y: cy + ny * reach * 0.4, z: cz + nz * reach * 0.4};
                  
-                 let curlAngle = (g * Math.PI * 2 / numOrigins) + Math.PI * 1.5; 
-                 let spreadDirX = Math.cos(curlAngle);
-                 let spreadDirZ = Math.sin(curlAngle);
+                 let curlAngle = (g * Math.PI * 2 / numOrigins) + Math.PI / 4;
+                 let cxDir = Math.cos(curlAngle);
+                 let czDir = Math.sin(curlAngle);
                  
                  let P2 = {
-                    x: cx + spreadDirX * growthReach,
-                    y: cy + ny * growthReach + growthReach * 0.5,
-                    z: cz + spreadDirZ * growthReach
+                    x: cx + cxDir * reach * 0.7,
+                    y: cy + ny * reach * 0.8,
+                    z: cz + czDir * reach * 0.7
+                 };
+
+                 let P3 = {
+                    x: cx + cxDir * reach * 1.2,
+                    y: cy + ny * reach * 1.2 + reach * 0.3,
+                    z: cz + czDir * reach * 1.2
                  };
                  
                  let uT = 1 - t;
+                 let uT2 = uT * uT;
+                 let uT3 = uT2 * uT;
+                 let t2 = t * t;
+                 let t3 = t2 * t;
                  return {
-                    x: uT*uT*P0.x + 2*uT*t*P1.x + t*t*P2.x,
-                    y: uT*uT*P0.y + 2*uT*t*P1.y + t*t*P2.y,
-                    z: uT*uT*P0.z + 2*uT*t*P1.z + t*t*P2.z
+                    x: uT3*P0.x + 3*uT2*t*P1.x + 3*uT*t2*P2.x + t3*P3.x,
+                    y: uT3*P0.y + 3*uT2*t*P1.y + 3*uT*t2*P2.y + t3*P3.y,
+                    z: uT3*P0.z + 3*uT2*t*P1.z + 3*uT*t2*P2.z + t3*P3.z
                  };
              };
              generateSmoothBranch(newVertices, evalPath, growthBaseRadius, numSegments);
@@ -1662,34 +1683,9 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
       }
     }
 
-    // COMPUTE SMOOTH SUB-D NORMALS MANUALLY
-    // ThreeJS computeVertexNormals produces flat shading for unindexed geometry.
-    // By merging coincident vertex normals manually, we ensure smooth organic SubD shading.
-    let weldedPositions = [];
-    let vertMap = new Map();
-    let currentIdx = 0;
-    let indices = [];
-
-    for (let i = 0; i < fullMesh.length; i += 3) {
-      let x = fullMesh[i];
-      let y = fullMesh[i+1];
-      let z = fullMesh[i+2];
-      let key = Math.round(x*1000) + '_' + Math.round(y*1000) + '_' + Math.round(z*1000);
-      
-      if (vertMap.has(key)) {
-        indices.push(vertMap.get(key));
-      } else {
-        vertMap.set(key, currentIdx);
-        indices.push(currentIdx);
-        weldedPositions.push(x, y, z);
-        currentIdx++;
-      }
-    }
-
-    // Attach indices to global so updateLiveGeometry can use it!
-    window._lastComputedIndices = new Uint32Array(indices);
-    window._lastComputedWeldedPositions = new Float32Array(weldedPositions);
-
+    // Return safely without destructive welding to preserve mesh topology
+    window._lastComputedIndices = null;
+    window._lastComputedWeldedPositions = null;
     return fullMesh;
   }
 
