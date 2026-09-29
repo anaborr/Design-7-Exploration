@@ -212,7 +212,32 @@ function setupUIEventListeners() {
   // Visibility Toggles
   setupToggleBtn('btn-toggle-mesh', meshGroup);
   setupToggleBtn('btn-toggle-curves', curveGroup);
-  setupToggleBtn('btn-toggle-cage', cageGroup);
+  const btnLimit = document.getElementById('btn-toggle-cage');
+  if (btnLimit) {
+    btnLimit.addEventListener('click', (e) => {
+      let isActive = e.target.classList.toggle('active');
+      if (isActive && typeof rootGroup !== 'undefined' && rootGroup) {
+         let box = new THREE.Box3().setFromObject(rootGroup);
+         let size = new THREE.Vector3();
+         box.getSize(size);
+         let vol = size.x * size.y * size.z;
+         if (vol > 8000) {
+             let scale = Math.pow(8000 / vol, 1/3);
+             rootGroup.scale.set(scale, scale, scale);
+             if (!window.limitBoxHelper) {
+                 window.limitBoxHelper = new THREE.BoxHelper(rootGroup, 0x00ff00);
+                 threeScene.add(window.limitBoxHelper);
+             } else {
+                 window.limitBoxHelper.update();
+                 window.limitBoxHelper.visible = true;
+             }
+         }
+      } else if (typeof rootGroup !== 'undefined' && rootGroup) {
+         rootGroup.scale.set(1, 1, 1);
+         if (window.limitBoxHelper) window.limitBoxHelper.visible = false;
+      }
+    });
+  }
 
   // Manual Sliders
   bindSlider('slider-whiplash', 'val-whiplash', 'whiplash', '%');
@@ -1520,7 +1545,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
         };
 
         let vNormals = new Map();
-        let getKey = (x,y,z) => x.toFixed(2) + ',' + y.toFixed(2) + ',' + z.toFixed(2);
+        let getKey = (x,y,z) => x + ',' + y + ',' + z;
         
         for (let i = 0; i < temp.length; i += 9) {
             let {nx, ny, nz} = getNormal(i, temp);
@@ -1532,50 +1557,46 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
             }
         }
         
-        let freqB = (3 + activeB * 15) / domSpan; 
-        let ampB = activeB * 0.25 * domSpan;
-        
-        let freqG = (1 + activeG * 4) / domSpan;
-        let ampG = activeG * 0.35 * domSpan;
-        
         for (let [k, n] of vNormals) {
             let len = Math.sqrt(n.x*n.x + n.y*n.y + n.z*n.z);
             if(len>0) { n.x/=len; n.y/=len; n.z/=len; }
-            
-            let parts = k.split(',');
-            let wx = parseFloat(parts[0]), wy = parseFloat(parts[1]), wz = parseFloat(parts[2]);
+        }
 
+        let original = new Float32Array(temp);
+        let freqB = (3 + activeB * 15) / domSpan; 
+        let ampB = activeB * 0.35 * domSpan;
+        
+        let freqG = (1 + activeG * 6) / domSpan;
+        let ampG = activeG * 0.55 * domSpan;
+        
+        for (let i = 0; i < temp.length; i += 3) {
+            let x = original[i], y = original[i+1], z = original[i+2];
+            let k = getKey(x, y, z);
+            let n = vNormals.get(k) || {x:0, y:0, z:0};
+            
             let dispB = 0;
             if (activeB > 0.05) {
-                let maskB = noise3D(wx*freqB*0.1, wy*freqB*0.1, wz*freqB*0.1);
+                let maskB = noise3D(x*freqB*0.1, y*freqB*0.1, z*freqB*0.1);
                 if (maskB > 0.1) {
-                    let rawB = ridgedNoise(wx*freqB, wy*freqB, wz*freqB, 4);
+                    let rawB = ridgedNoise(x*freqB, y*freqB, z*freqB, 4);
                     dispB = Math.pow(rawB, 1.5) * ampB * ((maskB - 0.1) / 0.9);
                 }
             }
             
             let dispG = 0;
             if (activeG > 0.05) {
-                let maskG = noise3D(wx*freqG*0.1 + 100, wy*freqG*0.1, wz*freqG*0.1);
+                let maskG = noise3D(x*freqG*0.1 + 100, y*freqG*0.1, z*freqG*0.1);
                 if (maskG > 0.05) {
-                    let rawG = ridgedNoise(wx*freqG, wy*freqG, wz*freqG, 3);
+                    let rawG = ridgedNoise(x*freqG, y*freqG, z*freqG, 3);
                     dispG = Math.pow(rawG, 1.2) * ampG * ((maskG - 0.05) / 0.95);
                 }
             }
             
-            n.disp = dispB + dispG;
-        }
-
-        let original = new Float32Array(temp);
-        for (let i = 0; i < temp.length; i += 3) {
-            let x = original[i], y = original[i+1], z = original[i+2];
-            let k = getKey(x, y, z);
-            let n = vNormals.get(k);
-            
-            if (n && n.disp > 0) {
-                temp[i] += n.x * n.disp;
-                temp[i+1] += n.y * n.disp;
-                temp[i+2] += n.z * n.disp;
+            let totalDisp = dispB + dispG;
+            if (totalDisp > 0) {
+                temp[i] += n.x * totalDisp;
+                temp[i+1] += n.y * totalDisp;
+                temp[i+2] += n.z * totalDisp;
             }
         }
     }
