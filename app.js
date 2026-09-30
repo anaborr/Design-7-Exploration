@@ -124,7 +124,7 @@ function initThreeJS() {
     threeControls.target.set(0, 0, 0);
   }
 
-  // Lighting Setup — Rhino Shaded Mode Aesthetic
+  // Lighting Setup â€” Rhino Shaded Mode Aesthetic
   // Soft Hemisphere Light (Sky: pure white, Ground: soft dark charcoal/slate for AO feel)
   const hemiLight = new THREE.HemisphereLight(0xffffff, 0x2b2c36, 0.65);
   threeScene.add(hemiLight);
@@ -156,6 +156,22 @@ function initThreeJS() {
   threeScene.add(meshGroup);
   threeScene.add(curveGroup);
   threeScene.add(cageGroup);
+
+  // Expose on window for external engines (branchingEngine, etc.)
+  window.threeScene = threeScene;
+  window.meshGroup = meshGroup;
+  window.curveGroup = curveGroup;
+  window.cageGroup = cageGroup;
+  window.threeCamera = threeCamera;
+  window.threeControls = threeControls;
+  window.threeRenderer = threeRenderer;
+
+  // Add branching wall group
+  if (!window.branchingWallGroup) {
+    window.branchingWallGroup = new THREE.Group();
+    window.branchingWallGroup.name = 'branchingWallGroup';
+  }
+  threeScene.add(window.branchingWallGroup);
 
   // Window Resize
   function handleResize() {
@@ -299,13 +315,6 @@ function setupUIEventListeners() {
     });
   }
 
-  // Load Sample Seed Button
-  const btnSample = document.getElementById('btn-load-sample');
-  if (btnSample) {
-    btnSample.addEventListener('click', () => {
-      createSampleRhinoSeed();
-    });
-  }
 
   // Projection Camera Buttons
   setupProjectionButtons();
@@ -453,7 +462,7 @@ function setupLockBtn(btnId, paramKey) {
     btn.addEventListener('click', () => {
       const isLocked = !domainState.lockedParams[paramKey];
       domainState.lockedParams[paramKey] = isLocked;
-      btn.textContent = isLocked ? '🔒' : '🔓';
+      btn.textContent = isLocked ? 'ðŸ”’' : 'ðŸ”“';
       btn.classList.toggle('locked', isLocked);
     });
   }
@@ -501,6 +510,10 @@ function resetTransformations() {
   transformParams.expand = 0;
   transformParams.carveVoid = 0;
 
+  if (window.clearBranchingGeometry) {
+    window.clearBranchingGeometry();
+  }
+
   renderIterationGeometry([]);
 }
 
@@ -537,11 +550,18 @@ function restoreOriginalImportedGeometry() {
     window.domainState.visualComparisonMode = 'SEED';
   }
 
-  // 3. Reset 6 Art Nouveau DNA slider elements in DOM
-  ['slider-dna-c', 'slider-dna-b', 'slider-dna-w', 'slider-dna-m', 'slider-dna-v', 'slider-dna-g'].forEach(id => {
+  // 3. Reset 3 Art Nouveau DNA slider elements in DOM
+  ['slider-dna-c', 'slider-dna-w', 'slider-dna-b'].forEach(id => {
     const sEl = document.getElementById(id);
     if (sEl) sEl.value = 0;
   });
+
+  if (window.syncBranchingFromDnaSlider) {
+    window.syncBranchingFromDnaSlider(0);
+  }
+  if (window.clearBranchingGeometry) {
+    window.clearBranchingGeometry();
+  }
 
 
 
@@ -1251,7 +1271,7 @@ function computeModelBounds() {
 
 /**
 /**
- * 6. DOMAIN B — RULE-BASED ART NOUVEAU SHAPE GRAMMAR ENGINE
+ * 6. DOMAIN B â€” RULE-BASED ART NOUVEAU SHAPE GRAMMAR ENGINE
  * 
  * DNA Vector: [C, B, W, M, V, G]
  * C = Continuity [0.0, 1.0]
@@ -1289,9 +1309,735 @@ function calculateSeedIdentityScore(deformedPos, origPos, bounds) {
   return score;
 }
 
-function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMesh = true) {
+function computeMeshVertexNormals(positions, bounds) {
+  const vNormals = new Map();
+  const getKey = (x, y, z) => {
+    if (x === undefined || y === undefined || z === undefined) return '0,0,0';
+    return Number(x).toFixed(2) + ',' + Number(y).toFixed(2) + ',' + Number(z).toFixed(2);
+  };
+  const minX = bounds?.min?.x ?? bounds?.minX ?? -15.1;
+  const maxX = bounds?.max?.x ?? bounds?.maxX ?? 15.1;
+  const minY = bounds?.min?.y ?? bounds?.minY ?? -10.0;
+  const maxY = bounds?.max?.y ?? bounds?.maxY ?? 10.0;
+  const minZ = bounds?.min?.z ?? bounds?.minZ ?? -5.35;
+  const maxZ = bounds?.max?.z ?? bounds?.maxZ ?? 5.35;
+  const cX = (minX + maxX) / 2, cY = (minY + maxY) / 2, cZ = (minZ + maxZ) / 2;
+
+  const maxI = positions.length - 9;
+  for (let i = 0; i <= maxI; i += 9) {
+    let p0x = positions[i], p0y = positions[i+1], p0z = positions[i+2];
+    let p1x = positions[i+3], p1y = positions[i+4], p1z = positions[i+5];
+    let p2x = positions[i+6], p2y = positions[i+7], p2z = positions[i+8];
+    let v1x = p1x - p0x, v1y = p1y - p0y, v1z = p1z - p0z;
+    let v2x = p2x - p0x, v2y = p2y - p0y, v2z = p2z - p0z;
+    let nx = v1y * v2z - v1z * v2y;
+    let ny = v1z * v2x - v1x * v2z;
+    let nz = v1x * v2y - v1y * v2x;
+    let len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+    if (len > 0.0001) { nx /= len; ny /= len; nz /= len; } else { nx = 0; ny = 1; nz = 0; }
+
+    let cx = (p0x + p1x + p2x) / 3;
+    let cy = (p0y + p1y + p2y) / 3;
+    let cz = (p0z + p1z + p2z) / 3;
+    if (nx * (cx - cX) + ny * (cy - cY) + nz * (cz - cZ) < 0) {
+      nx = -nx; ny = -ny; nz = -nz;
+    }
+
+    for (let v = 0; v < 3; v++) {
+      let vx = positions[i + v * 3], vy = positions[i + v * 3 + 1], vz = positions[i + v * 3 + 2];
+      let k = getKey(vx, vy, vz);
+      let curr = vNormals.get(k);
+      if (!curr) vNormals.set(k, { x: nx, y: ny, z: nz });
+      else { curr.x += nx; curr.y += ny; curr.z += nz; }
+    }
+  }
+
+  for (let [k, n] of vNormals) {
+    let len = Math.sqrt(n.x * n.x + n.y * n.y + n.z * n.z);
+    if (len > 0) { n.x /= len; n.y /= len; n.z /= len; }
+  }
+  return vNormals;
+}
+
+/**
+ * CORE RULE TRANSFORMATION FILTERED THROUGH DOMAIN A SPATIAL GRAMMAR
+ * Every transformation receives the active typology: applyRule(mesh, ruleStrength, activeTypology)
+ * 
+ * Modifies:
+ * - WHERE the rule acts (affected spatial regions, vertical/ground filters, void boundaries)
+ * - WHICH direction it acts (preferred axis, verticalBias, horizontalBias, linearBias, radialBias)
+ * - HOW MUCH geometry it affects (attenuation, branchLimit, localized envelopes)
+ * - WHAT spatial result it is allowed to create (void preservation, flat plates, stepped progression)
+ */
+function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormals) {
+  if (!mesh || mesh.length === 0) return mesh;
+
+  // Flexible argument handling: applyRule(mesh, ruleStrength, activeTypology)
+  if (typeof ruleName === 'number') {
+    activeTypology = ruleStrength;
+    ruleStrength = ruleName;
+    ruleName = 'GROWTH';
+  }
+
+  const strength = typeof ruleStrength === 'number' ? Math.max(0, Math.min(1, ruleStrength)) : 0;
+  if (strength <= 0.001) return new Float32Array(mesh);
+
+  const typoKey = typeof activeTypology === 'string'
+    ? activeTypology
+    : (activeTypology?.id || (window.domainState && window.domainState.selectedTypology) || 'VERTICAL_VOID');
+  const typoDef = (window.BASE_TYPOLOGIES && window.BASE_TYPOLOGIES[typoKey]) || (window.BASE_TYPOLOGIES && window.BASE_TYPOLOGIES.VERTICAL_VOID) || null;
+  const profile = (typoDef && typoDef.typologyProfile) || {
+    preferredAxis: 'Y',
+    verticalBias: 'HIGH',
+    horizontalBias: 'LOW',
+    voidBias: 'HIGH',
+    groundBias: 'LOW',
+    linearBias: 'LOW',
+    radialBias: 'HIGH',
+    stepBias: 'NONE',
+    enclosureBias: 'LOW',
+    branchLimit: 'LOW',
+    affectedRegions: ['ATRIUM_PERIMETER']
+  };
+  const grammar = (typoDef && typoDef.spatialGrammar) || {
+    growthBias: 'VERTICAL_PERIMETER',
+    whiplashStyle: 'UPWARD_CURVATURE',
+    continuityMode: 'VERTICAL_CONNECTIONS',
+    branchingConstraint: 'VOID_CLEAR',
+    mergingBehavior: 'NONE',
+    voidBehavior: 'VERTICAL_SHAFT'
+  };
+
+  const minX = bounds?.min?.x ?? bounds?.minX ?? -15.1;
+  const maxX = bounds?.max?.x ?? bounds?.maxX ?? 15.1;
+  const minY = bounds?.min?.y ?? bounds?.minY ?? -10.0;
+  const maxY = bounds?.max?.y ?? bounds?.maxY ?? 10.0;
+  const minZ = bounds?.min?.z ?? bounds?.minZ ?? -5.35;
+  const maxZ = bounds?.max?.z ?? bounds?.maxZ ?? 5.35;
+
+  const spanX = Math.max(0.1, Math.abs(maxX - minX));
+  const spanY = Math.max(0.1, Math.abs(maxY - minY));
+  const spanZ = Math.max(0.1, Math.abs(maxZ - minZ));
+  const transSpan = Math.max(spanX, spanZ);
+
+  let domAxis = profile.preferredAxis || 'X';
+  let domMin = (domAxis === 'Y') ? minY : ((domAxis === 'Z') ? minZ : minX);
+  let domSpan = (domAxis === 'Y') ? spanY : ((domAxis === 'Z') ? spanZ : spanX);
+
+  const centerX = bounds?.center?.x ?? bounds?.centerX ?? (minX + maxX) / 2;
+  const centerY = bounds?.center?.y ?? bounds?.centerY ?? (minY + maxY) / 2;
+  const centerZ = bounds?.center?.z ?? bounds?.centerZ ?? (minZ + maxZ) / 2;
+
+  const getKey = (x, y, z) => (x !== undefined && y !== undefined && z !== undefined) ? (Number(x).toFixed(2) + ',' + Number(y).toFixed(2) + ',' + Number(z).toFixed(2)) : '0,0,0';
+  const out = new Float32Array(mesh);
+  const upperRule = (ruleName || '').toUpperCase();
+
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // RULE 1: GROWTH (G)
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  if (upperRule === 'GROWTH' || upperRule === 'G') {
+    for (let i = 0; i < out.length; i += 3) {
+      let x = out[i], y = out[i+1], z = out[i+2];
+      let dx = x - centerX, dy = y - centerY, dz = z - centerZ;
+      let rCenter = Math.sqrt(dx * dx + dz * dz);
+      let rNorm = rCenter / transSpan;
+      let domVal = (domAxis === 'X') ? x : ((domAxis === 'Z') ? z : y);
+      let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
+
+      let k = getKey(x, y, z);
+      let n = vNormals ? (vNormals.get(k) || { x: dx / (rCenter || 1), y: 0, z: dz / (rCenter || 1) }) : { x: dx / (rCenter || 1), y: 0, z: dz / (rCenter || 1) };
+
+      if (grammar.growthBias === 'VERTICAL_PERIMETER') {
+        // Vertical Void Lobby & Void-Field Gathering:
+        // Growth moves upward and around a central void.
+        // Center void (rNorm < 0.22) strictly preserved with 0 growth displacement!
+        if (rNorm >= 0.22) {
+          let vertLift = strength * spanY * 0.58 * Math.sin(Math.PI * Math.min(1.0, u + 0.1)) * Math.min(1.5, rNorm + 0.35);
+          out[i+1] += vertLift;
+          out[i] += n.x * vertLift * 0.12;
+          out[i+2] += n.z * vertLift * 0.12;
+        }
+      } else if (grammar.growthBias === 'HORIZONTAL_EXPAND') {
+        // Continuous Hall Lobby & Open Hall Workspace:
+        // Growth spreads broadly along the main horizontal axis / plane; vertical growth clamped!
+        let expandDistX = strength * spanX * 0.24 * (Math.abs(dx) > 0.05 ? Math.sign(dx) : (n.x >= 0 ? 1 : -1)) + n.x * strength * spanX * 0.14;
+        let expandDistZ = strength * spanZ * 0.40 * (Math.abs(dz) > 0.05 ? Math.sign(dz) : (n.z >= 0 ? 1 : -1)) + n.z * strength * spanZ * 0.22;
+        out[i] += expandDistX;
+        out[i+2] += expandDistZ;
+        // Vertical growth strictly clamped to 0
+      } else if (grammar.growthBias === 'AXIAL_LONGITUDINAL') {
+        // Linear Gallery Lobby:
+        // Growth extends strongly along ONE directional axis (X); lateral and vertical remain narrow and low!
+        let axialSign = Math.abs(dx) > 0.1 ? Math.sign(dx) : (n.x >= 0 ? 1 : -1);
+        let pullAxis = strength * spanX * 0.42 * axialSign * (1.0 + 0.35 * Math.min(1.0, Math.abs(dx) / (spanX * 0.5)));
+        out[i] += pullAxis;
+        // Lateral (Z) and Vertical (Y) strictly clamped to keep gallery narrow & directional
+      } else if (grammar.growthBias === 'CHOKE_RELEASE_EXPAND') {
+        // Compressed Sequential Lobby:
+        // Growth alternates narrow -> wide -> narrow -> wide along path
+        let sChoke = Math.sin(4.0 * Math.PI * u - Math.PI * 0.5);
+        if (sChoke > 0) {
+          // Release zone: wide expansion in Z and upward volume in Y
+          let releaseExp = strength * sChoke;
+          out[i+2] += (dz >= 0 ? 1 : -1) * spanZ * 0.50 * releaseExp;
+          out[i+1] += Math.max(0, n.y) * spanY * 0.38 * releaseExp;
+          out[i] += n.x * spanX * 0.18 * releaseExp;
+        } else {
+          // Choke zone: compressed narrow width
+          let chokeComp = strength * Math.abs(sChoke);
+          out[i+2] -= (dz >= 0 ? 1 : -1) * spanZ * 0.22 * chokeComp;
+          out[i+1] -= spanY * 0.12 * chokeComp;
+        }
+      } else if (grammar.growthBias === 'GROUND_ONLY') {
+        // Topographic Lobby:
+        // Growth follows and extends the ground plane; vertical growth remains limited
+        let floorWeight = Math.max(0, 1.0 - (y - minY) / (0.45 * spanY));
+        let pullDist = strength * spanX * 0.35 * floorWeight;
+        out[i] += n.x * pullDist;
+        out[i+1] += Math.max(0, n.y) * pullDist * 0.35;
+        out[i+2] += n.z * pullDist;
+      } else if (grammar.growthBias === 'STEPPED_LEVELS' || grammar.growthBias === 'AMPHITHEATER_STEPPED') {
+        // Cascaded Plates & Stepped Amphitheater:
+        // Growth produces repeated stepped progression (horizontal + vertical offsets)
+        let numTiers = 5;
+        let tier = Math.floor(u * numTiers) / numTiers;
+        out[i+1] += strength * spanY * 0.42 * tier;
+        out[i] -= (dx >= 0 ? 1 : -1) * strength * spanX * 0.18 * tier;
+        out[i+2] += n.z * strength * spanZ * 0.15;
+      } else if (grammar.growthBias === 'VOID_PERIMETER' || grammar.growthBias === 'OVERLOOK_RIBBON') {
+        // Void-Edge Workspace & Linear Edge Gallery:
+        // Growth follows perimeter of the existing void; center void clear
+        if (rNorm >= 0.22 && rNorm <= 0.65) {
+          let pullDist = transSpan * 0.32 * strength;
+          let dirX = dx / (rCenter + 0.001);
+          let dirZ = dz / (rCenter + 0.001);
+          out[i] += dirX * pullDist * 0.55;
+          out[i+2] += dirZ * pullDist * 0.55;
+          out[i+1] += Math.max(0, n.y) * pullDist * 0.28;
+        }
+      } else if (grammar.growthBias === 'INSERTED_PLATFORM') {
+        // Inserted Plate:
+        // Growth creates a broad horizontal platform with low vertical thickness
+        let midWeight = Math.max(0, 1.0 - Math.abs(y - centerY) / (0.25 * spanY));
+        let pullDist = transSpan * 0.38 * strength * midWeight;
+        out[i] += n.x * pullDist;
+        out[i+2] += n.z * pullDist;
+      } else if (grammar.growthBias === 'POD_ENCLOSURE') {
+        // Room-Within-Volume:
+        // Growth concentrates locally to create an enclosure
+        let podWeight = Math.max(0, 1.0 - rCenter / (0.35 * transSpan));
+        out[i] += n.x * strength * 0.28 * transSpan * podWeight;
+        out[i+1] += n.y * strength * 0.32 * spanY * podWeight;
+        out[i+2] += n.z * strength * 0.28 * transSpan * podWeight;
+      } else if (grammar.growthBias === 'CONTINUOUS_WARPED') {
+        // Folded Workspace:
+        // Growth extends the existing warped floor
+        let floorWeight = Math.max(0, 1.0 - (y - minY) / (0.55 * spanY));
+        let pullDist = spanX * 0.30 * strength * floorWeight;
+        out[i] += n.x * pullDist * 0.7;
+        out[i+1] += Math.sin(2.0 * Math.PI * u) * pullDist * 0.45;
+        out[i+2] += n.z * pullDist * 0.7;
+      } else if (grammar.growthBias === 'FLAT_XY') {
+        // Flat Deep-Plan:
+        // Horizontal expansion with minimal vertical deformation
+        let pullDist = spanX * 0.25 * strength;
+        out[i] += n.x * pullDist;
+        out[i+2] += n.z * pullDist;
+      } else {
+        // Default directional growth
+        let pullDist = spanX * 0.30 * strength;
+        out[i] += n.x * pullDist;
+        out[i+1] += Math.max(0, n.y) * pullDist * 0.5;
+        out[i+2] += n.z * pullDist;
+      }
+    }
+  }
+
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // RULE 2: BRANCHING (B)
+  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // RULE 2: BRANCHING (B)
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  else if (upperRule === 'BRANCHING' || upperRule === 'B') {
+    for (let i = 0; i < out.length; i += 3) {
+      let x = out[i], y = out[i+1], z = out[i+2];
+      let dx = x - centerX, dy = y - centerY, dz = z - centerZ;
+      let rXZ = Math.sqrt(dx * dx + dz * dz);
+      let rNorm = rXZ / (transSpan * 0.5);
+      let theta = Math.atan2(dz, dx);
+      let uX = Math.min(1, Math.max(0, (x - minX) / spanX));
+      let uY = Math.min(1, Math.max(0, (y - minY) / spanY));
+      let uZ = Math.min(1, Math.max(0, (z - minZ) / spanZ));
+
+      if (grammar.branchingConstraint === 'VOID_CLEAR') {
+        // Vertical Void: branches organize along outer perimeter walls; central atrium stays clear!
+        if (rNorm >= 0.28) {
+          let bDist = strength * 0.20 * transSpan;
+          let spiral = theta + Math.PI * 0.5;
+          out[i] += Math.cos(spiral) * bDist * 0.40;
+          out[i+2] += Math.sin(spiral) * bDist * 0.40;
+          out[i+1] += strength * spanY * 0.25 * Math.sin(Math.PI * uY);
+        }
+      } else if (grammar.branchingConstraint === 'CHOKE_PORTALS') {
+        // Compressed Sequential: branches form portal arch frames at choke thresholds
+        let sChoke = Math.sin(3.0 * Math.PI * uX - Math.PI * 0.5);
+        if (Math.abs(sChoke) > 0.55) {
+          let archW = strength * spanZ * 0.38 * (Math.abs(sChoke) - 0.55);
+          out[i+2] += (dz >= 0 ? 1 : -1) * archW;
+          out[i+1] += strength * spanY * 0.28 * Math.abs(Math.sin(Math.PI * uX));
+        }
+      } else if (grammar.branchingConstraint === 'PERIMETER_BUTTRESS') {
+        // Continuous Hall: branches lean outward around perimeter as flying buttresses
+        if (rNorm >= 0.35) {
+          let buttress = strength * 0.30 * transSpan;
+          out[i] += (dx / (rXZ + 0.01)) * buttress * 0.50;
+          out[i+2] += (dz / (rXZ + 0.01)) * buttress * 0.50;
+        }
+      } else if (grammar.branchingConstraint === 'GROUND_DIVIDE') {
+        // Topographic Ground: branches form low landscape retaining curbs and dividing paths
+        if (uY < 0.55) {
+          let curb = strength * 0.24 * transSpan * Math.sin(4.0 * Math.PI * uX);
+          out[i+2] += curb;
+          out[i+1] += Math.abs(curb) * 0.45;
+        }
+      } else if (grammar.branchingConstraint === 'SECONDARY_AXIAL') {
+        // Linear Gallery: branches project laterally (+/- Z) forming enfilade side alcoves
+        let bayNode = Math.sin(4.0 * Math.PI * uX);
+        if (Math.abs(bayNode) > 0.45) {
+          let latBranch = strength * spanZ * 0.42 * (Math.abs(bayNode) - 0.45);
+          out[i+2] += (dz >= 0 ? 1 : -1) * latBranch;
+        }
+      } else if (grammar.branchingConstraint === 'PERIMETER_ALCOVES') {
+        // Open Hall Workspace: perimeter alcove ribs leaving center work field open
+        if (rNorm >= 0.32) {
+          let alcove = strength * 0.22 * transSpan * Math.sin(6.0 * theta);
+          out[i] += Math.cos(theta) * alcove;
+          out[i+2] += Math.sin(theta) * alcove;
+        }
+      } else if (grammar.branchingConstraint === 'TERRACE_CANTILEVERS') {
+        // Cascaded Terraces: cantilevered lookout balconies projecting forward from tiers
+        let cant = strength * spanX * 0.32 * Math.sin(4.0 * Math.PI * uX);
+        if (cant > 0) {
+          out[i] += cant;
+          out[i+1] += strength * spanY * 0.16;
+        }
+      } else if (grammar.branchingConstraint === 'RADIAL_SPINES') {
+        // Flat Deep-Plan: radial spine ribs branching outward from cores
+        let spine = strength * 0.25 * transSpan * Math.sin(4.0 * theta);
+        out[i] += Math.cos(theta) * spine;
+        out[i+2] += Math.sin(theta) * spine;
+      } else if (grammar.branchingConstraint === 'OUTWARD_BAYS') {
+        // Void-Edge: workstation bays projecting outward away from the void
+        if (rNorm >= 0.40) {
+          let bay = strength * 0.28 * transSpan;
+          out[i] += (dx / (rXZ + 0.01)) * bay;
+          out[i+2] += (dz / (rXZ + 0.01)) * bay;
+        }
+      } else if (grammar.branchingConstraint === 'CREST_NOOKS') {
+        // Folded Undulated: work nooks branching along fold crests
+        let nook = strength * 0.24 * transSpan * Math.sin(5.0 * Math.PI * uX);
+        out[i+2] += nook;
+        out[i+1] += Math.abs(nook) * 0.35;
+      } else if (grammar.branchingConstraint === 'RADIAL_AISLES') {
+        // Stepped Amphitheater: radial aisle stairs slicing through seating tiers
+        let aisle = Math.sin(5.0 * theta);
+        if (Math.abs(aisle) < 0.28) {
+          out[i+1] -= strength * spanY * 0.28 * (1.0 - Math.abs(aisle) / 0.28);
+        }
+      } else if (grammar.branchingConstraint === 'MEETING_CLUSTERS') {
+        // Void-Field Gathering: circular meeting pods at path crossroads
+        let cluster = strength * 0.28 * transSpan * Math.cos(3.0 * theta);
+        out[i] += Math.cos(theta) * cluster;
+        out[i+2] += Math.sin(theta) * cluster;
+      } else if (grammar.branchingConstraint === 'PYLON_SUPPORTS') {
+        // Inserted Plate: tripod support pylons and cantilever stairs
+        let pylon = strength * 0.30 * spanY * Math.cos(Math.PI * uY);
+        out[i] += (dx >= 0 ? 1 : -1) * pylon * 0.45;
+        out[i+2] += (dz >= 0 ? 1 : -1) * pylon * 0.45;
+      } else if (grammar.branchingConstraint === 'SCREEN_LOUVERS') {
+        // Contained Room: acoustic louvers and privacy fins wrapped around pod
+        let louver = strength * 0.25 * transSpan * Math.sin(8.0 * theta);
+        out[i] += Math.cos(theta) * louver;
+        out[i+2] += Math.sin(theta) * louver;
+      } else if (grammar.branchingConstraint === 'OUTLOOK_PROWS') {
+        // Linear Edge Gallery: angular viewing spurs projecting over the drop
+        let prow = strength * spanZ * 0.42 * Math.sin(3.0 * Math.PI * uX);
+        out[i+2] += (dz >= 0 ? 1 : -1) * prow;
+      } else {
+        let bDist = strength * 0.18 * transSpan;
+        out[i] += Math.cos(theta) * bDist;
+        out[i+2] += Math.sin(theta) * bDist;
+      }
+    }
+  }
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // RULE 3: WHIPLASH (W)
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  else if (upperRule === 'WHIPLASH' || upperRule === 'W') {
+    for (let i = 0; i < out.length; i += 3) {
+      let x = out[i], y = out[i+1], z = out[i+2];
+      let dx = x - centerX, dy = y - centerY, dz = z - centerZ;
+      let rXZ = Math.sqrt(dx * dx + dz * dz);
+      let rNorm = rXZ / (transSpan * 0.5);
+      let theta = Math.atan2(dz, dx);
+      let uX = Math.min(1, Math.max(0, (x - minX) / spanX));
+      let uY = Math.min(1, Math.max(0, (y - minY) / spanY));
+      let uZ = Math.min(1, Math.max(0, (z - minZ) / spanZ));
+
+      if (grammar.whiplashStyle === 'UPWARD_CURVATURE') {
+        // Vertical Void Lobby:
+        // Curves surfaces upward (+Y) around vertical void, drawing sightlines up atrium shaft
+        let upwardArc = Math.sin(Math.PI * Math.min(1.0, uY + 0.15)) * (0.6 + 0.8 * Math.min(1.5, rNorm));
+        let dY = strength * spanY * 0.54 * upwardArc;
+        let flare = strength * transSpan * 0.24 * (1.0 - Math.min(1.0, uY * 0.6));
+        let dX = (dx / (rXZ + 0.1)) * flare;
+        let dZ = (dz / (rXZ + 0.1)) * flare;
+        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
+      } else if (grammar.whiplashStyle === 'CHOKE_RELEASE_INFLECTION') {
+        // Compressed Sequential Lobby:
+        // Controls curved transitions between compression (choke) and release (expansion)
+        let sChoke = Math.sin(3.0 * Math.PI * uX - Math.PI * 0.5);
+        if (sChoke < 0) {
+          let cFactor = Math.abs(sChoke);
+          out[i+2] -= (dz >= 0 ? 1 : -1) * spanZ * 0.42 * strength * cFactor;
+          out[i+1] -= spanY * 0.26 * strength * cFactor;
+        } else {
+          let rFactor = sChoke;
+          out[i+2] += (dz >= 0 ? 1 : -1) * spanZ * 0.48 * strength * rFactor;
+          out[i+1] += spanY * 0.52 * strength * rFactor;
+          out[i] += Math.sin(Math.PI * 2 * uX) * spanX * 0.14 * strength;
+        }
+      } else if (grammar.whiplashStyle === 'EXPANSIVE_SHELL') {
+        // Continuous Hall Lobby:
+        // Vast sweeping horizontal vault canopy overarching the entire free plan
+        let domeX = Math.cos(Math.PI * (uX - 0.5));
+        let domeZ = Math.cos(Math.PI * (uZ - 0.5));
+        let shellArch = Math.max(0, domeX * domeZ);
+        let dY = strength * spanY * 0.46 * shellArch;
+        let dX = strength * spanX * 0.30 * Math.sin(Math.PI * (uX - 0.5)) * domeZ;
+        let dZ = strength * spanZ * 0.30 * Math.sin(Math.PI * (uZ - 0.5)) * domeX;
+        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
+      } else if (grammar.whiplashStyle === 'FLOOR_TOPOGRAPHY') {
+        // Topographic / Ground-Field Lobby:
+        // Floor becomes primary geometry: gradual rises/falls, sloped terraces across ground plane
+        let floorWeight = Math.max(0, Math.min(1.0, 1.3 - uY * 2.0));
+        let wave1 = Math.sin(2.5 * Math.PI * uX) * Math.cos(2.0 * Math.PI * uZ);
+        let wave2 = 0.35 * Math.sin(5.0 * Math.PI * uX);
+        let dY = strength * spanY * 0.52 * floorWeight * (wave1 + wave2);
+        let dX = strength * spanX * 0.20 * floorWeight * Math.cos(2.5 * Math.PI * uX);
+        let dZ = strength * spanZ * 0.20 * floorWeight * Math.sin(2.0 * Math.PI * uZ);
+        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
+      } else if (grammar.whiplashStyle === 'AXIAL_ENFILADE_WAVE') {
+        // Linear Gallery Lobby:
+        // Rhythmic longitudinal section wave along dominant travel axis (X)
+        let bayWave = Math.sin(4.0 * Math.PI * uX);
+        let portalArch = Math.abs(Math.cos(4.0 * Math.PI * uX));
+        let dZ = strength * spanZ * 0.44 * bayWave;
+        let dY = strength * spanY * 0.36 * portalArch;
+        let dX = strength * spanX * 0.15 * Math.sin(2.0 * Math.PI * uX);
+        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
+      } else if (grammar.whiplashStyle === 'HORIZONTAL_UNDULATION') {
+        // Open Hall Workspace:
+        // Gentle horizontal roof undulation maintaining continuous open floor under one roof
+        let wave = Math.sin(3.0 * Math.PI * uX) * 0.6 + Math.cos(3.0 * Math.PI * uZ) * 0.4;
+        let dY = strength * spanY * 0.30 * wave * Math.max(0, uY - 0.2);
+        let dX = strength * spanX * 0.16 * Math.cos(3.0 * Math.PI * uX);
+        let dZ = strength * spanZ * 0.16 * Math.sin(3.0 * Math.PI * uZ);
+        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
+      } else if (grammar.whiplashStyle === 'STEPPED_RISERS') {
+        // Cascaded / Terraced Plates:
+        // Natural stepped contour risers descending across section
+        let stepFrac = (uX * 4.0) % 1.0;
+        let stepLevel = Math.floor(uX * 4.0) / 4.0;
+        let stepRise = (stepFrac < 0.25) ? (stepFrac / 0.25) : 1.0;
+        let dY = -strength * spanY * 0.44 * (stepLevel + 0.25 * stepRise);
+        let dX = strength * spanX * 0.18 * Math.sin(4.0 * Math.PI * uX);
+        let dZ = strength * spanZ * 0.15 * Math.sin(2.0 * Math.PI * uZ);
+        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
+      } else if (grammar.whiplashStyle === 'CORE_RIM_CURVE') {
+        // Flat Deep-Plan Plate:
+        // Level floor plate strictly preserved (dY = 0), curvature acts in-plane around cores and daylight wells
+        let dX = strength * spanX * 0.26 * Math.sin(3.0 * Math.PI * uZ) * (rNorm < 0.6 ? 1 : -0.7);
+        let dZ = strength * spanZ * 0.26 * Math.cos(3.0 * Math.PI * uX) * (rNorm < 0.6 ? 1 : -0.7);
+        out[i] += dX; out[i+2] += dZ;
+      } else if (grammar.whiplashStyle === 'VOID_RIM_SWEEP') {
+        // Void-Edge Workspace:
+        // Sweeps along the perimeter ring of the central void
+        let rimDist = Math.abs(rNorm - 0.5);
+        let rimWeight = Math.exp(-rimDist * rimDist / 0.05);
+        let dY = strength * spanY * 0.38 * rimWeight * Math.sin(3.0 * theta);
+        let dX = strength * spanX * 0.32 * rimWeight * Math.cos(theta + 0.6 * Math.sin(3.0 * theta));
+        let dZ = strength * spanZ * 0.32 * rimWeight * Math.sin(theta + 0.6 * Math.sin(3.0 * theta));
+        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
+      } else if (grammar.whiplashStyle === 'ORIGAMI_FOLD') {
+        // Folded / Undulating Work Surface:
+        // Origami accordion pleating and 3D sinusoidal ramps
+        let pleat = Math.sin(5.0 * Math.PI * uX) * Math.cos(2.0 * Math.PI * uZ);
+        let dY = strength * spanY * 0.52 * pleat;
+        let dX = -strength * spanX * 0.20 * pleat * Math.cos(5.0 * Math.PI * uX);
+        let dZ = strength * spanZ * 0.24 * pleat;
+        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
+      } else if (grammar.whiplashStyle === 'ACOUSTIC_BOWL') {
+        // Stepped Amphitheater:
+        // Concave acoustic bowl curvature with seating risers focusing on performance stage
+        let focusX = minX + spanX * 0.25;
+        let focusZ = centerZ;
+        let rF = Math.hypot(x - focusX, z - focusZ) / (transSpan * 0.9);
+        let bowl = Math.pow(Math.min(1.2, rF), 1.6);
+        let dY = strength * spanY * 0.60 * bowl + strength * spanY * 0.10 * Math.sin(10.0 * Math.PI * rF);
+        let dX = -strength * spanX * 0.25 * ((x - focusX) / (rF * transSpan + 0.1)) * bowl;
+        let dZ = -strength * spanZ * 0.25 * ((z - focusZ) / (rF * transSpan + 0.1)) * bowl;
+        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
+      } else if (grammar.whiplashStyle === 'SOARING_VAULT_RIBS') {
+        // Void-Field Gathering:
+        // Slender vertical ribs spring from ground crossroads and fan into vault canopies
+        let hWeight = Math.pow(Math.max(0, uY - 0.15) / 0.85, 1.2);
+        let dY = strength * spanY * 0.66 * hWeight * (1.0 + 0.35 * Math.sin(4.0 * Math.PI * uX));
+        let dX = strength * spanX * 0.25 * hWeight * Math.cos(2.0 * Math.PI * uX);
+        let dZ = strength * spanZ * 0.25 * hWeight * Math.sin(2.0 * Math.PI * uZ);
+        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
+      } else if (grammar.whiplashStyle === 'MEZZANINE_CRADLE') {
+        // Inserted Horizontal Plate:
+        // Suspends mezzanine platform cradled by organic curved hull ribs
+        let midWeight = Math.exp(-Math.pow((uY - 0.48) / 0.18, 2));
+        let plateRib = Math.cos(Math.PI * (uX - 0.5)) * Math.cos(Math.PI * (uZ - 0.5));
+        let dY = strength * spanY * 0.42 * midWeight * plateRib;
+        let dX = strength * spanX * 0.28 * midWeight * (x >= centerX ? 1 : -1);
+        let dZ = strength * spanZ * 0.28 * midWeight * (z >= centerZ ? 1 : -1);
+        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
+      } else if (grammar.whiplashStyle === 'COCOON_POD') {
+        // Contained Room-Within-Volume:
+        // Bulbous, organic cocoon vessel enclosed inside larger hall
+        let distPod = Math.hypot(x - centerX, (y - centerY) * 1.4, z - centerZ) / (transSpan * 0.45);
+        let podWeight = Math.exp(-distPod * distPod / 0.35);
+        let dY = -strength * (y - centerY) * 0.56 * podWeight;
+        let dX = -strength * (x - centerX) * 0.52 * podWeight;
+        let dZ = -strength * (z - centerZ) * 0.52 * podWeight;
+        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
+      } else if (grammar.whiplashStyle === 'BALUSTRADE_RIBBON') {
+        // Linear Edge Gallery:
+        // Serpentine cantilevered ribbon and undulating balustrade along perimeter overlook
+        let edgeDist = Math.max(0, Math.abs(uZ - 0.5) * 2.0 - 0.25);
+        let dY = strength * spanY * 0.34 * edgeDist * Math.sin(3.0 * Math.PI * uX);
+        let dZ = strength * spanZ * 0.50 * edgeDist * Math.sin(2.0 * Math.PI * uX) * (z >= centerZ ? 1 : -1);
+        let dX = strength * spanX * 0.20 * edgeDist * Math.cos(3.0 * Math.PI * uX);
+        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
+      } else {
+        let dY = strength * spanY * 0.35 * Math.sin(Math.PI * uX);
+        let dZ = strength * spanZ * 0.25 * Math.sin(2.0 * Math.PI * uX);
+        out[i+1] += dY; out[i+2] += dZ;
+      }
+    }
+  }
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // RULE 4: MERGING (M)
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  else if (upperRule === 'MERGING' || upperRule === 'M') {
+    const sigma = (0.05 + 0.35 * strength) * domSpan;
+    for (let i = 0; i < out.length; i += 3) {
+      let x = out[i], y = out[i+1], z = out[i+2];
+      let domVal = (domAxis === 'X') ? x : ((domAxis === 'Z') ? z : y);
+      let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
+
+      if (grammar.mergingBehavior === 'COMPRESSION_CHOKE') {
+        let sChoke = Math.sin(4.0 * Math.PI * u - Math.PI * 0.5);
+        if (sChoke < 0) {
+          let pinch = strength * 1.4 * Math.abs(sChoke);
+          out[i] += pinch * (centerX - x) * 0.4;
+          out[i+2] += pinch * (centerZ - z) * 0.6;
+          out[i+1] += pinch * (centerY - y) * 0.3;
+        }
+      } else if (grammar.mergingBehavior === 'CONTINUOUS_SHELL') {
+        let dist = Math.sqrt((x - centerX)*(x - centerX) + (z - centerZ)*(z - centerZ));
+        let w = Math.exp(-(dist * dist) / (2 * sigma * sigma));
+        let pull = strength * 1.5 * w;
+        out[i] += pull * (centerX - x) * 0.3;
+        out[i+2] += pull * (centerZ - z) * 0.3;
+      } else if (grammar.mergingBehavior === 'ENCLOSURE_POD') {
+        let dist = Math.sqrt((x - centerX)*(x - centerX) + (z - centerZ)*(z - centerZ));
+        if (dist < 0.40 * transSpan) {
+          let pull = strength * 1.6;
+          out[i] += pull * (centerX - x) * 0.5;
+          out[i+2] += pull * (centerZ - z) * 0.5;
+        }
+      } else {
+        let dist = Math.sqrt((x - centerX)*(x - centerX) + (z - centerZ)*(z - centerZ));
+        let w = Math.exp(-(dist * dist) / (2 * sigma * sigma));
+        let pull = strength * 1.2 * w;
+        out[i] += pull * (centerX - x);
+        out[i+2] += pull * (centerZ - z);
+      }
+    }
+  }
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // RULE 5: POSITIVE / NEGATIVE SPACE (V)
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  else if (upperRule === 'POSNEG' || upperRule === 'V' || upperRule === 'POSITIVE_NEGATIVE') {
+    if (grammar.voidBehavior === 'VERTICAL_SHAFT' || grammar.voidBehavior === 'ORGANIZING_VOID') {
+      const voidRadius = (0.15 + 0.35 * strength) * transSpan;
+      for (let i = 0; i < out.length; i += 3) {
+        let dx = out[i] - centerX, dz = out[i+2] - centerZ;
+        let distRad = Math.sqrt(dx * dx + dz * dz) + 0.0001;
+        if (distRad < voidRadius * 1.4) {
+          let pushDist = (1.0 - distRad / (voidRadius * 1.4)) * strength * voidRadius * 0.65;
+          out[i] += (dx / distRad) * pushDist;
+          out[i+2] += (dz / distRad) * pushDist;
+        }
+      }
+    } else if (grammar.voidBehavior === 'OPEN_INTERIOR') {
+      for (let i = 0; i < out.length; i += 3) {
+        let dx = out[i] - centerX, dz = out[i+2] - centerZ;
+        let distRad = Math.sqrt(dx * dx + dz * dz) + 0.0001;
+        let pushDist = Math.exp(-(distRad * distRad) / (2 * transSpan * transSpan * 0.1)) * strength * transSpan * 0.22;
+        out[i] += (dx / distRad) * pushDist;
+        out[i+2] += (dz / distRad) * pushDist;
+      }
+    } else if (grammar.voidBehavior === 'LATERAL_LIGHT') {
+      for (let i = 0; i < out.length; i += 3) {
+        let domVal = (domAxis === 'X') ? out[i] : ((domAxis === 'Z') ? out[i+2] : out[i+1]);
+        let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
+        let sideOpening = Math.sin(4.0 * Math.PI * u);
+        if (sideOpening > 0.3) {
+          let pushZ = strength * transSpan * 0.25 * (out[i+2] >= centerZ ? 1 : -1) * (sideOpening - 0.3);
+          out[i+2] += pushZ;
+        }
+      }
+    } else if (grammar.voidBehavior === 'INNER_OUTER_SEP') {
+      for (let i = 0; i < out.length; i += 3) {
+        let dx = out[i] - centerX, dz = out[i+2] - centerZ;
+        let distRad = Math.sqrt(dx * dx + dz * dz) + 0.0001;
+        let podBoundary = 0.30 * transSpan;
+        if (Math.abs(distRad - podBoundary) < 0.12 * transSpan) {
+          let sep = (distRad >= podBoundary ? 1 : -1) * strength * 0.10 * transSpan;
+          out[i] += (dx / distRad) * sep;
+          out[i+2] += (dz / distRad) * sep;
+        }
+      }
+    } else {
+      const Nvoid = Math.floor(1 + 3 * strength);
+      const R = (0.08 + 0.28 * strength) * transSpan;
+      for (let i = 0; i < out.length; i += 3) {
+        let domVal = (domAxis === 'X') ? out[i] : ((domAxis === 'Z') ? out[i+2] : out[i+1]);
+        let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
+        for (let vIdx = 0; vIdx < Nvoid; vIdx++) {
+          let uVoid = (vIdx + 1) / (Nvoid + 1);
+          let distU = Math.abs(u - uVoid);
+          if (distU < 0.28) {
+            let dx = out[i] - centerX, dz = out[i+2] - centerZ;
+            let distRad = Math.sqrt(dx * dx + dz * dz) + 0.0001;
+            let field = Math.exp(-(distRad * distRad) / (2 * R * R)) * Math.cos(distU * Math.PI * 2.5);
+            out[i] += (dx / distRad) * field * R * strength * 1.3;
+            out[i+2] += (dz / distRad) * field * R * strength * 1.3;
+          }
+        }
+      }
+    }
+  }
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // RULE 6: CONTINUITY (C)
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  else if (upperRule === 'CONTINUITY' || upperRule === 'C') {
+    for (let i = 0; i < out.length; i += 3) {
+      let x = out[i], y = out[i+1], z = out[i+2];
+      let dx = x - centerX, dy = y - centerY, dz = z - centerZ;
+      let rXZ = Math.sqrt(dx * dx + dz * dz);
+      let rNorm = rXZ / (transSpan * 0.5);
+      let theta = Math.atan2(dz, dx);
+      let uX = Math.min(1, Math.max(0, (x - minX) / spanX));
+      let uY = Math.min(1, Math.max(0, (y - minY) / spanY));
+      let uZ = Math.min(1, Math.max(0, (z - minZ) / spanZ));
+
+      if (grammar.continuityMode === 'VERTICAL_CONNECTIONS') {
+        // Vertical Void: connects lower and upper surfaces vertically across the atrium shaft
+        let vertPull = strength * 0.35 * spanY * Math.sign(-dy) * Math.min(1.0, Math.abs(dy) / (0.45 * spanY));
+        out[i+1] += vertPull;
+      } else if (grammar.continuityMode === 'ZONE_TRANSITIONS') {
+        // Compressed Sequential: smoothly bridges chamber-to-chamber transitions along X
+        let tChoke = (uX * 3.0) % 1.0;
+        let blend = Math.sin(tChoke * Math.PI * 2);
+        out[i] += strength * spanX * 0.22 * blend;
+      } else if (grammar.continuityMode === 'CONTINUOUS_SHELL') {
+        // Continuous Hall: merges ceiling segments into one unbroken horizontal shell
+        let edgePull = strength * 0.28 * spanY * Math.cos(Math.PI * (uX - 0.5));
+        out[i+1] += edgePull;
+        out[i+2] += (centerZ - z) * strength * 0.25;
+      } else if (grammar.continuityMode === 'SLOPE_CONNECT') {
+        // Topographic Ground: bridges stepped terraces into continuous walkable ramps
+        if (uY < 0.65) {
+          let rampBlend = strength * spanY * 0.30 * Math.sin(2.5 * Math.PI * uX) * (1.0 - uY);
+          out[i+1] += rampBlend;
+        }
+      } else if (grammar.continuityMode === 'AXIAL_PATH') {
+        // Linear Gallery: reinforces longitudinal enfilade path, aligning surfaces to main axis
+        out[i] += strength * spanX * 0.28 * (uX - 0.5);
+        out[i+2] += (centerZ - z) * strength * 0.35;
+      } else if (grammar.continuityMode === 'FIELD_MERGE') {
+        // Open Hall Workspace: eliminates interior seams into a continuous horizontal field
+        out[i+1] += (centerY - y) * strength * 0.24;
+      } else if (grammar.continuityMode === 'RISER_CONNECT') {
+        // Cascaded Terraces: fillets riser faces to treads into continuous cascades
+        let tierU = (uX * 4.0) % 1.0;
+        if (tierU > 0.80 || tierU < 0.20) {
+          out[i+1] -= strength * 0.20 * spanY * Math.sin(tierU * Math.PI * 2);
+        }
+      } else if (grammar.continuityMode === 'FLAT_PLATE') {
+        // Flat Deep-Plan: enforces strict planar leveling of horizontal plates
+        let targetLevel = (uY > 0.5) ? maxY - 0.2 * spanY : minY + 0.2 * spanY;
+        out[i+1] += (targetLevel - y) * strength * 0.44;
+      } else if (grammar.continuityMode === 'PERIMETER_RING') {
+        // Void-Edge: closes annular ring surfaces into a seamless 360-degree ribbon
+        let rTarget = 0.5 * transSpan;
+        let deltaR = rTarget - rXZ;
+        out[i] += (dx / (rXZ + 0.01)) * deltaR * strength * 0.38;
+        out[i+2] += (dz / (rXZ + 0.01)) * deltaR * strength * 0.38;
+      } else if (grammar.continuityMode === 'CREASE_FACETS') {
+        // Folded Undulated: aligns origami creases into continuous diagonal ridges
+        let diag = Math.sin(3.0 * Math.PI * (uX + uZ));
+        out[i+1] += strength * spanY * 0.28 * diag;
+      } else if (grammar.continuityMode === 'CIRCULATION_STEPS') {
+        // Stepped Amphitheater: connects aisles and seating tiers into unified bowl
+        let rF = Math.hypot(x - (minX + spanX * 0.25), z - centerZ);
+        out[i+1] += strength * spanY * 0.18 * Math.cos(rF / transSpan * Math.PI * 6);
+      } else if (grammar.continuityMode === 'CONVERGING_PATHS') {
+        // Void-Field Gathering: blends converging floor spokes into a unified crossroads
+        let spoke = Math.cos(4.0 * theta);
+        out[i+1] += strength * spanY * 0.18 * spoke * (1.0 - uY);
+      } else if (grammar.continuityMode === 'SUSPENSION_LINKS') {
+        // Inserted Plate: draws tensile tendon lines connecting platform to upper structure
+        if (uY > 0.40) {
+          out[i+1] += strength * spanY * 0.25 * Math.sin(Math.PI * uX);
+        }
+      } else if (grammar.continuityMode === 'ENCLOSURE_SHELL') {
+        // Contained Room: welds pod shell seams into an unbroken organic capsule
+        let rPod = Math.hypot(dx, dy * 1.4, dz);
+        let targetR = 0.35 * transSpan;
+        let pull = (targetR - rPod) * strength * 0.44;
+        out[i] += (dx / (rPod + 0.01)) * pull;
+        out[i+1] += (dy / (rPod + 0.01)) * pull * 0.7;
+        out[i+2] += (dz / (rPod + 0.01)) * pull;
+      } else if (grammar.continuityMode === 'GALLERY_PATH') {
+        // Linear Edge Gallery: smooths overlook ribbon into uninterrupted promenade
+        out[i] += strength * spanX * 0.24 * (uX - 0.5);
+      } else {
+        out[i] += strength * spanX * 0.15 * (uX - 0.5);
+      }
+    }
+  }
+
+
+  return out;
+}
+
+window.applyRule = applyRule;
+
+function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMesh = true, typologyKey = null) {
   if (!positions || positions.length === 0) return new Float32Array(0);
-  
+
   const C = dna && dna[0] !== undefined ? Math.max(0, Math.min(1, dna[0])) : 0;
   const B = dna && dna[1] !== undefined ? Math.max(0, Math.min(1, dna[1])) : 0;
   const W = dna && dna[2] !== undefined ? Math.max(0, Math.min(1, dna[2])) : 0;
@@ -1299,438 +2045,58 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
   const V = dna && dna[4] !== undefined ? Math.max(0, Math.min(1, dna[4])) : 0;
   const G = dna && dna[5] !== undefined ? Math.max(0, Math.min(1, dna[5])) : 0;
 
+  const typoKey = typologyKey || (window.domainState && window.domainState.selectedTypology) || 'VERTICAL_VOID';
+  const totalVerts = Math.floor(positions.length / 3);
+
   // MANDATORY ZERO STATE: DNA [0,0,0,0,0,0] -> Exact pristine copy, 0 displacement!
   if (C === 0 && B === 0 && W === 0 && M === 0 && V === 0 && G === 0) {
     window.lastEngineStats = {
       affectedVertexCount: 0,
       affectedPct: 0,
-      totalVertexCount: Math.floor(positions.length / 3),
+      totalVertexCount: totalVerts,
       maxDisplacement: 0,
       meanDisplacement: 0,
       seedIdentityPct: 100,
+      scaledMagnitude: 100,
       ruleValidation: {
-        continuity: { pass: true, msg: '✓ PRISTINE SEED' },
-        branching: { pass: true, msg: '✓ SINGULAR TRAJECTORY' },
-        whiplash: { pass: true, msg: '✓ UNMODIFIED' },
-        merging: { pass: true, msg: '✓ NO MERGE NEEDED' },
-        posneg: { pass: true, msg: '✓ SOLID ENCLOSED' },
-        growth: { pass: true, msg: '✓ CONTAINED SEED' }
+        continuity: { pass: true, msg: 'Ã¢Å“â€œ PRISTINE SEED' },
+        branching: { pass: true, msg: 'Ã¢Å“â€œ SINGULAR TRAJECTORY' },
+        whiplash: { pass: true, msg: 'Ã¢Å“â€œ UNMODIFIED' },
+        merging: { pass: true, msg: 'Ã¢Å“â€œ NO MERGE NEEDED' },
+        posneg: { pass: true, msg: 'Ã¢Å“â€œ SOLID ENCLOSED' },
+        growth: { pass: true, msg: 'Ã¢Å“â€œ CONTAINED SEED' }
       }
     };
     return new Float32Array(positions);
   }
 
-  // Bounding box setup
-  const minX = bounds?.min?.x ?? bounds?.minX ?? -10;
-  const maxX = bounds?.max?.x ?? bounds?.maxX ?? 10;
-  const minY = bounds?.min?.y ?? bounds?.minY ?? -10;
-  const maxY = bounds?.max?.y ?? bounds?.maxY ?? 10;
-  const minZ = bounds?.min?.z ?? bounds?.minZ ?? -10;
-  const maxZ = bounds?.max?.z ?? bounds?.maxZ ?? 10;
+  // Pre-compute shared vertex normals
+  const vNormals = computeMeshVertexNormals(positions, bounds);
 
-  const spanX = Math.max(0.1, Math.abs(maxX - minX));
-  const spanY = Math.max(0.1, Math.abs(maxY - minY));
-  const spanZ = Math.max(0.1, Math.abs(maxZ - minZ));
-
-  let domAxis = 'Y', domMin = minY, domSpan = spanY, transSpan = Math.max(spanX, spanZ);
-  if (spanX >= spanY && spanX >= spanZ) {
-    domAxis = 'X'; domMin = minX; domSpan = spanX; transSpan = Math.max(spanY, spanZ);
-  } else if (spanZ >= spanY && spanZ >= spanX) {
-    domAxis = 'Z'; domMin = minZ; domSpan = spanZ; transSpan = Math.max(spanX, spanY);
+  // Synchronize additive architectural branching walls if active
+  if (B > 0.001 && window.syncBranchingFromDnaSlider) {
+    window.syncBranchingFromDnaSlider(B * 100, W, C, typoKey);
+  } else if (B === 0 && window.clearBranchingGeometry) {
+    window.clearBranchingGeometry();
   }
 
-  const centerX = bounds?.center?.x ?? bounds?.centerX ?? (minX + maxX) / 2;
-  const centerY = bounds?.center?.y ?? bounds?.centerY ?? (minY + maxY) / 2;
-  const centerZ = bounds?.center?.z ?? bounds?.centerZ ?? (minZ + maxZ) / 2;
+  // Execute pipeline strictly through applyRule with the active Domain A Typology
+  let temp = new Float32Array(positions);
 
-  const totalVerts = Math.floor(positions.length / 3);
+  if (B > 0.001) temp = applyRule(temp, 'BRANCHING', B, typoKey, bounds, vNormals);
+  if (G > 0.001) temp = applyRule(temp, 'GROWTH', G, typoKey, bounds, vNormals);
+  if (W > 0.001) temp = applyRule(temp, 'WHIPLASH', W, typoKey, bounds, vNormals);
+  if (M > 0.001) temp = applyRule(temp, 'MERGING', M, typoKey, bounds, vNormals);
+  if (V > 0.001) temp = applyRule(temp, 'POSNEG', V, typoKey, bounds, vNormals);
+  if (C > 0.001) temp = applyRule(temp, 'CONTINUITY', C, typoKey, bounds, vNormals);
 
-  // Scaling factor for Seed Identity Protection threshold
-  let magScale = 1.0;
-
-  function runPipeline(scale) {
-    const activeC = C * scale;
-    const activeB = B * scale;
-    const activeW = W * scale;
-    const activeM = M * scale;
-    const activeV = V * scale;
-    const activeG = G * scale;
-
-    window._lastComputedBranchIndices = [];
-    const temp = new Float32Array(positions);
-    let newVertices = [];
-    let newIndices = [];
-
-    function generateSmoothBranch(vertsArr, indicesArr, baseVertOffset, evalPath, rStart, rEnd, numSegs, surfaceNormal) {
-      let sides = 16; 
-      let baseCenter = evalPath(0);
-      let curCenter = baseCenter;
-      
-      let lastDir = { x: evalPath(0.01).x - baseCenter.x, y: evalPath(0.01).y - baseCenter.y, z: evalPath(0.01).z - baseCenter.z };
-      let len = Math.sqrt(lastDir.x*lastDir.x + lastDir.y*lastDir.y + lastDir.z*lastDir.z);
-      if (len > 0.0001) { lastDir.x/=len; lastDir.y/=len; lastDir.z/=len; } else { lastDir = {x:0, y:1, z:0}; }
-      
-      let lastUp, lastRight;
-      if (surfaceNormal) {
-         lastUp = {x: surfaceNormal.nx, y: surfaceNormal.ny, z: surfaceNormal.nz};
-         lastRight = { 
-            x: lastUp.y * lastDir.z - lastUp.z * lastDir.y, 
-            y: lastUp.z * lastDir.x - lastUp.x * lastDir.z, 
-            z: lastUp.x * lastDir.y - lastUp.y * lastDir.x 
-         };
-         let rLen = Math.sqrt(lastRight.x*lastRight.x + lastRight.y*lastRight.y + lastRight.z*lastRight.z);
-         if (rLen > 0.0001) { lastRight.x/=rLen; lastRight.y/=rLen; lastRight.z/=rLen; }
-      } else {
-         lastRight = {x:1, y:0, z:0};
-         if (Math.abs(lastDir.x) > 0.9) lastRight = {x:0, y:1, z:0};
-         let cross1 = { x: lastDir.y*lastRight.z - lastDir.z*lastRight.y, y: lastDir.z*lastRight.x - lastDir.x*lastRight.z, z: lastDir.x*lastRight.y - lastDir.y*lastRight.x };
-         let cLen1 = Math.sqrt(cross1.x*cross1.x + cross1.y*cross1.y + cross1.z*cross1.z);
-         cross1.x/=cLen1; cross1.y/=cLen1; cross1.z/=cLen1;
-         lastUp = cross1;
-         lastRight = { x: lastUp.y*lastDir.z - lastUp.z*lastDir.y, y: lastUp.z*lastDir.x - lastUp.x*lastDir.z, z: lastUp.x*lastDir.y - lastUp.y*lastDir.x };
-      }
-
-      let baseCenterIdx = baseVertOffset + vertsArr.length / 3;
-      vertsArr.push(baseCenter.x, baseCenter.y, baseCenter.z);
-      let ringIndices = [];
-
-      for (let seg = 0; seg <= numSegs; seg++) {
-        let t = seg / numSegs;
-        if (seg > 0) {
-          let dir = { x: evalPath(t+0.01).x - curCenter.x, y: evalPath(t+0.01).y - curCenter.y, z: evalPath(t+0.01).z - curCenter.z };
-          let dLen = Math.sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
-          if (dLen > 0.0001) { dir.x/=dLen; dir.y/=dLen; dir.z/=dLen; } else { dir = lastDir; }
-          
-          let dot = lastDir.x*dir.x + lastDir.y*dir.y + lastDir.z*dir.z;
-          let cross = { x: lastDir.y*dir.z - lastDir.z*dir.y, y: lastDir.z*dir.x - lastDir.x*dir.z, z: lastDir.x*dir.y - lastDir.y*dir.x };
-          let cLen = Math.sqrt(cross.x*cross.x + cross.y*cross.y + cross.z*cross.z);
-          if (cLen > 0.0001) {
-            cross.x/=cLen; cross.y/=cLen; cross.z/=cLen;
-            let angle = Math.acos(Math.max(-1, Math.min(1, dot)));
-            let C = Math.cos(angle), S = Math.sin(angle), t_mat = 1 - C;
-            let R = (v, k) => ({
-                 x: v.x*(C + k.x*k.x*t_mat) + v.y*(k.x*k.y*t_mat - k.z*S) + v.z*(k.x*k.z*t_mat + k.y*S),
-                 y: v.x*(k.y*k.x*t_mat + k.z*S) + v.y*(C + k.y*k.y*t_mat) + v.z*(k.y*k.z*t_mat - k.x*S),
-                 z: v.x*(k.z*k.x*t_mat - k.y*S) + v.y*(k.z*k.y*t_mat + k.x*S) + v.z*(C + k.z*k.z*t_mat)
-            });
-            lastRight = R(lastRight, cross);
-            lastUp = R(lastUp, cross);
-          }
-          lastDir = dir;
-        }
-        
-        let currentRadius = rStart * (1 - t) + rEnd * t; 
-        curCenter = evalPath(t); 
-
-        let newRingIndices = [];
-        let ringStartIdx = baseVertOffset + vertsArr.length / 3;
-
-        for (let s = 0; s < sides; s++) {
-          let angle = (s / sides) * Math.PI * 2;
-          let widenFactor = surfaceNormal ? 3.0 : 1.0;
-          let squashFactor = surfaceNormal ? 0.15 : 1.0;
-          
-          let rCos = Math.cos(angle) * currentRadius * widenFactor;
-          let rSin = Math.sin(angle) * currentRadius * squashFactor;
-          
-          vertsArr.push(curCenter.x + lastRight.x * rCos + lastUp.x * rSin, curCenter.y + lastRight.y * rCos + lastUp.y * rSin, curCenter.z + lastRight.z * rCos + lastUp.z * rSin);
-          newRingIndices.push(ringStartIdx + s);
-        }
-
-        if (seg === 0) {
-           for (let s = 0; s < sides; s++) {
-             indicesArr.push(baseCenterIdx, newRingIndices[s], newRingIndices[(s + 1) % sides]);
-           }
-        } else {
-           for (let s = 0; s < sides; s++) {
-             let sNext = (s + 1) % sides;
-             indicesArr.push(ringIndices[s], newRingIndices[s], newRingIndices[sNext], ringIndices[s], newRingIndices[sNext], ringIndices[sNext]);
-           }
-        }
-
-        if (seg === numSegs) {
-           let topCenterIdx = baseVertOffset + vertsArr.length / 3;
-           vertsArr.push(curCenter.x, curCenter.y, curCenter.z);
-           for (let s = 0; s < sides; s++) {
-             indicesArr.push(topCenterIdx, newRingIndices[(s + 1) % sides], newRingIndices[s]);
-           }
-        }
-        ringIndices = newRingIndices;
-      }
-    }
-
-    function getNormal(i, arr) {
-       let p0 = {x: arr[i], y: arr[i+1], z: arr[i+2]};
-       let p1 = {x: arr[i+3], y: arr[i+4], z: arr[i+5]};
-       let p2 = {x: arr[i+6], y: arr[i+7], z: arr[i+8]};
-       let v1 = {x: p1.x - p0.x, y: p1.y - p0.y, z: p1.z - p0.z};
-       let v2 = {x: p2.x - p0.x, y: p2.y - p0.y, z: p2.z - p0.z};
-       let nx = v1.y*v2.z - v1.z*v2.y;
-       let ny = v1.z*v2.x - v1.x*v2.z;
-       let nz = v1.x*v2.y - v1.y*v2.x;
-       let len = Math.sqrt(nx*nx + ny*ny + nz*nz);
-       if (len > 0.0001) { nx/=len; ny/=len; nz/=len; } else { nx=0; ny=1; nz=0; }
-       
-       let cx = (p0.x+p1.x+p2.x)/3;
-       let cy = (p0.y+p1.y+p2.y)/3;
-       let cz = (p0.z+p1.z+p2.z)/3;
-       if (nx*(cx-centerX) + ny*(cy-centerY) + nz*(cz-centerZ) < 0) {
-          nx = -nx; ny = -ny; nz = -nz;
-       }
-       
-       let tx = v1.x, ty = v1.y, tz = v1.z;
-       let tLen = Math.sqrt(tx*tx + ty*ty + tz*tz);
-       if (tLen > 0.0001) { tx/=tLen; ty/=tLen; tz/=tLen; } else { tx=1; ty=0; tz=0; }
-       
-       return {nx, ny, nz, tx, ty, tz};
-    }
-
-    let useNoiseEmbossing = (B > 0.05 || G > 0.05) && isMesh;
-    if (useNoiseEmbossing) {
-        let hash = (n) => {
-            let res = Math.sin(n) * 43758.5453123;
-            return res - Math.floor(res);
-        };
-        let noise3D = (x, y, z) => {
-            let pX = Math.floor(x), pY = Math.floor(y), pZ = Math.floor(z);
-            let fX = x - pX, fY = y - pY, fZ = z - pZ;
-            let fX2 = fX*fX*(3-2*fX), fY2 = fY*fY*(3-2*fY), fZ2 = fZ*fZ*(3-2*fZ);
-            let n = pX + pY*57 + pZ*113;
-            let i1 = hash(n) + (hash(n+1) - hash(n)) * fX2;
-            let i2 = hash(n+57) + (hash(n+58) - hash(n+57)) * fX2;
-            let i3 = hash(n+113) + (hash(n+114) - hash(n+113)) * fX2;
-            let i4 = hash(n+170) + (hash(n+171) - hash(n+170)) * fX2;
-            let j1 = i1 + (i2 - i1) * fY2;
-            let j2 = i3 + (i4 - i3) * fY2;
-            return j1 + (j2 - j1) * fZ2;
-        };
-
-        let ridgedNoise = (x, y, z, octaves) => {
-            let total = 0, freq = 1, amp = 1, maxAmp = 0;
-            for(let i=0; i<octaves; i++) {
-                let n = noise3D(x*freq, y*freq, z*freq);
-                n = 1.0 - Math.abs(n * 2.0 - 1.0);
-                n *= n; 
-                total += n * amp;
-                maxAmp += amp;
-                amp *= 0.5;
-                freq *= 2.0;
-            }
-            return total / maxAmp;
-        };
-
-        let vNormals = new Map();
-        let getKey = (x,y,z) => x + ',' + y + ',' + z;
-        
-        for (let i = 0; i < temp.length; i += 9) {
-            let {nx, ny, nz} = getNormal(i, temp);
-            for(let v=0; v<3; v++) {
-                let k = getKey(temp[i+v*3], temp[i+v*3+1], temp[i+v*3+2]);
-                let curr = vNormals.get(k);
-                if (!curr) vNormals.set(k, {x:nx, y:ny, z:nz});
-                else { curr.x += nx; curr.y += ny; curr.z += nz; }
-            }
-        }
-        
-        for (let [k, n] of vNormals) {
-            let len = Math.sqrt(n.x*n.x + n.y*n.y + n.z*n.z);
-            if(len>0) { n.x/=len; n.y/=len; n.z/=len; }
-        }
-
-        let original = new Float32Array(temp);
-        let freqB = 0.5 / domSpan; // Very low frequency for massive architectural division
-        let freqG = 0.8 / domSpan; // Low frequency for large spatial growth
-        
-        for (let i = 0; i < temp.length; i += 3) {
-            let x = original[i], y = original[i+1], z = original[i+2];
-            let k = getKey(x, y, z);
-            let n = vNormals.get(k) || {x:0, y:0, z:0};
-            
-            // 2. BRANCHING (B) - NODE BUNDLING & INTERNAL SPACES
-            if (activeB > 0.05) {
-                // Determine organic node centers by warping space
-                let warpX = noise3D(x*freqB, y*freqB, z*freqB) * 1.5;
-                let warpY = noise3D(x*freqB + 100, y*freqB + 100, z*freqB + 100) * 1.5;
-                let warpZ = noise3D(x*freqB + 200, y*freqB + 200, z*freqB + 200) * 1.5;
-                
-                let nx = x * freqB * 2.0 + warpX;
-                let ny = y * freqB * 2.0 + warpY;
-                let nz = z * freqB * 2.0 + warpZ;
-                
-                let dx = Math.sin(nx);
-                let dy = Math.sin(ny);
-                let dz = Math.sin(nz);
-                
-                let distToNode = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                
-                // Define the radius of the internal spaces based on branching intensity
-                let voidRadius = 1.1 * activeB; 
-                
-                if (distToNode < voidRadius) {
-                    // Push vertices outward from the node center to create empty spaces
-                    let pushFactor = Math.pow((voidRadius - distToNode) / voidRadius, 1.2) * (domSpan * 0.25) * activeB;
-                    
-                    let dirLen = distToNode + 0.0001;
-                    let dirX = dx / dirLen;
-                    let dirY = dy / dirLen;
-                    let dirZ = dz / dirLen;
-                    
-                    // Calculate a tangent vector to create the 'bundling' swirl effect around the nodes
-                    let tanX = dirY - dirZ;
-                    let tanY = dirZ - dirX;
-                    let tanZ = dirX - dirY;
-                    
-                    // Apply outward push (void creation) and tangent swirl (bundling)
-                    temp[i] += (dirX + tanX * 1.2) * pushFactor;
-                    temp[i+1] += (dirY + tanY * 1.2) * pushFactor;
-                    temp[i+2] += (dirZ + tanZ * 1.2) * pushFactor;
-                }
-            }
-            
-            // 3. GROWTH (G) - ARCHITECTURAL ENCLOSURES & PROLIFERATION
-            if (activeG > 0.05) {
-                let growthField = noise3D(x*freqG + 50, y*freqG + 50, z*freqG + 50);
-                
-                // Expand outward to frame gathering spaces or extend workspaces
-                if (growthField > 0.4) {
-                    let intensity = Math.pow((growthField - 0.4) / 0.6, 1.5);
-                    let pull = intensity * activeG;
-                    
-                    let pullDist = domSpan * 0.4 * pull;
-                    temp[i] += n.x * pullDist;
-                    temp[i+1] += Math.max(0, n.y) * pullDist; // Grow primarily outward and upward to create overhang enclosures
-                    temp[i+2] += n.z * pullDist;
-                }
-            }
-        }
-    }
-
-    let fullMesh = temp;
-    window._lastComputedBranchIndices = new Uint32Array([]);
-
-    // 3. WHIPLASH (W) - Curves the branches
-    if (activeW > 0) {
-      const Amp = activeW * 0.45 * transSpan;
-      for (let i = 0; i < fullMesh.length; i += 3) {
-        let x = fullMesh[i], y = fullMesh[i+1], z = fullMesh[i+2];
-        let domVal = (domAxis === 'X') ? x : ((domAxis === 'Z') ? z : y);
-        let t = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
-
-        let D1 = Amp * Math.sin(Math.PI * t + activeW * Math.PI * t * t);
-        let D2 = activeW > 0.40 ? (activeW - 0.40) * Amp * Math.sin(2 * Math.PI * t + Math.PI * 0.5) : 0;
-        let totalD = D1 + D2;
-
-        if (domAxis === 'Y') {
-          fullMesh[i] += totalD;
-          fullMesh[i+2] += totalD * 0.45 * Math.cos(Math.PI * t);
-        } else {
-          fullMesh[i+1] += totalD;
-          fullMesh[i+2] += totalD * 0.45;
-        }
-      }
-    }
-
-    // 4. MERGING (M) - Connects nearby pieces
-    const hasBranchingOrMulti = activeB >= 0.15 || (fullMesh.length / 3) >= 20;
-    if (activeM > 0 && hasBranchingOrMulti) {
-      const sigma = (0.05 + 0.35 * activeM) * domSpan;
-      for (let i = 0; i < fullMesh.length; i += 3) {
-        let x = fullMesh[i], z = fullMesh[i+2];
-        let dist = Math.sqrt((x - centerX)*(x - centerX) + (z - centerZ)*(z - centerZ));
-        let w = Math.exp(-(dist * dist) / (2 * sigma * sigma));
-        
-        let pull = activeM * 1.2 * w;
-        fullMesh[i] += pull * (centerX - x);
-        fullMesh[i+2] += pull * (centerZ - z);
-      }
-    }
-
-    // 5. POSITIVE / NEGATIVE SPACE (V)
-    if (activeV > 0) {
-      const Nvoid = Math.floor(1 + 3 * activeV);
-      const R = (0.08 + 0.28 * activeV) * transSpan;
-
-      for (let i = 0; i < fullMesh.length; i += 3) {
-        let x = fullMesh[i], y = fullMesh[i+1], z = fullMesh[i+2];
-        let domVal = (domAxis === 'X') ? x : ((domAxis === 'Z') ? z : y);
-        let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
-
-        for (let vIdx = 0; vIdx < Nvoid; vIdx++) {
-          let uVoid = (vIdx + 1) / (Nvoid + 1);
-          let distU = Math.abs(u - uVoid);
-          if (distU < 0.28) {
-            let dx = x - centerX, dz = z - centerZ;
-            let distRad = Math.sqrt(dx * dx + dz * dz) + 0.0001;
-            let field = Math.exp(-(distRad * distRad) / (2 * R * R)) * Math.cos(distU * Math.PI * 2.5);
-            
-            fullMesh[i] += (dx / distRad) * field * R * activeV * 1.3;
-            fullMesh[i+2] += (dz / distRad) * field * R * activeV * 1.3;
-          }
-        }
-      }
-    }
-
-    // 1. CONTINUITY (C) - Keeps attachments smooth
-    if (activeC > 0) {
-      for (let i = 0; i < fullMesh.length; i += 3) {
-        let x = fullMesh[i], y = fullMesh[i+1], z = fullMesh[i+2];
-        let domVal = (domAxis === 'X') ? x : ((domAxis === 'Z') ? z : y);
-        let u = Math.min(1, Math.max(0, (domVal - domMin) / domSpan));
-        let S = 3 * u * u - 2 * u * u * u; 
-        
-        let targetX = centerX + (x - centerX) * (1 - 0.35 * activeC * S);
-        let targetZ = centerZ + (z - centerZ) * (1 - 0.35 * activeC * S);
-        let targetY = y + activeC * 0.28 * domSpan * Math.sin(Math.PI * u);
-
-        fullMesh[i] = (1 - activeC) * x + activeC * targetX;
-        fullMesh[i+1] = (1 - activeC) * y + activeC * targetY;
-        fullMesh[i+2] = (1 - activeC) * z + activeC * targetZ;
-      }
-    }
-
-    // Confine all iterations to be exactly 8000 cubic feet (bounding box volume)
-    let bMinX = Infinity, bMinY = Infinity, bMinZ = Infinity;
-    let bMaxX = -Infinity, bMaxY = -Infinity, bMaxZ = -Infinity;
-    
-    for (let i = 0; i < fullMesh.length; i += 3) {
-      if (fullMesh[i] < bMinX) bMinX = fullMesh[i];
-      if (fullMesh[i] > bMaxX) bMaxX = fullMesh[i];
-      if (fullMesh[i+1] < bMinY) bMinY = fullMesh[i+1];
-      if (fullMesh[i+1] > bMaxY) bMaxY = fullMesh[i+1];
-      if (fullMesh[i+2] < bMinZ) bMinZ = fullMesh[i+2];
-      if (fullMesh[i+2] > bMaxZ) bMaxZ = fullMesh[i+2];
-    }
-    
-    let currentVol = (bMaxX - bMinX) * (bMaxY - bMinY) * (bMaxZ - bMinZ);
-    if (currentVol > 0.0001) {
-      let targetVol = 8000;
-      let scaleFactor = Math.pow(targetVol / currentVol, 1/3);
-      let cx = (bMinX + bMaxX) / 2;
-      let cy = (bMinY + bMaxY) / 2;
-      let cz = (bMinZ + bMaxZ) / 2;
-      
-      for (let i = 0; i < fullMesh.length; i += 3) {
-        fullMesh[i] = cx + (fullMesh[i] - cx) * scaleFactor;
-        fullMesh[i+1] = cy + (fullMesh[i+1] - cy) * scaleFactor;
-        fullMesh[i+2] = cz + (fullMesh[i+2] - cz) * scaleFactor;
-      }
-    }
-
-    // Return safely without destructive welding to preserve mesh topology
-    window._lastComputedIndices = null;
-    window._lastComputedWeldedPositions = null;
-    return fullMesh;
+  // Validate resulting geometry against Domain A Typology
+  if (window.validateTypologyGeometry) {
+    window.validateTypologyGeometry(temp, positions, bounds, typoKey);
   }
 
-  // Calculate Seed Identity Protection threshold loop
-  let finalPositions = runPipeline(magScale);
-  let identityScore = calculateSeedIdentityScore(finalPositions, positions, bounds);
-
-  while (identityScore < identityThreshold && magScale > 0.1) {
-    magScale -= 0.05;
-    finalPositions = runPipeline(magScale);
-    identityScore = calculateSeedIdentityScore(finalPositions, positions, bounds);
-  }
+  const finalPositions = temp;
+  const identityScore = calculateSeedIdentityScore(finalPositions, positions, bounds);
 
   // Stats & Rule Validation computation
   let affectedCount = 0;
@@ -1758,27 +2124,30 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     maxDisplacement: Number(maxDisp.toFixed(2)),
     meanDisplacement: affectedCount > 0 ? Number((totalDispSum / affectedCount).toFixed(2)) : 0,
     seedIdentityPct: identityScore,
-    scaledMagnitude: Math.round(magScale * 100),
+    scaledMagnitude: 100,
     ruleValidation: {
-      continuity: { pass: true, msg: C > 0.7 ? '✓ CONTINUOUS FLOW' : (C > 0.3 ? '✓ CONNECTED' : '✓ INDEPENDENT') },
-      branching: { pass: B < 0.2 || affectedCount > 0, msg: B >= 0.6 ? '✓ HIERARCHICAL BRANCHING' : (B >= 0.2 ? '✓ BIFURCATING' : '✓ SINGULAR') },
-      whiplash: { pass: W === 0 || maxDisp > 0, msg: W > 0.6 ? '✓ WHIPLASH INFLECTED' : (W > 0.3 ? '✓ FLOWING CURVATURE' : '✓ LINEAR') },
-      merging: { pass: M === 0 || (B >= 0.2 || totalVerts >= 30), msg: (B >= 0.2 || totalVerts >= 30) ? (M > 0.7 ? '✓ MERGED / UNIFIED' : '✓ CONVERGING') : '✕ PRECONDITION NOT SATISFIED' },
-      posneg: { pass: true, msg: V > 0.6 ? '✓ INTERLOCK SOLID/VOID' : (V > 0.3 ? '✓ POROUS VOID' : '✓ SOLID ENCLOSED') },
-      growth: { pass: true, msg: G > 0.6 ? '✓ PROLIFERATING GROWTH' : (G > 0.3 ? '✓ EXTENDING GROWTH' : '✓ CONTAINED SEED') }
+      continuity: { pass: true, msg: C > 0.7 ? 'Ã¢Å“â€œ CONTINUOUS FLOW' : (C > 0.3 ? 'Ã¢Å“â€œ CONNECTED' : 'Ã¢Å“â€œ INDEPENDENT') },
+      branching: { pass: B < 0.2 || affectedCount > 0, msg: B >= 0.6 ? 'Ã¢Å“â€œ HIERARCHICAL BRANCHING' : (B >= 0.2 ? 'Ã¢Å“â€œ BIFURCATING' : 'Ã¢Å“â€œ SINGULAR') },
+      whiplash: { pass: W === 0 || maxDisp > 0, msg: W > 0.6 ? 'Ã¢Å“â€œ WHIPLASH INFLECTED' : (W > 0.3 ? 'Ã¢Å“â€œ FLOWING CURVATURE' : 'Ã¢Å“â€œ LINEAR') },
+      merging: { pass: M === 0 || (B >= 0.2 || totalVerts >= 30), msg: (B >= 0.2 || totalVerts >= 30) ? (M > 0.7 ? 'Ã¢Å“â€œ MERGED / UNIFIED' : 'Ã¢Å“â€œ CONVERGING') : 'Ã¢Å“â€¢ PRECONDITION NOT SATISFIED' },
+      posneg: { pass: true, msg: V > 0.6 ? 'Ã¢Å“â€œ INTERLOCK SOLID/VOID' : (V > 0.3 ? 'Ã¢Å“â€œ POROUS VOID' : 'Ã¢Å“â€œ SOLID ENCLOSED') },
+      growth: { pass: true, msg: G > 0.6 ? 'Ã¢Å“â€œ PROLIFERATING GROWTH' : (G > 0.3 ? 'Ã¢Å“â€œ EXTENDING GROWTH' : 'Ã¢Å“â€œ CONTAINED SEED') }
     }
   };
 
   return finalPositions;
 }
 
-function executeRecipeDeformation(positions, recipeOrDna, bounds, isMesh = true) {
+
+function executeRecipeDeformation(positions, recipeOrDna, bounds, isMesh = true, typologyKey = null) {
   if (!positions || positions.length === 0) return new Float32Array(0);
   
+  const typo = typologyKey || (window.domainState && window.domainState.selectedTypology) || 'VERTICAL_VOID';
+
   // If passed DNA vector [C, B, W, M, V, G]
   if (Array.isArray(recipeOrDna) && recipeOrDna.length === 6 && typeof recipeOrDna[0] === 'number') {
     const thresh = (window.domainState && window.domainState.seedIdentityThreshold) ? window.domainState.seedIdentityThreshold : 75;
-    return applyArtNouveauDNA(positions, recipeOrDna, bounds, thresh, isMesh);
+    return applyArtNouveauDNA(positions, recipeOrDna, bounds, thresh, isMesh, typo);
   }
 
   // If passed array of recipe objects, convert to DNA representation
@@ -1795,7 +2164,7 @@ function executeRecipeDeformation(positions, recipeOrDna, bounds, isMesh = true)
   }
 
   const thresh = (window.domainState && window.domainState.seedIdentityThreshold) ? window.domainState.seedIdentityThreshold : 75;
-  return applyArtNouveauDNA(positions, dna, bounds, thresh, isMesh);
+  return applyArtNouveauDNA(positions, dna, bounds, thresh, isMesh, typo);
 }
 
 /**
@@ -1924,7 +2293,8 @@ function switchVisualComparisonMode(mode) {
     targetDna = (window.domainState && window.domainState.selectedParentGenome) ? window.domainState.selectedParentGenome.dna : [0, 0, 0, 0, 0, 0];
   }
 
-  renderIterationGeometry(targetDna, mode);
+  const currentTypo = (window.domainState && window.domainState.selectedTypology) || 'VERTICAL_VOID';
+  renderIterationGeometry(targetDna, mode, currentTypo);
 }
 
 window.switchVisualComparisonMode = switchVisualComparisonMode;
@@ -1932,13 +2302,53 @@ window.switchVisualComparisonMode = switchVisualComparisonMode;
 /**
  * RENDER RECIPE / DNA DEFORMATION IN MAIN VIEWPORT
  */
-function renderIterationGeometry(recipeOrDna, explicitMode) {
+function renderIterationGeometry(recipeOrDna, explicitMode, explicitTypologyKey = null) {
   let compMode = explicitMode || activeVisualCompMode;
-  const isSeedDna = !recipeOrDna || (Array.isArray(recipeOrDna) && recipeOrDna.every(v => v === 0));
+  const activeTypologyKey = explicitTypologyKey || (window.domainState && window.domainState.selectedTypology) || 'VERTICAL_VOID';
+  const isSeedDna = !recipeOrDna || (Array.isArray(recipeOrDna) && (recipeOrDna.length === 0 || (typeof recipeOrDna[0] === 'number' && recipeOrDna.every(v => Math.abs(v) < 0.0001))));
 
-  // If user passes a non-zero DNA vector (tweaking sliders or running generation),
-  // but comparison mode was locked to SEED, automatically switch to ITERATION mode so tweaks take effect!
-  if (!isSeedDna && (compMode === 'SEED' || !explicitMode)) {
+  if (isSeedDna) {
+    compMode = 'SEED';
+    activeVisualCompMode = 'SEED';
+    window.activeVisualCompMode = 'SEED';
+    if (window.domainState) window.domainState.visualComparisonMode = 'SEED';
+
+    const bSeed = document.getElementById('btn-comp-seed');
+    const bIter = document.getElementById('btn-comp-iter');
+    if (bSeed) bSeed.classList.add('active');
+    if (bIter) bIter.classList.remove('active');
+
+    const vpTag = document.getElementById('vp-gen-tag');
+    if (vpTag) vpTag.textContent = 'GENERATION 0: ORIGINAL RHINO SEED';
+
+    // Clear branching geometry immediately
+    if (window.clearBranchingGeometry) {
+      window.clearBranchingGeometry();
+    }
+    if (window.syncBranchingFromDnaSlider) {
+      window.syncBranchingFromDnaSlider(0, 0, 0, activeTypologyKey);
+    }
+    window._lastComputedWeldedPositions = null;
+    window._lastComputedIndices = null;
+    window._lastComputedBranchIndices = null;
+
+    window.lastEngineStats = {
+      affectedVertexCount: 0,
+      affectedPct: 0,
+      totalVertexCount: originalMeshes.reduce((acc, m) => acc + (m.originalPositions ? m.originalPositions.length / 3 : 0), 0),
+      maxDisplacement: 0,
+      meanDisplacement: 0,
+      seedIdentityPct: 100,
+      ruleValidation: {
+        continuity: { pass: true, msg: 'âœ“ PRISTINE SEED' },
+        branching: { pass: true, msg: 'âœ“ SINGULAR TRAJECTORY' },
+        whiplash: { pass: true, msg: 'âœ“ UNMODIFIED' },
+        merging: { pass: true, msg: 'âœ“ NO MERGE NEEDED' },
+        posneg: { pass: true, msg: 'âœ“ SOLID ENCLOSED' },
+        growth: { pass: true, msg: 'âœ“ CONTAINED SEED' }
+      }
+    };
+  } else if (compMode === 'SEED' || !explicitMode) {
     compMode = 'ITERATION';
     activeVisualCompMode = 'ITERATION';
     window.activeVisualCompMode = 'ITERATION';
@@ -1963,14 +2373,51 @@ function renderIterationGeometry(recipeOrDna, explicitMode) {
     const targetMesh = item.mesh || item.threeMesh;
     if (!targetMesh || !targetMesh.geometry || !item.originalPositions) return;
 
-    const attr = targetMesh.geometry.attributes.position;
-    let defPos;
-
     if (compMode === 'SEED' || isSeedDna) {
-      defPos = item.originalPositions;
-    } else {
-      defPos = executeRecipeDeformation(item.originalPositions, recipeOrDna, modelBounds);
+      const origPos = item.originalPositions;
+      const curAttr = targetMesh.geometry.attributes.position;
+      const curIndex = targetMesh.geometry.index;
+
+      const needsNewGeom = !curAttr || 
+        curAttr.array.length !== origPos.length || 
+        (item.originalIndices && (!curIndex || curIndex.count !== item.originalIndices.length));
+
+      if (needsNewGeom) {
+        const newGeom = new THREE.BufferGeometry();
+        newGeom.setAttribute('position', new THREE.Float32BufferAttribute(origPos, 3));
+        if (item.originalIndices) {
+          newGeom.setIndex(new THREE.BufferAttribute(item.originalIndices, 1));
+        }
+        newGeom.computeVertexNormals();
+        newGeom.computeBoundingBox();
+        newGeom.computeBoundingSphere();
+        targetMesh.geometry.dispose();
+        targetMesh.geometry = newGeom;
+      } else {
+        for (let i = 0; i < origPos.length; i++) {
+          curAttr.array[i] = origPos[i];
+        }
+        curAttr.needsUpdate = true;
+        if (item.originalIndices && curIndex) {
+          for (let i = 0; i < item.originalIndices.length; i++) {
+            curIndex.array[i] = item.originalIndices[i];
+          }
+          curIndex.needsUpdate = true;
+        }
+        targetMesh.geometry.computeVertexNormals();
+        targetMesh.geometry.computeBoundingBox();
+        targetMesh.geometry.computeBoundingSphere();
+      }
+      if (targetMesh.material) {
+        targetMesh.material.wireframe = false;
+        targetMesh.material.needsUpdate = true;
+      }
+      targetMesh.visible = true;
+      return;
     }
+
+    const attr = targetMesh.geometry.attributes.position;
+    let defPos = executeRecipeDeformation(item.originalPositions, recipeOrDna, modelBounds, true, activeTypologyKey);
 
     if (defPos.length !== attr.array.length) {
       const newGeom = new THREE.BufferGeometry();
@@ -2050,12 +2497,9 @@ function renderIterationGeometry(recipeOrDna, explicitMode) {
     if (!targetLine || !targetLine.geometry || !item.originalPositions) return;
 
     const attr = targetLine.geometry.attributes.position;
-    let defPos;
+    const defPos = item.originalPositions;
 
-    // By request, overlay curves are never affected by DNA deformations
-    defPos = item.originalPositions;
-
-    if (defPos.length !== attr.array.length) {
+    if (!attr || defPos.length !== attr.array.length) {
       const newGeom = new THREE.BufferGeometry();
       newGeom.setAttribute('position', new THREE.Float32BufferAttribute(defPos, 3));
       targetLine.geometry.dispose();
@@ -2105,6 +2549,10 @@ function renderIterationGeometry(recipeOrDna, explicitMode) {
       item.cagePoints.visible = true;
     }
   });
+
+  if (compMode === 'SEED' || isSeedDna) {
+    if (typeof computeModelBounds === 'function') computeModelBounds();
+  }
 }
 
 function applyArtNouveauTransformations() {
@@ -2212,6 +2660,7 @@ function runDomainBDiagnostics() {
 
 window.runDomainBDiagnostics = runDomainBDiagnostics;
 window.applyArtNouveauDNA = applyArtNouveauDNA;
+window.applyRule = applyRule;
 window.calculateSeedIdentityScore = calculateSeedIdentityScore;
 
 window.meshGroup = meshGroup;

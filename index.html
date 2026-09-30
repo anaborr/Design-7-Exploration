@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DESIGN 7 EXPLORATION // Descriptor-Driven Architectural Evolution System</title>
+  <title>Design 7 Exploration</title>
 
   <!-- Google Fonts: Michroma (Fallback for Magistral) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,6 +18,203 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Consistent Architectural Aesthetic: Pure Black with Muted White Outlines & Text */
+    .domain-a-tab {
+      margin-bottom: 6px;
+      border: 1px solid #333333 !important;
+      border-radius: 4px;
+      background: #000000 !important;
+      overflow: hidden;
+    }
+    .domain-a-tab summary {
+      padding: 6px 8px;
+      font-size: 8.5px;
+      font-weight: 500;
+      color: #cccccc !important;
+      cursor: pointer;
+      outline: none;
+      user-select: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0d0d0d !important;
+      border-bottom: 1px solid #222222;
+      transition: all 0.15s ease;
+    }
+    .domain-a-tab summary:hover {
+      color: #ffffff !important;
+      background: #141414 !important;
+    }
+    .domain-a-tab summary::-webkit-details-marker {
+      display: inline-block;
+      margin-right: 4px;
+    }
+    .domain-a-pill {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      text-align: left;
+      background: #070707;
+      border: 1px solid #222222;
+      border-radius: 3px;
+      padding: 5px 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+    .domain-a-pill:hover {
+      background: #141414;
+      border-color: #555555;
+    }
+    .domain-a-pill.active {
+      background: #1a1a1a;
+      border-color: #888888;
+      box-shadow: inset 2px 0 0 #e5e5e5;
+    }
+    .domain-a-pill .p-title {
+      font-size: 8px;
+      font-weight: 500;
+      color: #cccccc;
+      pointer-events: none;
+    }
+    .domain-a-pill.active .p-title {
+      color: #ffffff;
+      font-weight: 600;
+    }
+    .domain-a-pill .p-sub {
+      font-size: 6.8px;
+      color: #777777;
+      line-height: 1.25;
+      margin-top: 1px;
+      pointer-events: none;
+    }
+    .domain-a-pill.active .p-sub {
+      color: #aaaaaa;
+    }
+    .btn-domain-b-generate {
+      width: 100%;
+      padding: 8px 12px;
+      justify-content: center;
+      background: #222222;
+      color: #ffffff;
+      font-weight: 600;
+      border: 1px solid #666666;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+    }
+    .btn-domain-b-generate:hover {
+      background: #333333;
+      border-color: #999999;
+      color: #ffffff;
+    }
+
+    /* Universal Theme Overrides: Black with Muted White Outlines & Text */
+    body, html, .app-main-layout, .app-top-header, .app-sidebar, .workspace-area {
+      background-color: #000000 !important;
+      color: #a0a0a0 !important;
+    }
+    .sidebar-card {
+      background: #000000 !important;
+      border: 1px solid #282828 !important;
+    }
+    .sidebar-card.gold-accent, .sidebar-card.cyan-accent {
+      border-color: #333333 !important;
+    }
+    .sidebar-title, .sidebar-title.cyan, .sidebar-title.gold {
+      color: #e0e0e0 !important;
+    }
+    .sidebar-subtitle {
+      color: #777777 !important;
+    }
+    .readout-box-domain-c, .readout-box-effects-grid {
+      background: #050505 !important;
+      border: 1px solid #222222 !important;
+    }
+    .highlight-cyan, .highlight-gold, .highlight-white, .val-gold, .val-white {
+      color: #e5e5e5 !important;
+    }
+    .val-pass, .val-green {
+      color: #cccccc !important;
+    }
+    .btn-generate {
+      background: #1c1c1c !important;
+      color: #ffffff !important;
+      border: 1px solid #444444 !important;
+      font-weight: 500 !important;
+    }
+    .btn-generate:hover {
+      background: #2a2a2a !important;
+      border-color: #666666 !important;
+    }
+    .btn-segment.active, .btn-vp-pill.active {
+      background: #222222 !important;
+      color: #ffffff !important;
+      border-color: #555555 !important;
+    }
+    .btn-segment, .btn-vp-pill {
+      background: #000000 !important;
+      color: #888888 !important;
+      border: 1px solid #262626 !important;
+    }
+    .btn-segment:hover, .btn-vp-pill:hover {
+      color: #cccccc !important;
+      border-color: #444444 !important;
+    }
+    .vp-tag-box, .vp-pill-btn, .vp-diag-card, .vp-status-bar-pill {
+      background: rgba(0, 0, 0, 0.9) !important;
+      border: 1px solid #333333 !important;
+      color: #b0b0b0 !important;
+    }
+    .slider {
+      accent-color: #888888 !important;
+    }
+    .slider::-webkit-slider-runnable-track {
+      background: #222222 !important;
+    }
+    .slider::-webkit-slider-thumb {
+      background: #aaaaaa !important;
+      border: 1px solid #ffffff !important;
+    }
+    .sidebar-main-tab-btn {
+      color: #777777 !important;
+    }
+    .sidebar-main-tab-btn:hover {
+      color: #cccccc !important;
+    }
+    .sidebar-main-tab-btn.active {
+      background: #0d0d0d !important;
+      color: #ffffff !important;
+      border-color: #444444 !important;
+      border-bottom: 2px solid #888888 !important;
+    }
+    .sidebar-sub-tabbar {
+      background: #000000 !important;
+      border-bottom: 1px solid #222222 !important;
+    }
+    .sub-tab-btn {
+      color: #777777 !important;
+    }
+    .sub-tab-btn.active {
+      background: #1a1a1a !important;
+      color: #ffffff !important;
+    }
+    .workspace-tab-btn {
+      background: #000000 !important;
+      color: #777777 !important;
+      border-color: #222222 !important;
+    }
+    .workspace-tab-btn.active {
+      background: #111111 !important;
+      color: #ffffff !important;
+      border-color: #444444 !important;
+    }
+  </style>
 </head>
 <body>
 
@@ -35,23 +232,10 @@
         <input type="file" id="rhino-file-input" accept=".3dm" style="display:none;">
       </label>
 
-      <button id="btn-load-sample" class="btn btn-header-cyan">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-        LOAD SAMPLE SEED (.3DM)
-      </button>
 
-      <button id="btn-restore-original" class="btn btn-header-cyan" style="border-color:#00f2fe; color:#00f2fe;" onclick="restoreOriginalImportedGeometry()">
+      <button id="btn-restore-original" class="btn btn-header-cyan" style="border-color:#444444; color:#cccccc;" onclick="restoreOriginalImportedGeometry()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
         RESTORE ORIGINAL GEOMETRY
-      </button>
-
-      <button id="btn-verify-import" class="btn btn-header-disabled" disabled>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg>
-        VERIFY RHINO IMPORT
-      </button>
-
-      <button id="btn-open-library" class="btn btn-header-outline" onclick="switchWorkspaceTab('library')">
-        EXPORT / LIBRARY (<span id="lib-count-badge">0</span>)
       </button>
     </div>
   </header>
@@ -65,7 +249,7 @@
       <!-- TOP SIDEBAR TAB BAR -->
       <div class="sidebar-main-tabbar">
         <button class="sidebar-main-tab-btn active" onclick="switchMainSidebarTab('left', 'dna', this)">
-          DNA CONTROLS
+          DOMAIN A & B
         </button>
         <button class="sidebar-main-tab-btn" onclick="switchMainSidebarTab('left', 'metrics', this)">
           METRICS & RULES
@@ -75,184 +259,381 @@
         </button>
       </div>
 
-      <!-- TAB CONTENT 1: DOMAIN B DNA SLIDERS -->
+      <!-- TAB CONTENT: DOMAIN A & B CONSOLIDATED PANEL -->
       <div id="maintab-left-dna" class="sidebar-main-tab-content active">
-        <div class="sidebar-card gold-accent">
+        <div class="sidebar-card">
           <div class="sidebar-card-header">
             <div class="card-header-titles">
-              <h2 class="sidebar-title gold">DOMAIN B — ART NOUVEAU DNA</h2>
-              <p class="sidebar-subtitle">Rule-based shape grammar transformation engine.</p>
+              <h2 class="sidebar-title">DOMAIN A & B — EVOLUTION SYSTEM</h2>
+              <p class="sidebar-subtitle">Spatial seed typologies, rules & shape grammar engine.</p>
             </div>
           </div>
 
           <div class="sidebar-card-body">
-            <!-- GENERATION MODES DROPDOWN -->
-            <details open style="margin-bottom: 12px; border: 1px solid #444; padding: 10px; background: transparent; cursor: pointer;">
-              <summary style="font-weight: 500; opacity: 0.9; outline: none;">GENERATION MODES</summary>
-              <div style="margin-top: 10px; cursor: default;">
-                <div class="control-row" style="margin-bottom:8px;">
-                  <span class="ctrl-label">START MODE:</span>
-                  <div class="btn-group-segmented" id="group-start-mode">
-                    <button id="btn-mode-auto" class="btn-segment active" onclick="setStartMode('AUTO')">AUTO</button>
-                    <button id="btn-mode-manual" class="btn-segment" onclick="setStartMode('MANUAL')">MANUAL</button>
-                  </div>
-                </div>
 
-                <div id="program-generate-block" style="margin-bottom:10px; padding: 10px; border: 1px solid #444; background: transparent;">
-                  <div class="control-row" style="margin-bottom:8px; display: block;">
-                    <span class="ctrl-label" style="color: #cccccc; margin-bottom:4px; display:block;">PROGRAM TARGET:</span>
-                    <select id="select-art-nouveau-program" style="width: 100%; background: #111; color: #b0b0b0; border: 1px solid #444; padding: 6px;">
-                      <option value="WORKSPACE">WORKSPACE</option>
-                      <option value="GATHERING">GATHERING SPACE</option>
-                      <option value="LOBBY">LOBBY</option>
-                      <option value="MEETING">MEETING SPACE</option>
-                      <option value="CIRCULATION">CIRCULATION</option>
-                    </select>
-                  </div>
-                  <button id="btn-generate-program-iteration" class="btn btn-header-gold" style="width:100%; padding:10px 12px; justify-content:center; background:#cccccc; color:#000000; border:1px solid #cccccc;" onclick="generateProgramIteration()">
-                    Generate Program
-                  </button>
-                </div>
-
-                <div id="auto-generate-primary-block" style="margin-bottom:10px;">
-                  <button id="btn-auto-generate-rules" class="btn btn-header-gold" style="width:100%; padding:10px 12px; justify-content:center; background:#b0b0b0; color:#000000; border:1px solid #b0b0b0;" onclick="generateFromArtNouveauRules()">
-                    Auto Generate
-                  </button>
-                </div>
-
-                <div style="margin-bottom:12px;">
-                  <button id="btn-sidebar-restore-original" class="btn btn-header-cyan" style="width:100%; padding:8px 10px; justify-content:center; border-color:#dddddd; color:#dddddd;" onclick="restoreOriginalImportedGeometry()">
-                    Restore Geometry
-                  </button>
-                </div>
+            <!-- DOMAIN A: BASE SPATIAL TYPOLOGIES (DROPDOWN TABS) -->
+            <div style="margin-bottom: 12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <span style="font-weight:600; color:#cccccc; font-size:9px; letter-spacing:0.8px;">DOMAIN A — BASE TYPOLOGIES</span>
+                <span id="domain-a-category-tag" style="font-size:7px; padding:1px 5px; background:#141414; color:#cccccc; border:1px solid #333333; border-radius:2px; font-weight:500;">LOBBY</span>
               </div>
-            </details>
+
+              <input type="hidden" id="select-base-typology" value="VERTICAL_VOID">
+
+              <!-- DROPDOWN TAB 1: LOBBY -->
+              <details class="domain-a-tab" open>
+                <summary>
+                  <span>LOBBY / ENTRANCE</span>
+                  <span style="font-size:7px; color:#888888; background:#141414; padding:1px 4px; border:1px solid #282828; border-radius:2px;">5 TYPES</span>
+                </summary>
+                <div style="padding:4px 6px 6px; display:flex; flex-direction:column; gap:3px;">
+                  <button type="button" class="domain-a-pill active" data-key="VERTICAL_VOID" onclick="selectDomainATypology('VERTICAL_VOID')">
+                    <span class="p-title">Vertical void lobby</span>
+                    <span class="p-sub">Multi-storey atrium shaft, look up & across void</span>
+                  </button>
+                  <button type="button" class="domain-a-pill" data-key="COMPRESSED_SEQUENTIAL" onclick="selectDomainATypology('COMPRESSED_SEQUENTIAL')">
+                    <span class="p-title">Compressed sequential lobby</span>
+                    <span class="p-sub">Chambered entry, choke → release sequence</span>
+                  </button>
+                  <button type="button" class="domain-a-pill" data-key="CONTINUOUS_HALL" onclick="selectDomainATypology('CONTINUOUS_HALL')">
+                    <span class="p-title">Continuous hall lobby</span>
+                    <span class="p-sub">Single large volume, free plan under shell</span>
+                  </button>
+                  <button type="button" class="domain-a-pill" data-key="TOPOGRAPHIC_GROUND" onclick="selectDomainATypology('TOPOGRAPHIC_GROUND')">
+                    <span class="p-title">Topographic / ground-field</span>
+                    <span class="p-sub">Sloped/folded landscape floor continuum</span>
+                  </button>
+                  <button type="button" class="domain-a-pill" data-key="LINEAR_GALLERY" onclick="selectDomainATypology('LINEAR_GALLERY')">
+                    <span class="p-title">Linear gallery lobby</span>
+                    <span class="p-sub">Elongated path along directional section</span>
+                  </button>
+                </div>
+              </details>
+
+              <!-- DROPDOWN TAB 2: WORKSPACE -->
+              <details class="domain-a-tab">
+                <summary>
+                  <span>WORKSPACE</span>
+                  <span style="font-size:7px; color:#888888; background:#141414; padding:1px 4px; border:1px solid #282828; border-radius:2px;">5 TYPES</span>
+                </summary>
+                <div style="padding:4px 6px 6px; display:flex; flex-direction:column; gap:3px;">
+                  <button type="button" class="domain-a-pill" data-key="OPEN_HALL" onclick="selectDomainATypology('OPEN_HALL')">
+                    <span class="p-title">Open hall workspace</span>
+                    <span class="p-sub">Continuous horizontal work field under one roof</span>
+                  </button>
+                  <button type="button" class="domain-a-pill" data-key="CASCADED_TERRACED" onclick="selectDomainATypology('CASCADED_TERRACED')">
+                    <span class="p-title">Cascaded / terraced plates</span>
+                    <span class="p-sub">Tiers stepping down a slope or section</span>
+                  </button>
+                  <button type="button" class="domain-a-pill" data-key="FLAT_DEEP_PLAN" onclick="selectDomainATypology('FLAT_DEEP_PLAN')">
+                    <span class="p-title">Flat deep-plan plate</span>
+                    <span class="p-sub">Extensive plate organized around cores/light wells</span>
+                  </button>
+                  <button type="button" class="domain-a-pill" data-key="VOID_EDGE" onclick="selectDomainATypology('VOID_EDGE')">
+                    <span class="p-title">Void-edge workspace</span>
+                    <span class="p-sub">Workspace rings an internal light well or void</span>
+                  </button>
+                  <button type="button" class="domain-a-pill" data-key="FOLDED_UNDULATED" onclick="selectDomainATypology('FOLDED_UNDULATED')">
+                    <span class="p-title">Folded / undulating work surface</span>
+                    <span class="p-sub">Continuous surface ramping up and down</span>
+                  </button>
+                </div>
+              </details>
+
+              <!-- DROPDOWN TAB 3: GATHERING -->
+              <details class="domain-a-tab">
+                <summary>
+                  <span>GATHERING / COLLABORATION</span>
+                  <span style="font-size:7px; color:#888888; background:#141414; padding:1px 4px; border:1px solid #282828; border-radius:2px;">5 TYPES</span>
+                </summary>
+                <div style="padding:4px 6px 6px; display:flex; flex-direction:column; gap:3px;">
+                  <button type="button" class="domain-a-pill" data-key="STEPPED_AMPHITHEATER" onclick="selectDomainATypology('STEPPED_AMPHITHEATER')">
+                    <span class="p-title">Stepped amphitheater</span>
+                    <span class="p-sub">Tiered seating/standing facing focal point</span>
+                  </button>
+                  <button type="button" class="domain-a-pill" data-key="VOID_FIELD_GATHERING" onclick="selectDomainATypology('VOID_FIELD_GATHERING')">
+                    <span class="p-title">Void-field gathering</span>
+                    <span class="p-sub">Ground floor of high void where paths cross</span>
+                  </button>
+                  <button type="button" class="domain-a-pill" data-key="INSERTED_PLATE" onclick="selectDomainATypology('INSERTED_PLATE')">
+                    <span class="p-title">Inserted horizontal plate</span>
+                    <span class="p-sub">Suspended platform/mezzanine floating in space</span>
+                  </button>
+                  <button type="button" class="domain-a-pill" data-key="CONTAINED_ROOM" onclick="selectDomainATypology('CONTAINED_ROOM')">
+                    <span class="p-title">Contained room-within-volume</span>
+                    <span class="p-sub">Distinct enclosed pavilion/pod inside volume</span>
+                  </button>
+                  <button type="button" class="domain-a-pill" data-key="LINEAR_EDGE_GALLERY" onclick="selectDomainATypology('LINEAR_EDGE_GALLERY')">
+                    <span class="p-title">Linear edge gallery</span>
+                    <span class="p-sub">Elongated overlook balcony along perimeter</span>
+                  </button>
+                </div>
+              </details>
+
+              <!-- ACTIVE SEED MINI RULE PREVIEW -->
+              <div style="margin-top:6px; background:#080808; border:1px solid #282828; border-radius:3px; padding:6px 8px; font-size:7.5px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+                  <span style="color:#777777;">ACTIVE SEED:</span>
+                  <span id="domain-a-selected-title" style="color:#ffffff; font-weight:600;">VERTICAL VOID LOBBY</span>
+                </div>
+                <div id="domain-a-desc-text" style="color:#888888; font-size:7px; line-height:1.3; margin-bottom:4px;">
+                  multi-storey atrium or shaft; arrival volume is organized by looking up and across a continuous void.
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:7px; color:#cccccc; border-top:1px solid #1f1f1f; padding-top:3px;">
+                  <span>Rule: <b id="domain-a-spatial-rule" style="color:#ffffff; font-weight:500;">LOOK UP & ACROSS VOID</b></span>
+                  <span>DNA: <b id="domain-a-principles-badge" style="color:#cccccc; font-weight:500;">W + V</b></span>
+                </div>
+                <span id="domain-a-geom-action" style="display:none;">Vertical Atrium Shaft & Upward Ribs</span>
+              </div>
+            </div>
 
             <!-- DESIGNER REFINEMENT MODE STATUS BANNER -->
-            <div id="designer-refinement-banner" style="display:none; margin-bottom:10px; background:#111111; padding: 8px; border: 1px solid #444;">
+            <div id="designer-refinement-banner" style="display:none; margin-bottom:10px; background:#111111; padding: 8px; border: 1px solid #333333;">
               <div style="font-weight:500; color:#b0b0b0; display:flex; justify-content:space-between; align-items:center;">
                 <span>MODE: DESIGNER REFINEMENT</span>
-                <span id="refinement-parent-tag" style="color:#94a3b8;">PARENT: AUTO-02</span>
+                <span id="refinement-parent-tag" style="color:#888888;">PARENT: AUTO-02</span>
               </div>
               <button id="btn-reset-to-auto" class="btn-header-outline" style="margin-top:6px; padding:3px 6px; width:100%; justify-content:center;" onclick="resetToAutoProposal()">
                 Reset to Auto
               </button>
             </div>
 
-            <!-- MANUAL SHAPE SLIDERS DROPDOWN -->
-            <details style="margin-bottom: 12px; border: 1px solid #444; padding: 10px; background: transparent; cursor: pointer;">
-              <summary style="font-weight: 500; opacity: 0.9; outline: none;">MANUAL SHAPE SLIDERS</summary>
+            <!-- DOMAIN B: MANUAL SHAPE SLIDERS -->
+            <details open style="margin-bottom: 12px; border: 1px solid #333333; padding: 10px; background: #000000; border-radius: 4px; cursor: pointer;">
+              <summary style="font-weight: 500; opacity: 0.95; outline: none; color:#cccccc; font-size:8.5px;">DOMAIN B — MANUAL SHAPE SLIDERS</summary>
               <div style="margin-top: 10px; cursor: default;" class="dna-sliders-container">
+                <!-- DOMAIN A TYPOLOGY GEOMETRIC INFLUENCE BANNER -->
+                <div id="domain-b-influence-banner" style="margin-bottom:10px; background:#080808; padding:8px; border:1px solid #333333; border-radius:3px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+                    <span style="font-size:7px; color:#888888; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;">DOMAIN A SPATIAL INFLUENCE</span>
+                    <span id="domain-b-influence-cat" style="font-size:7px; color:#cccccc; border:1px solid #444444; padding:1px 5px; border-radius:2px; text-transform:uppercase;">LOBBY</span>
+                  </div>
+                  <div id="domain-b-influence-title" style="font-size:8.5px; color:#ffffff; font-weight:600; text-transform:uppercase; letter-spacing:0.3px;">VERTICAL VOID LOBBY</div>
+                  <div style="font-size:7px; color:#ffffff; margin-top:3px; line-height:1.35;">
+                    <b>Spatial Goal:</b> <span id="domain-b-influence-goal" style="color:#e0e0e0;">create a tall continuous void.</span>
+                  </div>
+                  <div id="domain-b-influence-rationale" style="font-size:7px; color:#aaaaaa; margin-top:3px; line-height:1.35;">
+                    Growth: favors +Z / vertical direction around void. Positive/Negative: enlarges one major vertical void. Continuity: connects lower and upper surfaces. Whiplash: curves surfaces upward. Branching: limited so the central void stays clear.
+                  </div>
+                  <div style="font-size:7px; color:#bbbbbb; margin-top:3px; line-height:1.35;">
+                    <b>Result:</b> <span id="domain-b-influence-result" style="color:#ffffff;">geometry grows around a tall open center.</span>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px; padding-top:4px; border-top:1px solid #222222; font-size:7px; color:#777777;">
+                    <span>SPATIAL RULE: <b id="domain-b-influence-rule" style="color:#ffffff; font-weight:500;">LOOK UP & ACROSS VOID</b></span>
+                    <span id="domain-b-influence-status" style="color:#cccccc; font-weight:500;">SPATIAL GRAMMAR ACTIVE</span>
+                  </div>
+                  <button id="btn-activate-domain-b" class="btn btn-header-cyan" style="width:100%; margin-top:6px; font-size:7.5px; padding:3px 6px; letter-spacing:0.5px; justify-content:center;" onclick="activateDomainBRules(true)">
+                    APPLY / ACTIVATE TYPOLOGY IN DOMAIN B
+                  </button>
+                </div>
+
                 <!-- HOW THEY WORK TOGETHER -->
-                <details style="margin-bottom: 10px; background: #111; padding: 6px; border: 1px solid #333;">
-                  <summary style="font-size:8.5px; color:#bbb; cursor:pointer; outline:none; font-weight:bold;">HOW THE RULES WORK TOGETHER</summary>
-                  <div style="font-size:7.5px; color:#aaa; padding-top:4px; line-height:1.3;">
-                    A surface grows outward → branches into offshoots → Whiplash curves them → Merging connects nearby pieces → Positive / Negative shapes the resulting openings. Continuity keeps the attachments smooth throughout.<br><br>
-                    <i>Key distinction: Branching controls how many new offshoots appear; Growth controls how far those extensions develop.</i>
+                <details style="margin-bottom: 10px; background: #0a0a0a; padding: 6px; border: 1px solid #282828; border-radius: 3px;">
+                  <summary style="font-size:8.5px; color:#cccccc; cursor:pointer; outline:none; font-weight:500;">HOW THE RULES WORK TOGETHER</summary>
+                  <div style="font-size:7.5px; color:#888888; padding-top:4px; line-height:1.35;">
+                    Each rule transforms the seed geometry in a distinct, measurable way:<br><br>
+                    <b style="color:#ffffff;">Whiplash Curve</b> — bends and redirects lines to create dynamic movement.<br>
+                    <b style="color:#ffffff;">Continuity</b> — extends and connects separate elements into one continuous form.<br>
+                    <b style="color:#ffffff;">Branching</b> — grows and divides a primary form into smaller interconnected forms.<br><br>
+                    <i>The active Domain A space typology bounds and constrains these rules to enforce its architectural definition.</i>
                   </div>
                 </details>
 
-                <!-- CONTINUITY -->
+                <!-- ═══════════════════════════════════════════ -->
+                <!-- CONTINUITY (C) -->
+                <!-- ═══════════════════════════════════════════ -->
                 <div class="slider-group-dna">
                   <div class="slider-label-dna">
-                    <span class="dna-title">CONTINUITY (C)</span>
+                    <span class="dna-title" id="title-dna-c">CONTINUITY (C)</span>
+                    <span class="val-dna-limit" id="limit-dna-c" style="font-size:7px; color:#888888; font-family:'Space Mono',monospace;">[30–85%]</span>
                     <span class="val-dna" id="val-dna-c">0%</span>
                   </div>
                   <input type="range" id="slider-dna-c" min="0" max="100" value="0" class="slider slider-gold">
-                  <details style="margin-top:4px;">
-                    <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Description</summary>
+                  <details style="margin-top:4px;" open>
+                    <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Definition</summary>
                     <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
-                      Make connections flow smoothly. Controls how smoothly a new branch, growth extension, or bridge joins the existing surface. New geometry inherits the direction of the surface where it attaches. The connection transitions gradually, without an abrupt kink. Changes stay near the connection.<br><br><i>Slider: low = a more distinct junction; high = a longer, smoother transition.</i>
+                      <b style="color:#ccc;">Qualitative:</b> <span id="def-dna-c-qual">Separate elements extend and connect to become one continuous form.</span><br><br>
+                      <b style="color:#ccc;">Quantitative:</b> <span id="def-dna-c-quant">Number of disconnected elements reduced through continuous connections.</span><br><br>
+                      <i id="def-dna-c-tip">Slider: low = elements remain more distinct; high = more elements fused into one continuous surface.</i>
                     </div>
                   </details>
-                </div>
-
-                <!-- BRANCHING -->
-                <div class="slider-group-dna">
-                  <div class="slider-label-dna">
-                    <span class="dna-title">BRANCHING (B)</span>
-                    <span class="val-dna" id="val-dna-b">0%</span>
+                  <div style="display:flex; gap:8px; margin-top:4px; font-size:7px; color:#888;">
+                    <div>Disconnected: <span id="metric-c-disconnected" class="val-white">—</span></div>
+                    <div>Connected: <span id="metric-c-connected" class="val-white">—</span></div>
                   </div>
-                  <input type="range" id="slider-dna-b" min="0" max="100" value="0" class="slider slider-gold">
-                  <details style="margin-top:4px;">
-                    <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Description</summary>
-                    <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
-                      Split the existing surface flow. Branching feels like the original mesh naturally dividing, not new geometry being stuck onto it. A branch must initially follow the same tangent/direction as its parent surface. Gradually separate from the parent instead of immediately shooting outward. Maintain a smooth curved transition at the connection. Branches inherit the parent's curvature and gradually taper.<br><br><i>Slider: low = original surface barely separates; high = more visible branching and additional connected branches.</i>
-                    </div>
-                  </details>
                 </div>
 
-                <!-- WHIPLASH -->
+                <!-- ═══════════════════════════════════════════ -->
+                <!-- WHIPLASH CURVE (W) -->
+                <!-- ═══════════════════════════════════════════ -->
                 <div class="slider-group-dna">
                   <div class="slider-label-dna">
-                    <span class="dna-title">WHIPLASH (W)</span>
+                    <span class="dna-title" id="title-dna-w">WHIPLASH CURVE (W)</span>
+                    <span class="val-dna-limit" id="limit-dna-w" style="font-size:7px; color:#888888; font-family:'Space Mono',monospace;">[25–95%]</span>
                     <span class="val-dna" id="val-dna-w">0%</span>
                   </div>
                   <input type="range" id="slider-dna-w" min="0" max="100" value="0" class="slider slider-gold">
-                  <details style="margin-top:4px;">
-                    <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Description</summary>
+                  <details style="margin-top:4px;" open>
+                    <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Definition</summary>
                     <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
-                      Control the curvature. Gives selected surfaces or generated extensions the characteristic Art Nouveau bend: one dominant curve with a smaller counter-curve. Curves a branch, extension, or selected surface region. Maintains its attachments. Avoids repeated, uniform waves.<br><br><i>Slider: low = gentle bending; high = a stronger asymmetric sweep.</i>
+                      <b style="color:#ccc;">Qualitative:</b> <span id="def-dna-w-qual">A fluid line that bends and redirects to create dynamic movement.</span><br><br>
+                      <b style="color:#ccc;">Quantitative:</b> <span id="def-dna-w-quant">Number of directional changes + degree of curvature along the path.</span><br><br>
+                      <i id="def-dna-w-tip">Slider: low = few directional changes, gentle curves; high = multiple redirections, strong curvature.</i>
+                    </div>
+                  </details>
+                  <div style="display:flex; gap:8px; margin-top:4px; font-size:7px; color:#888;">
+                    <div>Direction changes: <span id="metric-w-changes" class="val-white">0</span></div>
+                    <div>Curvature°: <span id="metric-w-curvature" class="val-white">0°</span></div>
+                  </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════ -->
+                <!-- BRANCHING (B) -->
+                <!-- ═══════════════════════════════════════════ -->
+                <div class="slider-group-dna">
+                  <div class="slider-label-dna">
+                    <span class="dna-title" id="title-dna-b">BRANCHING (B)</span>
+                    <span class="val-dna-limit" id="limit-dna-b" style="font-size:7px; color:#888888; font-family:'Space Mono',monospace;">[0–35%]</span>
+                    <span class="val-dna" id="val-dna-b">0%</span>
+                  </div>
+                  <input type="range" id="slider-dna-b" min="0" max="100" value="0" class="slider slider-gold">
+                  <details style="margin-top:4px;" open>
+                    <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Definition</summary>
+                    <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
+                      <b style="color:#ccc;">Qualitative:</b> <span id="def-dna-b-qual">A primary form grows and divides into smaller interconnected forms.</span><br><br>
+                      <b style="color:#ccc;">Quantitative:</b> <span id="def-dna-b-quant">Number of branches + number of divisions from each branch.</span><br><br>
+                      <i id="def-dna-b-tip">Slider: low = fewer branches, minimal division; high = more branches with deeper subdivision.</i>
+                    </div>
+                  </details>
+                  <div style="display:flex; gap:8px; margin-top:4px; font-size:7px; color:#888;">
+                    <div>Branches: <span id="metric-b-count" class="val-white">0</span></div>
+                    <div>Divisions: <span id="metric-b-divisions" class="val-white">0</span></div>
+                  </div>
+
+                  <!-- EXPANDABLE ARCHITECTURAL BRANCHING CONTROLS -->
+                  <details style="margin-top:4px;">
+                    <summary style="font-size:8px; color:#cccccc; cursor:pointer; outline:none; font-weight:500; display:flex; justify-content:space-between; align-items:center;">
+                      <span>ARCHITECTURAL BRANCHING CONTROLS</span>
+                      <span id="branching-val-status" class="val-pass" style="font-size:7px; padding:1px 4px; border-radius:2px;">VALID (100%)</span>
+                    </summary>
+                    <div style="font-size:7.5px; color:#ccc; padding:6px; line-height:1.35; background:rgba(20,20,20,0.85); border:1px solid #444; border-radius:3px; margin-top:3px;">
+                      <!-- SubD Growth Origin & Spatial Purpose -->
+                      <div style="display:flex; gap:6px; margin-bottom:5px;">
+                        <div style="flex:1;">
+                          <div style="color:#aaa; font-size:7px; margin-bottom:1px;">PARENT EDGE SOURCE:</div>
+                          <select id="branch-ctrl-anchor" style="width:100%; background:#111; color:#fff; border:1px solid #555; font-size:7.5px; padding:2px; border-radius:2px;" onchange="onBranchControlChange()">
+                            <option value="TERRACE" selected>Mid-Terrace Edge (x=3.5, y=6.1)</option>
+                            <option value="SHOULDER">Upper Shoulder Edge (x=7.5, y=8.1)</option>
+                            <option value="CANTILEVER">Cantilever Plate Edge (x=-9.9, y=11.4)</option>
+                            <option value="FOOT">Lower Ground Rim (x=6.8, y=1.3)</option>
+                          </select>
+                        </div>
+                        <div style="flex:1;">
+                          <div style="color:#aaa; font-size:7px; margin-bottom:1px;">SPATIAL PURPOSE:</div>
+                          <select id="branch-ctrl-purpose" style="width:100%; background:#111; color:#fff; border:1px solid #555; font-size:7.5px; padding:2px; border-radius:2px;" onchange="onBranchControlChange()">
+                            <option value="Meeting" selected>Meeting Zone</option>
+                            <option value="Workspace">Workspace</option>
+                            <option value="Gathering">Gathering Hall</option>
+                            <option value="Circulation">Circulation Guide</option>
+                            <option value="Enclosure">Partial Enclosure</option>
+                            <option value="Support">Vertical Support</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <!-- Branch Type & Spatial Purpose Zone Outline -->
+                      <div style="display:flex; gap:6px; margin-bottom:5px; align-items:center;">
+                        <div style="flex:1;">
+                          <div style="color:#aaa; font-size:7px; margin-bottom:1px;">BRANCH TYPE:</div>
+                          <select id="branch-ctrl-type" style="width:100%; background:#111; color:#fff; border:1px solid #555; font-size:7.5px; padding:2px; border-radius:2px;" onchange="onBranchControlChange()">
+                            <option value="WALL_TO_WALL" selected>Wall → Wall</option>
+                            <option value="WALL_TO_SUPPORT">Wall → Support</option>
+                            <option value="SUPPORT_TO_SUPPORTS">Support → Supports</option>
+                          </select>
+                        </div>
+                        <div style="flex:1; padding-top:8px;">
+                          <label style="display:flex; align-items:center; gap:4px; font-size:7.5px; color:#cccccc; cursor:pointer;">
+                            <input type="checkbox" id="branch-ctrl-show-enclosure" onchange="onBranchControlChange()" checked style="cursor:pointer;">
+                            <span>Show Spatial Zone</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <!-- Primary Wall Controls -->
+                      <div style="background:rgba(255,255,255,0.03); border:1px solid #333; padding:4px; border-radius:2px; margin-bottom:4px;">
+                        <strong style="color:#cccccc; font-size:7.5px;">PRIMARY WALL (Volume)</strong>
+                        <div style="margin-top:2px;">
+                          <div style="display:flex; justify-content:space-between;"><span>Wall Height (8–14 ft):</span><span id="lbl-branch-height" class="val-white">12.0 ft</span></div>
+                          <input type="range" id="branch-ctrl-height" min="8" max="14" step="0.5" value="12" style="width:100%; height:3px;" oninput="onBranchControlChange()">
+                        </div>
+                        <div style="margin-top:2px;">
+                          <div style="display:flex; justify-content:space-between;"><span>Wall Thickness (6–12 in):</span><span id="lbl-branch-thick" class="val-white">8.0 in</span></div>
+                          <input type="range" id="branch-ctrl-thick" min="6" max="12" step="0.5" value="8" style="width:100%; height:3px;" oninput="onBranchControlChange()">
+                        </div>
+                        <div style="margin-top:2px;">
+                          <div style="display:flex; justify-content:space-between;"><span>Primary Length (10–25 ft):</span><span id="lbl-branch-length" class="val-white">16.0 ft</span></div>
+                          <input type="range" id="branch-ctrl-length" min="10" max="25" step="1" value="16" style="width:100%; height:3px;" oninput="onBranchControlChange()">
+                        </div>
+                      </div>
+
+                      <!-- Secondary Branches Controls -->
+                      <div style="background:rgba(255,255,255,0.03); border:1px solid #333; padding:4px; border-radius:2px; margin-bottom:4px;">
+                        <strong style="color:#cccccc; font-size:7.5px;">SECONDARY BRANCHES (Hierarchy)</strong>
+                        <div style="margin-top:2px;">
+                          <div style="display:flex; justify-content:space-between;"><span>Branch Count (2–4):</span><span id="lbl-branch-count" class="val-white">3</span></div>
+                          <input type="range" id="branch-ctrl-count" min="2" max="4" step="1" value="3" style="width:100%; height:3px;" oninput="onBranchControlChange()">
+                        </div>
+                        <div style="margin-top:2px;">
+                          <div style="display:flex; justify-content:space-between;"><span>Branch Length (30–70%):</span><span id="lbl-branch-ratio" class="val-white">50% (~10-12 ft)</span></div>
+                          <input type="range" id="branch-ctrl-ratio" min="30" max="70" step="5" value="50" style="width:100%; height:3px;" oninput="onBranchControlChange()">
+                        </div>
+                        <div style="margin-top:2px;">
+                          <div style="display:flex; justify-content:space-between;"><span>Branch Angle (20–60°):</span><span id="lbl-branch-angle" class="val-white">38°</span></div>
+                          <input type="range" id="branch-ctrl-angle" min="20" max="60" step="1" value="38" style="width:100%; height:3px;" oninput="onBranchControlChange()">
+                        </div>
+                      </div>
+
+                      <!-- Curvature & Asymmetry -->
+                      <div style="display:flex; gap:6px; margin-bottom:5px;">
+                        <div style="flex:1;">
+                          <div style="color:#aaa; font-size:7px; margin-bottom:1px;">CURVATURE:</div>
+                          <select id="branch-ctrl-curv" style="width:100%; background:#111; color:#fff; border:1px solid #555; font-size:7.5px; padding:2px; border-radius:2px;" onchange="onBranchControlChange()">
+                            <option value="Low">Low</option>
+                            <option value="Medium" selected>Medium</option>
+                            <option value="High">High</option>
+                          </select>
+                        </div>
+                        <div style="flex:1;">
+                          <div style="color:#aaa; font-size:7px; margin-bottom:1px;">ASYMMETRY:</div>
+                          <select id="branch-ctrl-asymm" style="width:100%; background:#111; color:#fff; border:1px solid #555; font-size:7.5px; padding:2px; border-radius:2px;" onchange="onBranchControlChange()">
+                            <option value="Low">Low</option>
+                            <option value="Medium" selected>Medium</option>
+                            <option value="High">High</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <!-- Validation Checks -->
+                      <div style="margin-top:4px;">
+                        <div style="font-size:7px; color:#cccccc; font-weight:bold; margin-bottom:2px;">QUANTITATIVE ARCHITECTURAL AUDIT (10 PRINCIPLES):</div>
+                        <div id="branching-checks-list" style="max-height:105px; overflow-y:auto; padding-right:2px;">
+                        </div>
+                      </div>
+
                     </div>
                   </details>
                 </div>
 
-                <!-- MERGING -->
-                <div class="slider-group-dna">
-                  <div class="slider-label-dna">
-                    <span class="dna-title">MERGING (M)</span>
-                    <span class="val-dna" id="val-dna-m">0%</span>
-                  </div>
-                  <input type="range" id="slider-dna-m" min="0" max="100" value="0" class="slider slider-gold">
-                  <details style="margin-top:4px;">
-                    <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Description</summary>
-                    <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
-                      Connect surfaces together. Creates local bridges between nearby surfaces, including surfaces belonging to different objects. Finds suitable pairs of surface regions. Grows a connecting surface between them. Smooths the two connection areas. Preserves the overall size of the model.<br><br><i>Slider: low = a few connections; high = more connections between eligible surfaces.</i>
-                    </div>
-                  </details>
-                </div>
-
-                <!-- POS/NEG SPACE -->
-                <div class="slider-group-dna">
-                  <div class="slider-label-dna">
-                    <span class="dna-title">POS / NEG SPACE (V)</span>
-                    <span class="val-dna" id="val-dna-v">0%</span>
-                  </div>
-                  <input type="range" id="slider-dna-v" min="0" max="100" value="0" class="slider slider-gold">
-                  <details style="margin-top:4px;">
-                    <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Description</summary>
-                    <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
-                      Shape the spaces between surfaces. Controls the balance between solid geometry and the openings, gaps, and cavities defined by it. Selects a local gap between surfaces. Opens or widens that gap by moving its surrounding surfaces apart. Narrows or partially encloses it by extending surfaces around it. Preserves connections to the rest of the form.<br><br><i>Slider: toward positive = more solid enclosure and smaller openings; toward negative = larger, more open spaces.</i>
-                    </div>
-                  </details>
-                </div>
-
-                <!-- GROWTH -->
-                <div class="slider-group-dna">
-                  <div class="slider-label-dna">
-                    <span class="dna-title">GROWTH (G)</span>
-                    <span class="val-dna" id="val-dna-g">0%</span>
-                  </div>
-                  <input type="range" id="slider-dna-g" min="0" max="100" value="0" class="slider slider-gold">
-                  <details style="margin-top:4px;">
-                    <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Description</summary>
-                    <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
-                      Continue the existing surface flow. Growth extends the direction already present in the imported mesh. Growth begins primarily from existing edges, ends, or strong directional regions. Continues in approximately the same direction first, then gradually curves away from the original trajectory. Growth looks like the original form is being stretched/continued into new space.<br><br><i>Slider: low = short continuation of the existing form; high = longer flowing extension.</i>
-                    </div>
-                  </details>
-                </div>
               </div>
             </details>
 
-
-
             <!-- FORM DNA VECTOR READOUT -->
             <div class="form-dna-box">
-              <div class="dna-box-header">FORM DNA</div>
-              <div class="dna-vector-code" id="readout-form-dna">0 / 0 / 0 / 0 / 0 / 0</div>
+              <div class="dna-box-header">FORM DNA VECTOR (C / W / B)</div>
+              <div class="dna-vector-code" id="readout-form-dna">0 / 0 / 0</div>
               <div class="dna-principles-row">
-                <div>DOMINANT: <span id="readout-dominant-principle" class="val-gold">CONTINUITY</span></div>
-                <div>SECONDARY: <span id="readout-secondary-principle" class="val-white">BRANCHING</span></div>
+                <div>DOMINANT: <span id="readout-dominant-principle" class="val-white">CONTINUITY</span></div>
+                <div>SECONDARY: <span id="readout-secondary-principle" class="val-white">WHIPLASH</span></div>
               </div>
             </div>
 
@@ -361,7 +742,7 @@
 
             <!-- VIEW MATHEMATICAL REASONING BUTTON -->
             <button id="btn-view-reasoning" class="btn btn-header-cyan" style="width:100%; margin-top:6px;">
-              🔍 VIEW MATHEMATICAL REASONING
+              VIEW MATHEMATICAL REASONING
             </button>
           </div>
         </div>
@@ -445,13 +826,13 @@
           <div class="vp-toolbar-group" style="margin-top: 6px;">
             <span class="vp-group-label">CAPTURE</span>
             <div class="btn-group-segmented">
-              <button id="btn-export-png" class="btn-vp-pill" onclick="exportViewportToPNG()">📷 PNG IMAGE</button>
+              <button id="btn-export-png" class="btn-vp-pill" onclick="exportViewportToPNG()">PNG IMAGE</button>
             </div>
           </div>
         </div>
 
-        <!-- VIEWPORT BOTTOM-LEFT FLOATING DIAGNOSTICS CARD -->
-        <div class="vp-overlay bottom-left">
+        <!-- VIEWPORT BOTTOM-LEFT FLOATING DIAGNOSTICS CARD (REMOVED) -->
+        <div class="vp-overlay bottom-left" style="display: none !important;">
           <div class="vp-diag-card" id="vp-diag-card">
             <div class="vp-card-title">Seed File: <span id="info-filename">compressed.3dm</span></div>
             <div class="vp-card-row">FILE READ: <span id="diag-read" class="val-white">OK</span> | EXTRACTED: <span id="diag-ext" class="val-white">OK</span> | RENDERED: <span id="diag-ren" class="val-white">OK</span></div>
@@ -478,14 +859,14 @@
             <p id="population-tab-subtitle" class="pop-subtitle">Displaying all generated variations side-by-side without scrolling.</p>
           </div>
           <div class="pop-header-actions">
-            <button id="btn-back-to-3d" class="btn btn-header-cyan" onclick="switchWorkspaceTab('viewport')">🧊 RETURN TO 3D VIEWPORT</button>
+            <button id="btn-back-to-3d" class="btn btn-header-cyan" onclick="switchWorkspaceTab('viewport')">RETURN TO 3D VIEWPORT</button>
           </div>
         </div>
 
         <!-- FULL WORKSPACE MULTI-COLUMN POPULATION GRID -->
         <div id="population-cards-full-grid" class="population-full-grid">
           <div class="pop-empty-state">
-            <p>No iterations generated yet. Configure Domain B parameters & click <strong>⚡ GENERATE CONTROLLED ITERATIONS</strong> in the right sidebar to generate design variations.</p>
+            <p>No iterations generated yet. Configure Domain B parameters & click <strong>GENERATE CONTROLLED ITERATIONS</strong> in the right sidebar to generate design variations.</p>
           </div>
         </div>
       </div>
@@ -494,11 +875,11 @@
       <div id="tab-content-library" class="workspace-tab-content">
         <div class="population-tab-header">
           <div class="pop-header-title-group">
-            <h3 class="pop-title">★ ITERATION LIBRARY — CURATED DESIGN ALTERNATIVES</h3>
+            <h3 class="pop-title">ITERATION LIBRARY — CURATED DESIGN ALTERNATIVES</h3>
             <p class="pop-subtitle">Your saved and exported design iterations.</p>
           </div>
           <div class="pop-header-actions">
-            <button class="btn btn-header-cyan" onclick="switchWorkspaceTab('viewport')">🧊 RETURN TO 3D VIEWPORT</button>
+            <button class="btn btn-header-cyan" onclick="switchWorkspaceTab('viewport')">RETURN TO 3D VIEWPORT</button>
           </div>
         </div>
 
@@ -534,12 +915,12 @@
             </select>
           </div>
 
-          <button id="btn-toggle-favorites" class="btn btn-fav-toggle">★ FAVORITES ONLY</button>
+          <button id="btn-toggle-favorites" class="btn btn-fav-toggle">FAVORITES ONLY</button>
 
           <div class="toolbar-actions">
-            <button id="btn-export-library" class="btn btn-export">⬇ EXPORT LIBRARY</button>
+            <button id="btn-export-library" class="btn btn-export">EXPORT LIBRARY</button>
             <label class="btn btn-import-json">
-              ⬆ IMPORT LIBRARY
+              IMPORT LIBRARY
               <input type="file" id="import-json-input" accept=".json" style="display:none;">
             </label>
           </div>
@@ -576,6 +957,7 @@
           <div class="sidebar-card-body">
             <!-- READOUT STATUS BLOCK -->
             <div class="readout-box-domain-c">
+              <div>Typology: <span id="c-readout-typology" class="highlight-cyan">Vertical Void Lobby</span></div>
               <div>Parent: <span id="c-readout-parent" class="highlight-cyan">Rhino Seed</span></div>
               <div>Principle: <span id="c-readout-principle" class="highlight-cyan">Whiplash Curvature</span></div>
               <div>Target: <span id="c-readout-target" class="highlight-white">Zone D (Regional)</span></div>
@@ -603,32 +985,10 @@
               </div>
             </div>
 
-            <!-- GENERATION STRATEGY SELECTOR -->
-            <div class="control-row">
-              <span class="ctrl-label">Strategy:</span>
-              <div class="btn-group-segmented" id="group-generation-strategy">
-                <button class="btn-segment active" data-val="PARAMETRIC">Parametric</button>
-                <button class="btn-segment" data-val="EFFECT_DRIVEN">Effect</button>
-                <button class="btn-segment" data-val="PRINCIPLE_STUDY">Study</button>
-              </div>
-            </div>
-
-            <!-- STUDY VARIABLE SELECTOR -->
-            <div class="control-row">
-              <span class="ctrl-label">Study Var:</span>
-              <select id="select-study-variable" class="select-input-compact" style="width:140px;" onchange="if(window.domainState) window.domainState.studyVariable = this.value;">
-                <option value="CONTINUITY">CONTINUITY (C)</option>
-                <option value="BRANCHING" selected>BRANCHING (B)</option>
-                <option value="WHIPLASH">WHIPLASH (W)</option>
-                <option value="MERGING">MERGING (M)</option>
-                <option value="POSITIVE_NEGATIVE">POS/NEG (V)</option>
-                <option value="GROWTH">GROWTH (G)</option>
-              </select>
-            </div>
 
             <!-- GENERATE BUTTON -->
             <button id="btn-generate-iterations" class="btn btn-generate" style="margin-top:6px;">
-              ⚡ GENERATE CONTROLLED ITERATIONS
+              GENERATE CONTROLLED ITERATIONS
             </button>
           </div>
         </div>
@@ -954,7 +1314,8 @@
     </div>
   </footer>
 
-  <script src="generator.js"></script>
-  <script src="app.js"></script>
+  <script src="branchingEngine.js?v=20260930_v6"></script>
+  <script src="generator.js?v=20260930_v6"></script>
+  <script src="app.js?v=20260930_v6"></script>
 </body>
 </html>

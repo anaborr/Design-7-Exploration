@@ -90,6 +90,9 @@ const DOMAIN_B_RULES = {
 const domainState = {
   dna: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], // [C, B, W, M, V, G] internal floats 0.0-1.0
   startMode: 'AUTO', // 'AUTO' | 'MANUAL'
+  selectedTypology: 'VERTICAL_VOID',
+  pendingTypologyParams: null,
+  activeTypologyLimits: null,
   seedGeometricProfile: null,
   autoProposals: [],
   activeRefinementProposal: null,
@@ -360,10 +363,10 @@ function updateDnaUIAndViewport() {
   const bdgV = document.getElementById('badge-dna-v'); if (bdgV) bdgV.textContent = getQualitativeStateLabel('POSITIVE_NEGATIVE', v);
   const bdgG = document.getElementById('badge-dna-g'); if (bdgG) bdgG.textContent = getQualitativeStateLabel('GROWTH', g);
 
-  // Update Form DNA Vector Readout
+  // Update Form DNA Vector Readout (C / W / B)
   const codeEl = document.getElementById('readout-form-dna');
   if (codeEl) {
-    codeEl.textContent = `${Math.round(c*100)} / ${Math.round(b*100)} / ${Math.round(w*100)} / ${Math.round(m*100)} / ${Math.round(v*100)} / ${Math.round(g*100)}`;
+    codeEl.textContent = `${Math.round(c*100)} / ${Math.round(w*100)} / ${Math.round(b*100)}`;
   }
 
   // Update Dominant / Secondary readouts
@@ -373,9 +376,9 @@ function updateDnaUIAndViewport() {
   const secEl = document.getElementById('readout-secondary-principle');
   if (secEl) secEl.textContent = domSec.secondary;
 
-  // Render transformed geometry in Three.js main viewport
+  // Render transformed geometry in Three.js main viewport through active spatial typology
   if (window.renderIterationGeometry) {
-    window.renderIterationGeometry(dna);
+    window.renderIterationGeometry(dna, 'ITERATION', domainState.selectedTypology);
   }
 
   // Read actual empirical engine stats
@@ -393,7 +396,7 @@ function updateDnaUIAndViewport() {
   if (maxDispEl) maxDispEl.textContent = (stats.maxDisplacement || 0) + ' ft';
 
   if (origPos && bounds && window.measureGeometryMetrics) {
-    const defPos = window.applyArtNouveauDNA(origPos, dna, bounds, domainState.seedIdentityThreshold);
+    const defPos = window.applyArtNouveauDNA(origPos, dna, bounds, domainState.seedIdentityThreshold, true, domainState.selectedTypology);
     const metrics = window.measureGeometryMetrics(defPos, origPos, bounds);
 
     const wChangeEl = document.getElementById('effect-width-change');
@@ -417,14 +420,42 @@ function updateDnaUIAndViewport() {
   const mOpen = document.getElementById('m-open-cnt'); if (mOpen) mOpen.textContent = Math.floor(1 + 3 * v);
   const mGrowth = document.getElementById('m-growth-cnt'); if (mGrowth) mGrowth.textContent = Math.floor(1 + 4 * g);
 
-  // Rule Validation Panel Checkmarks
-  const valCont = document.getElementById('val-rule-cont'); if (valCont) valCont.textContent = c > 0.7 ? '✓ CONTINUOUS FLOW' : (c > 0.3 ? '✓ CONNECTED' : '✓ INDEPENDENT');
-  const valBranch = document.getElementById('val-rule-branch'); if (valBranch) valBranch.textContent = b >= 0.6 ? '✓ HIERARCHICAL BRANCHING' : (b >= 0.2 ? '✓ BIFURCATING' : '✓ SINGULAR');
-  const valWhip = document.getElementById('val-rule-whip'); if (valWhip) valWhip.textContent = w > 0.6 ? '✓ WHIPLASH INFLECTED' : (w > 0.3 ? '✓ FLOWING CURVATURE' : '✓ LINEAR');
-  const valMerge = document.getElementById('val-rule-merge'); if (valMerge) valMerge.textContent = (b >= 0.20) ? (m > 0.6 ? '✓ MERGED / UNIFIED' : '✓ CONVERGING') : '✕ PRECONDITION NOT SATISFIED';
-  const valPosNeg = document.getElementById('val-rule-posneg'); if (valPosNeg) valPosNeg.textContent = v > 0.6 ? '✓ INTERLOCK SOLID/VOID' : (v > 0.3 ? '✓ POROUS VOID' : '✓ SOLID ENCLOSED');
-  const valGrowth = document.getElementById('val-rule-growth'); if (valGrowth) valGrowth.textContent = g > 0.6 ? '✓ PROLIFERATING GROWTH' : (g > 0.3 ? '✓ EXTENDING GROWTH' : '✓ CONTAINED SEED');
+  // Sub-slider live metrics under C, W, B
+  const typoKey = domainState.selectedTypology || 'VERTICAL_VOID';
+  const typoDef = BASE_TYPOLOGIES[typoKey] || BASE_TYPOLOGIES.VERTICAL_VOID;
 
+  const mWChanges = document.getElementById('metric-w-changes');
+  if (mWChanges) mWChanges.textContent = w === 0 ? '0' : (w > 0.6 ? '3 (Inflected)' : (w > 0.25 ? '2 (Curved)' : '1 (Gentle)'));
+
+  const mWCurvature = document.getElementById('metric-w-curvature');
+  if (mWCurvature) mWCurvature.textContent = Math.round(w * 85) + 'Â°';
+
+  const mCDisc = document.getElementById('metric-c-disconnected');
+  if (mCDisc) mCDisc.textContent = c === 0 ? 'Original' : Math.max(0, Math.round(100 - c * 85)) + '%';
+
+  const mCConn = document.getElementById('metric-c-connected');
+  if (mCConn) mCConn.textContent = c === 0 ? '0%' : Math.min(100, Math.round(30 + c * 70)) + '%';
+
+  const mBCnt = document.getElementById('metric-b-count');
+  if (mBCnt) mBCnt.textContent = b < 0.05 ? '0' : (b < 0.3 ? '2' : (b < 0.65 ? '3' : '4'));
+
+  const mBDiv = document.getElementById('metric-b-divisions');
+  if (mBDiv) mBDiv.textContent = b < 0.05 ? '0' : (b < 0.3 ? '1' : (b < 0.65 ? '4' : '8'));
+
+  const bStatus = document.getElementById('domain-b-influence-status');
+  if (bStatus) {
+    const isEngaged = (c > 0 || w > 0 || b > 0);
+    const typoName = typoDef ? typoDef.name.toUpperCase() : 'TYPOLOGY';
+    bStatus.textContent = isEngaged ? ('ACTIVE — ' + typoName + ' RULES') : 'READY — MODIFY SLIDERS TO ACTIVATE';
+  }
+
+  // Rule Validation Panel Checkmarks
+  const valCont = document.getElementById('val-rule-cont'); if (valCont) valCont.textContent = c > 0.7 ? 'âœ“ CONTINUOUS FLOW' : (c > 0.3 ? 'âœ“ CONNECTED' : 'âœ“ INDEPENDENT');
+  const valBranch = document.getElementById('val-rule-branch'); if (valBranch) valBranch.textContent = b >= 0.6 ? 'âœ“ HIERARCHICAL BRANCHING' : (b >= 0.2 ? 'âœ“ BIFURCATING' : 'âœ“ SINGULAR');
+  const valWhip = document.getElementById('val-rule-whip'); if (valWhip) valWhip.textContent = w > 0.6 ? 'âœ“ WHIPLASH INFLECTED' : (w > 0.3 ? 'âœ“ FLOWING CURVATURE' : 'âœ“ LINEAR');
+  const valMerge = document.getElementById('val-rule-merge'); if (valMerge) valMerge.textContent = (b >= 0.20) ? (m > 0.6 ? 'âœ“ MERGED / UNIFIED' : 'âœ“ CONVERGING') : 'âœ• PRECONDITION NOT SATISFIED';
+  const valPosNeg = document.getElementById('val-rule-posneg'); if (valPosNeg) valPosNeg.textContent = v > 0.6 ? 'âœ“ INTERLOCK SOLID/VOID' : (v > 0.3 ? 'âœ“ POROUS VOID' : 'âœ“ SOLID ENCLOSED');
+  const valGrowth = document.getElementById('val-rule-growth'); if (valGrowth) valGrowth.textContent = g > 0.6 ? 'âœ“ PROLIFERATING GROWTH' : (g > 0.3 ? 'âœ“ EXTENDING GROWTH' : 'âœ“ CONTAINED SEED');
   updateDesignerChangesUI();
 }
 
@@ -1824,7 +1855,7 @@ function switchVisualComparisonMode(mode) {
   }
 
   if (window.renderIterationGeometry) {
-    window.renderIterationGeometry(targetDna);
+    window.renderIterationGeometry(targetDna, mode, domainState.selectedTypology);
   }
 }
 window.switchVisualComparisonMode = switchVisualComparisonMode;
@@ -1886,6 +1917,1282 @@ function setupDnaSliderListeners() {
     });
   }
 }
+
+/**
+ * ============================================================================
+ * DOMAIN A — 15 BASE SPATIAL TYPOLOGIES & SPATIAL GRAMMAR DEFINITIONS
+ * Each typology defines:
+ *  - Spatial Goal & Operational Rules
+ *  - Expected Result
+ *  - Typology Profile (preferredAxis, verticalBias, horizontalBias, voidBias, etc.)
+ *  - Spatial Grammar Constraints for Domain B Art Nouveau rules
+ * ============================================================================
+ */
+const BASE_TYPOLOGIES = {
+  // ─── LOBBY / ENTRANCE TYPOLOGIES ──────────────────────────────────────────
+  VERTICAL_VOID: {
+    id: 'VERTICAL_VOID',
+    name: 'Vertical void lobby',
+    category: 'LOBBY',
+    categoryLabel: 'Lobby / Entrance',
+    spatialGoal: 'create a tall continuous void.',
+    rulesSummary: 'Growth: favors +Z / vertical direction around void. Positive/Negative: enlarges one major vertical void. Continuity: connects lower and upper surfaces. Whiplash: curves surfaces upward. Branching: limited so the central void stays clear.',
+    expectedResult: 'geometry grows around a tall open center.',
+    description: 'multi-storey atrium or shaft; arrival volume is organized by looking up and across a continuous void.',
+    spatialRule: 'LOOK UP & ACROSS VOID',
+    principlesBadge: 'WHIPLASH (W) + POS/NEG (V) + CONTINUITY (C) + BRANCHING (B)',
+    dominantPrinciple: 'POSITIVE_NEGATIVE',
+    secondaryPrinciples: ['WHIPLASH', 'CONTINUITY', 'BRANCHING'],
+    baseGeometryAction: 'Vertical Atrium Shaft & Upward Ribs',
+    baseDna: [0.72, 0.25, 0.85, 0.30, 0.90, 0.35],
+    narrative: 'Vertical void arrival organization: deep vertical atrium shaft carved through the center, wrapped in upward-sweeping Art Nouveau whiplash rib vaults that draw sightlines upward across the void.',
+    spatialLimits: {
+      sliderLimits: { W: [25, 95], C: [30, 85], B: [0, 35], M: [0, 50], V: [45, 100], G: [10, 60] },
+      limitRationale: 'Vertical atrium shaft dominates: Void (V ≥ 45%) carves multi-storey arrival shaft; Whiplash (W) pulls sightlines upward; lateral Branching clamped (B ≤ 35%) to avoid blocking cross-void views.',
+      geometricProfile: 'VERTICAL_VOID'
+    },
+    typologyProfile: {
+      preferredAxis: 'Y',
+      verticalBias: 'HIGH',
+      horizontalBias: 'LOW',
+      voidBias: 'HIGH',
+      groundBias: 'LOW',
+      linearBias: 'LOW',
+      radialBias: 'HIGH',
+      stepBias: 'NONE',
+      enclosureBias: 'LOW',
+      branchLimit: 'LOW',
+      affectedRegions: ['ATRIUM_PERIMETER', 'UPPER_VAULT', 'VOID_BORDER']
+    },
+    spatialGrammar: {
+      growthBias: 'VERTICAL_PERIMETER',
+      whiplashStyle: 'UPWARD_CURVATURE',
+      continuityMode: 'VERTICAL_CONNECTIONS',
+      branchingConstraint: 'VOID_CLEAR',
+      mergingBehavior: 'NONE',
+      voidBehavior: 'VERTICAL_SHAFT'
+    }
+  },
+  COMPRESSED_SEQUENTIAL: {
+    id: 'COMPRESSED_SEQUENTIAL',
+    name: 'Compressed sequential lobby',
+    category: 'LOBBY',
+    categoryLabel: 'Lobby / Entrance',
+    spatialGoal: 'CHOKE → RELEASE → CHOKE → RELEASE',
+    rulesSummary: 'Alternate narrow and wide spatial zones. Continuity: smoothly connects each zone. Whiplash: controls curved transitions between compression/release. Merging: can compress surfaces together. Growth: expands surfaces after compressed zones. Branching: stays low.',
+    expectedResult: 'a sequential entrance experience rather than random deformation.',
+    description: 'low, narrow, or chambered entry; space is organized as choke → release through successive volumes.',
+    spatialRule: 'CHOKE → RELEASE TRANSITION',
+    principlesBadge: 'CONTINUITY (C) + WHIPLASH (W) + MERGING (M) + BRANCHING (B)',
+    dominantPrinciple: 'CONTINUITY',
+    secondaryPrinciples: ['WHIPLASH', 'MERGING', 'BRANCHING'],
+    baseGeometryAction: 'Low Chamber Choke into Soaring Volume',
+    baseDna: [0.85, 0.25, 0.80, 0.70, 0.40, 0.25],
+    narrative: 'Compressed sequential entry: spatial choke with low ceiling thresholds and compressed whiplash inflection releasing into an expansive double-height volumetric hall.',
+    spatialLimits: {
+      sliderLimits: { W: [30, 85], C: [45, 95], B: [0, 40], M: [30, 85], V: [20, 65], G: [10, 50] },
+      limitRationale: 'Sequential progression: Continuity (C ≥ 45%) connects successive chambers; entry zone height is clamped low into a narrow choke, releasing into a soaring double-height volume.',
+      geometricProfile: 'COMPRESSED_SEQUENTIAL'
+    },
+    typologyProfile: {
+      preferredAxis: 'X',
+      verticalBias: 'LOW',
+      horizontalBias: 'HIGH',
+      voidBias: 'LOW',
+      groundBias: 'MEDIUM',
+      linearBias: 'HIGH',
+      radialBias: 'LOW',
+      stepBias: 'NONE',
+      enclosureBias: 'HIGH',
+      branchLimit: 'LOW',
+      affectedRegions: ['CHOKE_NODES', 'RELEASE_CHAMBERS', 'TRANSITION_PATH']
+    },
+    spatialGrammar: {
+      growthBias: 'CHOKE_RELEASE_EXPAND',
+      whiplashStyle: 'CHOKE_RELEASE_INFLECTION',
+      continuityMode: 'ZONE_TRANSITIONS',
+      branchingConstraint: 'LOW_PRIORITY',
+      mergingBehavior: 'COMPRESSION_CHOKE',
+      voidBehavior: 'ZONE_WIDTH'
+    }
+  },
+  CONTINUOUS_HALL: {
+    id: 'CONTINUOUS_HALL',
+    name: 'Continuous hall lobby',
+    category: 'LOBBY',
+    categoryLabel: 'Lobby / Entrance',
+    spatialGoal: 'one large horizontal continuous volume.',
+    rulesSummary: 'Continuity: HIGH priority. Growth: favors horizontal direction. Merging: joins surfaces into a larger continuous shell. Branching: remains low. Positive/Negative: preserves one large open interior.',
+    expectedResult: 'broad uninterrupted hall.',
+    description: 'single large horizontal volume; free plan under one roof or shell with minimal subdivision.',
+    spatialRule: 'UNBROKEN HORIZONTAL CONTINUUM',
+    principlesBadge: 'CONTINUITY (C) + WHIPLASH (W) + BRANCHING (B)',
+    dominantPrinciple: 'CONTINUITY',
+    secondaryPrinciples: ['WHIPLASH', 'GROWTH', 'BRANCHING'],
+    baseGeometryAction: 'Vast Horizontal Single-Shell Vault',
+    baseDna: [0.95, 0.15, 0.75, 0.35, 0.15, 0.30],
+    narrative: 'Continuous hall lobby: clear-span single volume enclosed beneath an unbroken undulating Art Nouveau canopy with minimal interior subdivision, emphasizing boundless horizontal flow.',
+    spatialLimits: {
+      sliderLimits: { W: [20, 80], C: [60, 100], B: [0, 25], M: [10, 60], V: [0, 25], G: [15, 60] },
+      limitRationale: 'Minimal subdivision enforced: Branching clamped (B ≤ 25%); Continuity (C ≥ 60%) preserves single unbroken horizontal shell vault without interior dividing partitions.',
+      geometricProfile: 'CONTINUOUS_HALL'
+    },
+    typologyProfile: {
+      preferredAxis: 'X',
+      verticalBias: 'LOW',
+      horizontalBias: 'HIGH',
+      voidBias: 'MEDIUM',
+      groundBias: 'MEDIUM',
+      linearBias: 'MEDIUM',
+      radialBias: 'HIGH',
+      stepBias: 'NONE',
+      enclosureBias: 'LOW',
+      branchLimit: 'LOW',
+      affectedRegions: ['CONTINUOUS_SHELL', 'MAIN_HALL_EXPANSE', 'PERIMETER_ENVELOPE']
+    },
+    spatialGrammar: {
+      growthBias: 'HORIZONTAL_EXPAND',
+      whiplashStyle: 'EXPANSIVE_SHELL',
+      continuityMode: 'CONTINUOUS_SHELL',
+      branchingConstraint: 'PERIMETER_BUTTRESS',
+      mergingBehavior: 'CONTINUOUS_SHELL',
+      voidBehavior: 'OPEN_INTERIOR'
+    }
+  },
+  TOPOGRAPHIC_GROUND: {
+    id: 'TOPOGRAPHIC_GROUND',
+    name: 'Topographic / ground-field lobby',
+    category: 'LOBBY',
+    categoryLabel: 'Lobby / Entrance',
+    spatialGoal: 'floor becomes the main geometry.',
+    rulesSummary: 'Growth: primarily affects the ground surface. Whiplash: creates gradual rises/falls. Continuity: connects slopes. Branching: can divide circulation across the ground. Vertical growth: remains limited.',
+    expectedResult: 'continuous folded/sloped ground.',
+    description: 'sloped, folded, or landscaped floor as the primary geometry; arrival is a ground continuum, not a flat room.',
+    spatialRule: 'GROUND CONTINUUM FLOOR-WALL TRANSITION',
+    principlesBadge: 'GROWTH (G) + MERGING (M) + CONTINUITY (C) + BRANCHING (B)',
+    dominantPrinciple: 'GROWTH',
+    secondaryPrinciples: ['MERGING', 'CONTINUITY', 'BRANCHING'],
+    baseGeometryAction: 'Sloped & Terraced Ground-Field',
+    baseDna: [0.75, 0.25, 0.60, 0.85, 0.25, 0.90],
+    narrative: 'Topographic ground-field lobby: sloped and folded floor surfaces form a stepped arrival landscape where floor, ramp, and wall merge seamlessly into a single topographical continuum.',
+    spatialLimits: {
+      sliderLimits: { W: [25, 80], C: [40, 95], B: [0, 40], M: [40, 95], V: [0, 35], G: [45, 100] },
+      limitRationale: 'Ground plane is primary geometry: Growth (G ≥ 45%) and Merging (M ≥ 40%) fold floor into sloped ramps and terraced contours; upper roof canopy remains stable and protective.',
+      geometricProfile: 'TOPOGRAPHIC_GROUND'
+    },
+    typologyProfile: {
+      preferredAxis: 'X',
+      verticalBias: 'LOW',
+      horizontalBias: 'HIGH',
+      voidBias: 'NONE',
+      groundBias: 'HIGH',
+      linearBias: 'MEDIUM',
+      radialBias: 'MEDIUM',
+      stepBias: 'MEDIUM',
+      enclosureBias: 'LOW',
+      branchLimit: 'MEDIUM',
+      affectedRegions: ['GROUND_FIELD', 'LOWER_SLOPES', 'TERRAIN_SURFACE']
+    },
+    spatialGrammar: {
+      growthBias: 'GROUND_ONLY',
+      whiplashStyle: 'FLOOR_TOPOGRAPHY',
+      continuityMode: 'SLOPE_CONNECT',
+      branchingConstraint: 'GROUND_DIVIDE',
+      mergingBehavior: 'NONE',
+      voidBehavior: 'OPEN_INTERIOR'
+    }
+  },
+  LINEAR_GALLERY: {
+    id: 'LINEAR_GALLERY',
+    name: 'Linear gallery lobby',
+    category: 'LOBBY',
+    categoryLabel: 'Lobby / Entrance',
+    spatialGoal: 'strong directional sequence.',
+    rulesSummary: 'Detect/favor one dominant horizontal axis. Growth: extends along that axis. Continuity: reinforces the main path. Whiplash: can gently curve the path. Branching: creates only secondary paths. Positive/Negative: creates openings alongside the path.',
+    expectedResult: 'elongated directional space.',
+    description: 'elongated path or enfilade; space is organized along a directional section rather than a centered volume.',
+    spatialRule: 'DIRECTIONAL ENFILADE PROGRESSION',
+    principlesBadge: 'CONTINUITY (C) + GROWTH (G) + WHIPLASH (W) + BRANCHING (B)',
+    dominantPrinciple: 'CONTINUITY',
+    secondaryPrinciples: ['GROWTH', 'WHIPLASH', 'BRANCHING'],
+    baseGeometryAction: 'Elongated Axial Section & Rhythm Bays',
+    baseDna: [0.90, 0.35, 0.70, 0.30, 0.30, 0.75],
+    narrative: 'Linear gallery lobby: elongated directional path organized along an enfilade section, framed by rhythmic whiplash portals and continuous longitudinal circulation arcs.',
+    spatialLimits: {
+      sliderLimits: { W: [30, 85], C: [55, 100], B: [0, 45], M: [10, 55], V: [10, 50], G: [40, 90] },
+      limitRationale: 'Directional enfilade: lateral width clamped; Continuity (C ≥ 55%) and Growth (G ≥ 40%) organize space along an elongated longitudinal section with rhythmic transverse portal arches.',
+      geometricProfile: 'LINEAR_GALLERY'
+    },
+    typologyProfile: {
+      preferredAxis: 'X',
+      verticalBias: 'LOW',
+      horizontalBias: 'HIGH',
+      voidBias: 'MEDIUM',
+      groundBias: 'LOW',
+      linearBias: 'HIGH',
+      radialBias: 'NONE',
+      stepBias: 'NONE',
+      enclosureBias: 'LOW',
+      branchLimit: 'MEDIUM',
+      affectedRegions: ['DOMINANT_AXIS_SPINE', 'FLANKING_GALLERIES', 'LINEAR_PERIMETER']
+    },
+    spatialGrammar: {
+      growthBias: 'AXIAL_LONGITUDINAL',
+      whiplashStyle: 'AXIAL_ENFILADE_WAVE',
+      continuityMode: 'AXIAL_PATH',
+      branchingConstraint: 'SECONDARY_AXIAL',
+      mergingBehavior: 'NONE',
+      voidBehavior: 'LATERAL_LIGHT'
+    }
+  },
+
+  // ─── WORKSPACE TYPOLOGIES ─────────────────────────────────────────────────
+  OPEN_HALL: {
+    id: 'OPEN_HALL',
+    name: 'Open hall workspace',
+    category: 'WORKSPACE',
+    categoryLabel: 'Workspace',
+    spatialGoal: 'one broad horizontal working field.',
+    rulesSummary: 'Growth: expands horizontally. Continuity: joins surfaces into one field. Branching: creates broad secondary zones, not spikes. Merging: reconnects branches into the main field. Positive/Negative: keeps large open areas. Limit excessive vertical deformation.',
+    expectedResult: 'broad connected workspace.',
+    description: 'continuous horizontal work field under one structural roof; one room, one plate, deep or clear span.',
+    spatialRule: 'CONTINUOUS WORK FIELD UNDER CLEAR SPAN',
+    principlesBadge: 'CONTINUITY (C) + BRANCHING (B)',
+    dominantPrinciple: 'BRANCHING',
+    secondaryPrinciples: ['CONTINUITY', 'GROWTH', 'BRANCHING'],
+    baseGeometryAction: 'Single Deep Plate & Dendritic Columns',
+    baseDna: [0.90, 0.40, 0.50, 0.30, 0.20, 0.40],
+    narrative: 'Open hall workspace: wide continuous horizontal floor plate spanned by dendritic, tree-like Art Nouveau branching structural columns that expand into the ceiling canopy.',
+    spatialLimits: {
+      sliderLimits: { W: [15, 65], C: [65, 100], B: [10, 45], M: [15, 55], V: [0, 25], G: [15, 60] },
+      limitRationale: 'One room, one plate: Continuity (C ≥ 65%) locks continuous floor field; interior dividing walls locked out; Branching limited to dendritic roof columns; Void clamped (V ≤ 25%).',
+      geometricProfile: 'OPEN_HALL'
+    },
+    typologyProfile: {
+      preferredAxis: 'X',
+      verticalBias: 'LOW',
+      horizontalBias: 'HIGH',
+      voidBias: 'MEDIUM',
+      groundBias: 'MEDIUM',
+      linearBias: 'LOW',
+      radialBias: 'HIGH',
+      stepBias: 'NONE',
+      enclosureBias: 'LOW',
+      branchLimit: 'MEDIUM',
+      affectedRegions: ['FIELD_SURFACE', 'HORIZONTAL_PLATES', 'BROAD_ZONES']
+    },
+    spatialGrammar: {
+      growthBias: 'HORIZONTAL_EXPAND',
+      whiplashStyle: 'HORIZONTAL_UNDULATION',
+      continuityMode: 'FIELD_MERGE',
+      branchingConstraint: 'PERIMETER_ALCOVES',
+      mergingBehavior: 'RECONNECT_FIELD',
+      voidBehavior: 'OPEN_INTERIOR'
+    }
+  },
+  CASCADED_TERRACED: {
+    id: 'CASCADED_TERRACED',
+    name: 'Cascaded / terraced plates',
+    category: 'WORKSPACE',
+    categoryLabel: 'Workspace',
+    spatialGoal: 'stepped interconnected work levels.',
+    rulesSummary: 'Growth: creates successive offset plates. Each new plate shifts horizontally + vertically. Continuity: connects adjacent levels. Branching: can create secondary terraces. Maintain visual/physical relationships between plates.',
+    expectedResult: 'cascading work surfaces.',
+    description: 'successive offset floors; workspace geometry is a stepped section of plates and overlooks.',
+    spatialRule: 'STEPPED SECTION OF PLATES & OVERLOOKS',
+    principlesBadge: 'GROWTH (G) + BRANCHING (B) + CONTINUITY (C)',
+    dominantPrinciple: 'GROWTH',
+    secondaryPrinciples: ['BRANCHING', 'CONTINUITY'],
+    baseGeometryAction: 'Multi-Tier Offset Plates & Overlooks',
+    baseDna: [0.70, 0.65, 0.65, 0.55, 0.45, 0.85],
+    narrative: 'Cascaded terraced workspace: staggered offset plates connected by fluid sectional transitions, providing interactive stepped work tiers and panoramic overlooks across all levels.',
+    spatialLimits: {
+      sliderLimits: { W: [20, 75], C: [35, 80], B: [35, 90], M: [20, 65], V: [20, 70], G: [40, 90] },
+      limitRationale: 'Stepped section: Branching (B ≥ 35%) and Growth (G ≥ 40%) quantize geometry into successive offset horizontal floor plates with overlooking cantilevers.',
+      geometricProfile: 'CASCADED_TERRACED'
+    },
+    typologyProfile: {
+      preferredAxis: 'Y',
+      verticalBias: 'HIGH',
+      horizontalBias: 'HIGH',
+      voidBias: 'LOW',
+      groundBias: 'MEDIUM',
+      linearBias: 'LOW',
+      radialBias: 'MEDIUM',
+      stepBias: 'HIGH',
+      enclosureBias: 'LOW',
+      branchLimit: 'HIGH',
+      affectedRegions: ['TERRACE_EDGES', 'STEPPED_PLATES', 'INTERCONNECTING_RISERS']
+    },
+    spatialGrammar: {
+      growthBias: 'STEPPED_LEVELS',
+      whiplashStyle: 'STEPPED_RISERS',
+      continuityMode: 'RISER_CONNECT',
+      branchingConstraint: 'TERRACE_CANTILEVERS',
+      mergingBehavior: 'NONE',
+      voidBehavior: 'OPEN_INTERIOR'
+    }
+  },
+  FLAT_DEEP_PLAN: {
+    id: 'FLAT_DEEP_PLAN',
+    name: 'Flat deep-plan plate',
+    category: 'WORKSPACE',
+    categoryLabel: 'Workspace',
+    spatialGoal: 'preserve a large level plate.',
+    rulesSummary: 'Growth: expands primarily in X/Y plane. Vertical deformation remains minimal. Continuity: maintains the plate. Branching: subdivides/extends zones within the plate. Positive/Negative: may carve controlled openings.',
+    expectedResult: 'deep horizontal workspace rather than sculptural vertical growth.',
+    description: 'level floor of depth organized by grid, cores, and daylight depth; geometry is the plate itself.',
+    spatialRule: 'DAYLIGHT DEPTH CARVING & CORE RHYTHM',
+    principlesBadge: 'POS/NEG (V) + BRANCHING (B) + CONTINUITY (C)',
+    dominantPrinciple: 'POSITIVE_NEGATIVE',
+    secondaryPrinciples: ['BRANCHING', 'CONTINUITY'],
+    baseGeometryAction: 'Deep Level Plate with Carved Light Courts',
+    baseDna: [0.80, 0.60, 0.40, 0.30, 0.75, 0.40],
+    narrative: 'Flat deep-plan workspace: extensive horizontal plate modulated by carved light wells and rhythmic branching structural cores that bring daylight deep into the interior floor plate.',
+    spatialLimits: {
+      sliderLimits: { W: [10, 50], C: [50, 85], B: [25, 80], M: [10, 50], V: [35, 85], G: [10, 50] },
+      limitRationale: 'Plate is the geometry: Whiplash clamped (W ≤ 50%) to keep floor planar; Void (V ≥ 35%) carves daylight light courts deep into the interior floor plate.',
+      geometricProfile: 'FLAT_DEEP_PLAN'
+    },
+    typologyProfile: {
+      preferredAxis: 'X',
+      verticalBias: 'NONE',
+      horizontalBias: 'HIGH',
+      voidBias: 'LOW',
+      groundBias: 'HIGH',
+      linearBias: 'LOW',
+      radialBias: 'HIGH',
+      stepBias: 'NONE',
+      enclosureBias: 'LOW',
+      branchLimit: 'MEDIUM',
+      affectedRegions: ['LEVEL_DEEP_PLATE', 'PLANAR_SUBDIVISIONS', 'LATERAL_EXTENSIONS']
+    },
+    spatialGrammar: {
+      growthBias: 'FLAT_XY',
+      whiplashStyle: 'CORE_RIM_CURVE',
+      continuityMode: 'FLAT_PLATE',
+      branchingConstraint: 'RADIAL_SPINES',
+      mergingBehavior: 'NONE',
+      voidBehavior: 'DAYLIGHT_COURTS'
+    }
+  },
+  VOID_EDGE: {
+    id: 'VOID_EDGE',
+    name: 'Void-edge workspace',
+    category: 'WORKSPACE',
+    categoryLabel: 'Workspace',
+    spatialGoal: 'organize work around a central void.',
+    rulesSummary: 'Positive/Negative: creates or preserves the primary void. Growth: follows the perimeter of that void. Continuity: connects the surrounding edge. Branching: extends outward from the void edge. Do not fill the central void.',
+    expectedResult: 'workspace wraps around open space.',
+    description: 'work plates ring or face a carved atrium/light well; organization is edge condition around a void.',
+    spatialRule: 'PERIMETER PLATES FACING CENTRAL VOID',
+    principlesBadge: 'POS/NEG (V) + CONTINUITY (C) + BRANCHING (B)',
+    dominantPrinciple: 'POSITIVE_NEGATIVE',
+    secondaryPrinciples: ['CONTINUITY', 'BRANCHING'],
+    baseGeometryAction: 'Annular Plates & Lightwell Edge Balconies',
+    baseDna: [0.85, 0.55, 0.70, 0.35, 0.85, 0.35],
+    narrative: 'Void-edge workspace: annular work ribbons wrapping a central carved light atrium, with cantilevered perimeter work terraces opening directly to the central vertical void.',
+    spatialLimits: {
+      sliderLimits: { W: [30, 85], C: [45, 90], B: [20, 70], M: [10, 50], V: [50, 100], G: [15, 65] },
+      limitRationale: 'Edge condition: Void (V ≥ 50%) carves central light well; workspace plates are constrained to an annular perimeter ribbon of cantilevered balconies facing inward.',
+      geometricProfile: 'VOID_EDGE'
+    },
+    typologyProfile: {
+      preferredAxis: 'X',
+      verticalBias: 'MEDIUM',
+      horizontalBias: 'HIGH',
+      voidBias: 'HIGH',
+      groundBias: 'LOW',
+      linearBias: 'MEDIUM',
+      radialBias: 'HIGH',
+      stepBias: 'NONE',
+      enclosureBias: 'LOW',
+      branchLimit: 'MEDIUM',
+      affectedRegions: ['VOID_PERIMETER_RING', 'OUTWARD_RADIAL_BANDS', 'EDGE_OVERLOOK']
+    },
+    spatialGrammar: {
+      growthBias: 'VOID_PERIMETER',
+      whiplashStyle: 'VOID_RIM_SWEEP',
+      continuityMode: 'PERIMETER_RING',
+      branchingConstraint: 'OUTWARD_BAYS',
+      mergingBehavior: 'NONE',
+      voidBehavior: 'ORGANIZING_VOID'
+    }
+  },
+  FOLDED_UNDULATED: {
+    id: 'FOLDED_UNDULATED',
+    name: 'Folded / undulating work surface',
+    category: 'WORKSPACE',
+    categoryLabel: 'Workspace',
+    spatialGoal: 'continuous warped working terrain.',
+    rulesSummary: 'Whiplash: acts primarily on floor geometry. Growth: continues the warped surface. Continuity: keeps slopes connected. Avoid abrupt steps/spikes. Branching: may create secondary flowing work zones.',
+    expectedResult: 'continuous inhabitable topography.',
+    description: 'continuous ramped, warped, or stepped floor topography; work zones occupy geometry rather than a level plate.',
+    spatialRule: 'WARPED TOPOGRAPHY OCCUPYING GEOMETRY',
+    principlesBadge: 'WHIPLASH (W) + GROWTH (G) + CONTINUITY (C) + BRANCHING (B)',
+    dominantPrinciple: 'WHIPLASH',
+    secondaryPrinciples: ['GROWTH', 'CONTINUITY', 'BRANCHING'],
+    baseGeometryAction: 'Continuous Undulating Ribbon Topography',
+    baseDna: [0.80, 0.35, 0.85, 0.65, 0.30, 0.85],
+    narrative: 'Folded undulating workspace: non-Euclidean fluid topography where floor plates warp, ramp, and fold into work clusters, replacing flat floor slabs with an active three-dimensional spatial ribbon.',
+    spatialLimits: {
+      sliderLimits: { W: [45, 100], C: [40, 90], B: [10, 60], M: [25, 75], V: [10, 55], G: [40, 95] },
+      limitRationale: 'Work zones occupy geometry: Whiplash (W ≥ 45%) and Growth (G ≥ 40%) actively warp floor slabs into fluid 3D sinusoidal ramps and occupied topographic ribbons.',
+      geometricProfile: 'FOLDED_UNDULATED'
+    },
+    typologyProfile: {
+      preferredAxis: 'Y',
+      verticalBias: 'MEDIUM',
+      horizontalBias: 'HIGH',
+      voidBias: 'NONE',
+      groundBias: 'HIGH',
+      linearBias: 'MEDIUM',
+      radialBias: 'LOW',
+      stepBias: 'LOW',
+      enclosureBias: 'LOW',
+      branchLimit: 'MEDIUM',
+      affectedRegions: ['WARPED_TERRAIN_FLOOR', 'FOLDED_MEMBRANE', 'TOPOGRAPHIC_WORKSPACES']
+    },
+    spatialGrammar: {
+      growthBias: 'CONTINUOUS_WARPED',
+      whiplashStyle: 'ORIGAMI_FOLD',
+      continuityMode: 'CREASE_FACETS',
+      branchingConstraint: 'CREST_NOOKS',
+      mergingBehavior: 'NONE',
+      voidBehavior: 'OPEN_INTERIOR'
+    }
+  },
+
+  // ─── GATHERING / MEETING / COLLABORATION TYPOLOGIES ───────────────────────
+  STEPPED_AMPHITHEATER: {
+    id: 'STEPPED_AMPHITHEATER',
+    name: 'Stepped amphitheater',
+    category: 'GATHERING',
+    categoryLabel: 'Gathering / Meeting',
+    spatialGoal: 'gathering organized by stepped section.',
+    rulesSummary: 'Growth: creates repeated stepped levels maintaining relationship to previous level. Growth direction: moves upward/backward. Continuity: connects circulation through steps. Branching: remains limited.',
+    expectedResult: 'recognizable stepped gathering geometry.',
+    description: 'concentric or linear steps as the gathering geometry; section is the seating.',
+    spatialRule: 'SECTION IS THE SEATING; STEPPED TIERS',
+    principlesBadge: 'GROWTH (G) + WHIPLASH (W) + CONTINUITY (C) + BRANCHING (B)',
+    dominantPrinciple: 'GROWTH',
+    secondaryPrinciples: ['WHIPLASH', 'CONTINUITY', 'BRANCHING'],
+    baseGeometryAction: 'Concentric Tiered Seating Amphitheater',
+    baseDna: [0.75, 0.30, 0.80, 0.60, 0.40, 0.85],
+    narrative: 'Stepped amphitheater: tiered seating geometry sculpted into an organic bowl, where the architectural section directly forms the communal gathering tiers with whiplash acoustic crests.',
+    spatialLimits: {
+      sliderLimits: { W: [30, 85], C: [40, 85], B: [20, 65], M: [20, 70], V: [15, 55], G: [45, 100] },
+      limitRationale: 'Section is the seating: Growth (G ≥ 45%) and Whiplash (W ≥ 30%) form concentric tiered seating steps sloping down to a communal focal performance stage.',
+      geometricProfile: 'STEPPED_AMPHITHEATER'
+    },
+    typologyProfile: {
+      preferredAxis: 'Y',
+      verticalBias: 'HIGH',
+      horizontalBias: 'HIGH',
+      voidBias: 'LOW',
+      groundBias: 'HIGH',
+      linearBias: 'MEDIUM',
+      radialBias: 'MEDIUM',
+      stepBias: 'HIGH',
+      enclosureBias: 'LOW',
+      branchLimit: 'LOW',
+      affectedRegions: ['STEPPED_TIERS', 'RAKED_SEATING_SECTION', 'CIRCULATION_AISLES']
+    },
+    spatialGrammar: {
+      growthBias: 'AMPHITHEATER_STEPPED',
+      whiplashStyle: 'ACOUSTIC_BOWL',
+      continuityMode: 'CIRCULATION_STEPS',
+      branchingConstraint: 'RADIAL_AISLES',
+      mergingBehavior: 'NONE',
+      voidBehavior: 'OPEN_INTERIOR'
+    }
+  },
+  VOID_FIELD_GATHERING: {
+    id: 'VOID_FIELD_GATHERING',
+    name: 'Void-field gathering',
+    category: 'GATHERING',
+    categoryLabel: 'Gathering / Meeting',
+    spatialGoal: 'gathering around/in a large vertical volume.',
+    rulesSummary: 'Positive/Negative dominates: create/preserve one major open volume. Growth: occurs around its perimeter. Continuity: connects surrounding surfaces. Verticality is encouraged.',
+    expectedResult: 'collective space defined by a tall void.',
+    description: 'full-height atrium or open void as the collective room; gathering occupies the floor of a vertical volume.',
+    spatialRule: 'COLLECTIVE ROOM INSIDE VERTICAL VOLUME',
+    principlesBadge: 'POS/NEG (V) + CONTINUITY (C) + MERGING (M) + BRANCHING (B)',
+    dominantPrinciple: 'POSITIVE_NEGATIVE',
+    secondaryPrinciples: ['CONTINUITY', 'MERGING', 'BRANCHING'],
+    baseGeometryAction: 'Soaring Full-Height Gathering Atrium',
+    baseDna: [0.85, 0.30, 0.75, 0.45, 0.90, 0.30],
+    narrative: 'Void-field gathering: full-height vertical void acting as the collective room, enclosed by continuous organic surfaces that frame the gathering hearth at the base of the volume.',
+    spatialLimits: {
+      sliderLimits: { W: [30, 80], C: [50, 90], B: [10, 50], M: [20, 60], V: [50, 100], G: [15, 55] },
+      limitRationale: 'Vertical volume collective room: Void (V ≥ 50%) opens full-height soaring volume; ground floor is preserved and cleared as an open collective gathering room.',
+      geometricProfile: 'VOID_FIELD_GATHERING'
+    },
+    typologyProfile: {
+      preferredAxis: 'Y',
+      verticalBias: 'HIGH',
+      horizontalBias: 'HIGH',
+      voidBias: 'HIGH',
+      groundBias: 'LOW',
+      linearBias: 'LOW',
+      radialBias: 'HIGH',
+      stepBias: 'NONE',
+      enclosureBias: 'LOW',
+      branchLimit: 'MEDIUM',
+      affectedRegions: ['CENTRAL_TALL_VOID', 'CIRCUMFERENTIAL_MEETING_RINGS', 'PERIMETER_SURFACES']
+    },
+    spatialGrammar: {
+      growthBias: 'VERTICAL_PERIMETER',
+      whiplashStyle: 'SOARING_VAULT_RIBS',
+      continuityMode: 'CONVERGING_PATHS',
+      branchingConstraint: 'MEETING_CLUSTERS',
+      mergingBehavior: 'NONE',
+      voidBehavior: 'VERTICAL_SHAFT'
+    }
+  },
+  INSERTED_PLATE: {
+    id: 'INSERTED_PLATE',
+    name: 'Inserted horizontal plate',
+    category: 'GATHERING',
+    categoryLabel: 'Gathering / Meeting',
+    spatialGoal: 'introduce a distinct horizontal platform.',
+    rulesSummary: 'Growth: creates one broad horizontal plate connected to existing geometry with low vertical thickness. Continuity: smooths connection points. Branching: can create limited access/secondary extensions.',
+    expectedResult: 'recognizable platform within the larger volume.',
+    description: 'a discrete communal floor or platform cut into a taller section (between plates or within a void).',
+    spatialRule: 'COMMUNAL PLATE SUSPENDED WITHIN SECTION',
+    principlesBadge: 'MERGING (M) + BRANCHING (B) + POS/NEG (V)',
+    dominantPrinciple: 'MERGING',
+    secondaryPrinciples: ['BRANCHING', 'POSITIVE_NEGATIVE'],
+    baseGeometryAction: 'Floating Platform Cut Between Levels',
+    baseDna: [0.65, 0.70, 0.60, 0.85, 0.65, 0.40],
+    narrative: 'Inserted horizontal plate: discrete communal platform hovering between floors within a double-height volume, supported by branching structural cantilevers and overlooking adjacent voids.',
+    spatialLimits: {
+      sliderLimits: { W: [20, 75], C: [35, 75], B: [35, 85], M: [40, 90], V: [30, 80], G: [15, 60] },
+      limitRationale: 'Suspended platform: Branching (B ≥ 35%) and Merging (M ≥ 40%) form an intermediate mezzanine platform deck suspended at mid-height between levels in the void.',
+      geometricProfile: 'INSERTED_PLATE'
+    },
+    typologyProfile: {
+      preferredAxis: 'X',
+      verticalBias: 'LOW',
+      horizontalBias: 'HIGH',
+      voidBias: 'LOW',
+      groundBias: 'LOW',
+      linearBias: 'LOW',
+      radialBias: 'HIGH',
+      stepBias: 'NONE',
+      enclosureBias: 'LOW',
+      branchLimit: 'LOW',
+      affectedRegions: ['MID_LEVEL_PLATFORM', 'CONNECTION_FLANGES', 'HORIZONTAL_DATUM']
+    },
+    spatialGrammar: {
+      growthBias: 'INSERTED_PLATFORM',
+      whiplashStyle: 'MEZZANINE_CRADLE',
+      continuityMode: 'SUSPENSION_LINKS',
+      branchingConstraint: 'PYLON_SUPPORTS',
+      mergingBehavior: 'NONE',
+      voidBehavior: 'OPEN_INTERIOR'
+    }
+  },
+  CONTAINED_ROOM: {
+    id: 'CONTAINED_ROOM',
+    name: 'Contained room-within-volume',
+    category: 'GATHERING',
+    categoryLabel: 'Gathering / Meeting',
+    spatialGoal: 'create smaller enclosure inside larger space.',
+    rulesSummary: 'Positive/Negative: establishes separation between inner and outer space. Growth: forms enclosure around a local region. Merging: closes/connects enclosure surfaces. Maintain circulation space around the inserted room.',
+    expectedResult: 'nested volume within the original form.',
+    description: 'a discrete enclosure or vessel set inside a larger hall; gathering is nested geometry.',
+    spatialRule: 'NESTED VESSEL ENCLOSURE INSIDE HALL',
+    principlesBadge: 'MERGING (M) + POS/NEG (V) + WHIPLASH (W) + BRANCHING (B)',
+    dominantPrinciple: 'MERGING',
+    secondaryPrinciples: ['POSITIVE_NEGATIVE', 'WHIPLASH', 'BRANCHING'],
+    baseGeometryAction: 'Organic Capsule / Cocoon Vessel',
+    baseDna: [0.60, 0.30, 0.75, 0.85, 0.80, 0.40],
+    narrative: 'Contained room-within-volume: nested organic pavilion or cocoon set inside a larger hall, creating intimate acoustic enclosure with fluid whiplash portals looking back into the main space.',
+    spatialLimits: {
+      sliderLimits: { W: [25, 75], C: [35, 75], B: [10, 45], M: [50, 100], V: [25, 75], G: [10, 45] },
+      limitRationale: 'Nested vessel: Merging (M ≥ 50%) contracts geometry inward to form a self-contained cocoon pod enclosure; Branching clamped (B ≤ 45%) to prevent vessel dilution.',
+      geometricProfile: 'CONTAINED_ROOM'
+    },
+    typologyProfile: {
+      preferredAxis: 'Y',
+      verticalBias: 'MEDIUM',
+      horizontalBias: 'MEDIUM',
+      voidBias: 'HIGH',
+      groundBias: 'MEDIUM',
+      linearBias: 'LOW',
+      radialBias: 'HIGH',
+      stepBias: 'NONE',
+      enclosureBias: 'HIGH',
+      branchLimit: 'LOW',
+      affectedRegions: ['NESTED_POD_SHELL', 'PERIPHERAL_AMBULATORY', 'LOCAL_ENCLOSURE']
+    },
+    spatialGrammar: {
+      growthBias: 'POD_ENCLOSURE',
+      whiplashStyle: 'COCOON_POD',
+      continuityMode: 'ENCLOSURE_SHELL',
+      branchingConstraint: 'SCREEN_LOUVERS',
+      mergingBehavior: 'ENCLOSURE_POD',
+      voidBehavior: 'INNER_OUTER_SEP'
+    }
+  },
+  LINEAR_EDGE_GALLERY: {
+    id: 'LINEAR_EDGE_GALLERY',
+    name: 'Linear edge gallery',
+    category: 'GATHERING',
+    categoryLabel: 'Gathering / Meeting',
+    spatialGoal: 'gathering along the edge of a void.',
+    rulesSummary: 'Detect/create a major void edge. Growth: follows the perimeter. Continuity: maintains the gallery path. Branching: creates occasional connections back to the main space. Preserve the void.',
+    expectedResult: 'continuous overlook/gallery condition.',
+    description: 'balcony, ring, or gallery along a void; gathering is organized as a linear overlook condition; and based on the art nouveau principles.',
+    spatialRule: 'LINEAR OVERLOOK RIBBON ALONG VOID',
+    principlesBadge: 'CONTINUITY (C) + WHIPLASH (W) + BRANCHING (B)',
+    dominantPrinciple: 'CONTINUITY',
+    secondaryPrinciples: ['WHIPLASH', 'BRANCHING'],
+    baseGeometryAction: 'Cantilevered Overlook Balcony & Brackets',
+    baseDna: [0.90, 0.60, 0.75, 0.45, 0.70, 0.55],
+    narrative: 'Linear edge gallery: cantilevered promenade ribbon stretching along an open void, with sinuous Art Nouveau guardrails, branching brackets, and linear gathering alcoves.',
+    spatialLimits: {
+      sliderLimits: { W: [40, 90], C: [55, 100], B: [30, 80], M: [20, 60], V: [35, 85], G: [25, 75] },
+      limitRationale: 'Linear overlook: Continuity (C ≥ 55%) and Whiplash (W ≥ 40%) project an elongated cantilevered promenade ribbon along the void edge supported by branching brackets.',
+      geometricProfile: 'LINEAR_EDGE_GALLERY'
+    },
+    typologyProfile: {
+      preferredAxis: 'X',
+      verticalBias: 'MEDIUM',
+      horizontalBias: 'HIGH',
+      voidBias: 'HIGH',
+      groundBias: 'LOW',
+      linearBias: 'HIGH',
+      radialBias: 'LOW',
+      stepBias: 'NONE',
+      enclosureBias: 'LOW',
+      branchLimit: 'LOW',
+      affectedRegions: ['VOID_EDGE_RIBBON', 'LONGITUDINAL_BALCONY', 'OVERLOOK_PATH']
+    },
+    spatialGrammar: {
+      growthBias: 'OVERLOOK_RIBBON',
+      whiplashStyle: 'BALUSTRADE_RIBBON',
+      continuityMode: 'GALLERY_PATH',
+      branchingConstraint: 'OUTLOOK_PROWS',
+      mergingBehavior: 'NONE',
+      voidBehavior: 'OVERLOOK_VOID'
+    }
+  }
+};
+window.BASE_TYPOLOGIES = BASE_TYPOLOGIES;
+
+let currentTypologyCategory = 'LOBBY';
+
+const TYPOLOGY_DOMAIN_B_RULES = {
+  VERTICAL_VOID: {
+    C: {
+      title: 'VERTICAL ATRIUM CONTINUITY (C)',
+      qualitative: 'Draws vertical surface extensions connecting lower arrival levels to upper gallery levels around the perimeter of the vertical atrium shaft.',
+      quantitative: 'Minimizes horizontal floor seams; pulls vertices vertically along atrium load-bearing wall boundaries.',
+      tip: 'Slider: low = discrete separate levels; high = unified multi-storey vertical envelope.'
+    },
+    W: {
+      title: 'UPWARD SHAFT WHIPLASH (W)',
+      qualitative: 'Fluid Art Nouveau lines sweep upward (+Y) around the perimeter of the vertical void, drawing sightlines up the atrium shaft.',
+      quantitative: 'Curvature vectors biased strongly in +Y; outward flare at base and crown around the open atrium core.',
+      tip: 'Slider: low = gentle vertical rise; high = dramatic soaring curves flanking the open center.'
+    },
+    B: {
+      title: 'PERIMETER ATRIUM BRANCHING (B)',
+      qualitative: 'Structural rib branches hug perimeter boundary walls; central atrium void is kept strictly clear and unobstructed.',
+      quantitative: 'Radial filter enforces 0 branches inside inner core (r < 0.28); outer ribs fan into ceiling arches.',
+      tip: 'Slider: low = simple perimeter piers; high = dense perimeter flying ribs vaulting across upper levels.'
+    }
+  },
+  COMPRESSED_SEQUENTIAL: {
+    C: {
+      title: 'CHOKE-RELEASE CONTINUITY (C)',
+      qualitative: 'Smoothly bridges and welds the progressive transitions between narrow entry chambers and expanded double-height volumes.',
+      quantitative: 'Blends consecutive spatial zones along the travel path, eliminating sudden sectional fractures.',
+      tip: 'Slider: low = abrupt chamber thresholds; high = fluid serpentine spatial transitions.'
+    },
+    W: {
+      title: 'CHOKE-RELEASE WHIPLASH (W)',
+      qualitative: 'Controls curved transitions between narrow compression (choke) and sweeping expansion (release) along the arrival sequence.',
+      quantitative: 'Sinusoidal section modulation: pinches width in throat zones, releases laterally in open chambers.',
+      tip: 'Slider: low = subtle narrowing; high = extreme architectural compression followed by vast volumetric release.'
+    },
+    B: {
+      title: 'PORTAL FRAME BRANCHING (B)',
+      qualitative: 'Branches form structural portal arches that frame the choke thresholds, accentuating the sequential entrance experience.',
+      quantitative: 'Concentrated branching nodes located at passage throat thresholds (uX = 0.33, 0.67).',
+      tip: 'Slider: low = simple portal gateway; high = layered nested compression gateways.'
+    }
+  },
+  CONTINUOUS_HALL: {
+    C: {
+      title: 'CONTINUOUS SHELL CONTINUITY (C)',
+      qualitative: 'Merges and fuses all roof, wall, and ceiling plates into one unbroken, continuous horizontal Art Nouveau canopy.',
+      quantitative: '100% surface fusion; internal division partitions are eliminated to preserve the boundless free plan.',
+      tip: 'Slider: low = sectional roof segments; high = single continuous monolithic shell.'
+    },
+    W: {
+      title: 'EXPANSIVE SHELL WHIPLASH (W)',
+      qualitative: 'Sweeps outward and upward into a vast horizontal vault canopy overarching the entire hall footprint.',
+      quantitative: 'Radial dome curvature spanning entire horizontal envelope (X and Z axes), keeping interior clear.',
+      tip: 'Slider: low = shallow curvature; high = sweeping expansive shell vaults.'
+    },
+    B: {
+      title: 'PERIMETER BUTTRESS BRANCHING (B)',
+      qualitative: 'Branches lean outward around the perimeter as structural flying buttresses, leaving the central hall completely column-free.',
+      quantitative: 'Interior column count = 0; branches pushed exclusively to outer perimeter envelope (rNorm >= 0.35).',
+      tip: 'Slider: low = perimeter buttress piers; high = multi-tiered exterior flying arches.'
+    }
+  },
+  TOPOGRAPHIC_GROUND: {
+    C: {
+      title: 'SLOPE CONTINUITY (C)',
+      qualitative: 'Bridges stepped floor terraces into seamless, continuous walkable ramps and undulating topographical transitions.',
+      quantitative: 'Eliminates sheer vertical drops by blending risers into gradual incline slopes (< 1:12).',
+      tip: 'Slider: low = discrete stepped platforms; high = uninterrupted continuous walking terrain.'
+    },
+    W: {
+      title: 'FLOOR TOPOGRAPHY WHIPLASH (W)',
+      qualitative: 'Curves and sculpts the ground plane into flowing stepped contours, sloped landscape mounds, and undulating terraces.',
+      quantitative: 'Displacement focused exclusively on lower geometry (uY < 0.65); upper roof remains calm and steady.',
+      tip: 'Slider: low = gentle ground swells; high = dramatic terraced landscape contours.'
+    },
+    B: {
+      title: 'GROUND DIVIDE BRANCHING (B)',
+      qualitative: 'Branches form low landscape retaining curbs, sloped banks, and circulation dividers across the floor plane.',
+      quantitative: 'Branch vertical height clamped near ground (yTop = yBot + 3.2 ft); branches partition pedestrian flow.',
+      tip: 'Slider: low = low terrain edges; high = labyrinthine landscape retaining curbs.'
+    }
+  },
+  LINEAR_GALLERY: {
+    C: {
+      title: 'AXIAL PATH CONTINUITY (C)',
+      qualitative: 'Stretches and aligns all surfaces along the dominant longitudinal procession axis, creating an unbroken vista.',
+      quantitative: 'Surfaces pulled into longitudinal alignment along X; lateral deviations consolidated into the axis.',
+      tip: 'Slider: low = loosely aligned bays; high = strictly unified linear promenade.'
+    },
+    W: {
+      title: 'AXIAL ENFILADE WHIPLASH (W)',
+      qualitative: 'Creates a rhythmic longitudinal section wave along the dominant travel corridor, punctuating movement through space.',
+      quantitative: 'Longitudinal sinusoidal wave (4 cycles along X); lateral spread kept tight to preserve gallery proportion.',
+      tip: 'Slider: low = subtle sectional rhythm; high = pronounced rhythmic portal undulation.'
+    },
+    B: {
+      title: 'SECONDARY AXIAL BRANCHING (B)',
+      qualitative: 'Branches project laterally (+/- Z) from the main gallery spine, forming rhythmic side viewing alcoves and daylight bays.',
+      quantitative: 'Lateral projections perpendicular to main spine; corridor width remains strictly preserved.',
+      tip: 'Slider: low = shallow side niches; high = deep articulated exhibition alcoves.'
+    }
+  },
+  OPEN_HALL: {
+    C: {
+      title: 'FIELD MERGE CONTINUITY (C)',
+      qualitative: 'Eliminates interior seams and dividers, merging individual workspaces into an unbroken horizontal collective field.',
+      quantitative: 'Harmonizes height datums into a single continuous working plane under one roof.',
+      tip: 'Slider: low = compartmentalized zones; high = fully unified open work field.'
+    },
+    W: {
+      title: 'HORIZONTAL UNDULATION WHIPLASH (W)',
+      qualitative: 'Gentle horizontal roof undulation creating daylight billows while maintaining a completely flat, flexible floor.',
+      quantitative: 'Roof undulates along X and Z; floor plane displacement is locked to 0.',
+      tip: 'Slider: low = subtle roof waves; high = dynamic vaulted roof canopies.'
+    },
+    B: {
+      title: 'PERIMETER ALCOVE BRANCHING (B)',
+      qualitative: 'Branching forms quiet perimeter work alcoves and support ribs, keeping the vast central collaborative floor open.',
+      quantitative: 'Branches restricted to outer 30% perimeter; central 70% floor remains completely open.',
+      tip: 'Slider: low = perimeter pilasters; high = private focus nooks ringing the hall.'
+    }
+  },
+  CASCADED_TERRACED: {
+    C: {
+      title: 'CASCADE FILLET CONTINUITY (C)',
+      qualitative: 'Fillets riser faces to tread plates, transforming distinct stepped tiers into smooth, cascading architectural contours.',
+      quantitative: 'Curved transitions bridge tier steps with smooth tangential fillets.',
+      tip: 'Slider: low = sharp stepped edges; high = fluid waterfall cascades.'
+    },
+    W: {
+      title: 'STEPPED RISER WHIPLASH (W)',
+      qualitative: 'Sculpts natural stepped contour risers descending across the section, forming organic plate terraces.',
+      quantitative: 'Sectional step function with Art Nouveau curved lip profiles on each terrace edge.',
+      tip: 'Slider: low = flat horizontal plates; high = dynamic organic stepped plateaus.'
+    },
+    B: {
+      title: 'TERRACE CANTILEVER BRANCHING (B)',
+      qualitative: 'Branches project outward as cantilevered lookout balconies extending forward from intermediate tiers.',
+      quantitative: 'Cantilever projections step down with section; branch count matches tier count.',
+      tip: 'Slider: low = flush terrace edges; high = dramatic flying cantilever platforms.'
+    }
+  },
+  FLAT_DEEP_PLAN: {
+    C: {
+      title: 'FLAT PLATE CONTINUITY (C)',
+      qualitative: 'Enforces strict planar leveling across the entire floor plate, ensuring continuous commercial workspace.',
+      quantitative: 'Vertical displacement locked to 0 on floor; continuity merges horizontal slab segments.',
+      tip: 'Slider: low = segmented slabs; high = monolithic planar continuous floor.'
+    },
+    W: {
+      title: 'CORE RIM WHIPLASH (W)',
+      qualitative: 'Level floor is strictly preserved; fluid curvature acts entirely in-plane around service cores and daylight wells.',
+      quantitative: 'Horizontal (X-Z) curvilinear boundary curves; dY = 0 ft.',
+      tip: 'Slider: low = rectilinear cores; high = fluid organic light well boundaries.'
+    },
+    B: {
+      title: 'RADIAL SPINE BRANCHING (B)',
+      qualitative: 'Branches radiate outward from centralized vertical cores, organizing services and secondary circulation zones.',
+      quantitative: 'Radial distribution centered on primary service cores.',
+      tip: 'Slider: low = orthogonal distribution; high = organic radiating service spines.'
+    }
+  },
+  VOID_EDGE: {
+    C: {
+      title: 'PERIMETER RING CONTINUITY (C)',
+      qualitative: 'Closes annular ring surfaces into a seamless 360-degree ribbon wrapping around the central light well.',
+      quantitative: 'Annular circumferential continuity; joins perimeter edge segments into a closed loop.',
+      tip: 'Slider: low = segmented perimeter walkways; high = continuous circular ribbon.'
+    },
+    W: {
+      title: 'VOID RIM SWEEP WHIPLASH (W)',
+      qualitative: 'Sweeps dynamic fluid curvature along the perimeter ring of the central void, maximizing edge desk views.',
+      quantitative: 'Radial weight function peaks at rim radius; curves modulate height and width along the ring.',
+      tip: 'Slider: low = concentric circular edge; high = billowing organic void balustrade.'
+    },
+    B: {
+      title: 'OUTWARD BAY BRANCHING (B)',
+      qualitative: 'Workstation bays branch radially outward away from the void edge, creating semi-private team pods facing views.',
+      quantitative: 'Branches project outward from rim toward outer facade.',
+      tip: 'Slider: low = shallow desk alcoves; high = deep finger pods radiating outward.'
+    }
+  },
+  FOLDED_UNDULATED: {
+    C: {
+      title: 'CREASE FACET CONTINUITY (C)',
+      qualitative: 'Aligns origami creases into continuous diagonal ridges, unifying multi-faceted faceted plates.',
+      quantitative: 'Diagonal crease continuity connecting high and low fold points across the space.',
+      tip: 'Slider: low = faceted disjointed plates; high = continuous undulating ribbon.'
+    },
+    W: {
+      title: 'ORIGAMI PLEAT WHIPLASH (W)',
+      qualitative: 'Creates dynamic origami accordion pleating and 3D sinusoidal ramps that alternate up and down.',
+      quantitative: 'Bivariate sinusoidal wave (5 cycles along X, 2 cycles along Z) with sharp crests and soft valleys.',
+      tip: 'Slider: low = gentle rolls; high = dramatic angular pleats and folded peaks.'
+    },
+    B: {
+      title: 'CREST NOOK BRANCHING (B)',
+      qualitative: 'Work nooks and meeting niches branch along fold crests and valleys, utilizing topography for acoustic isolation.',
+      quantitative: 'Branches sprout from high ridges (+Y) and nestle into low folds (-Y).',
+      tip: 'Slider: low = simple fold ribs; high = articulated nooks embedded in folds.'
+    }
+  },
+  STEPPED_AMPHITHEATER: {
+    C: {
+      title: 'CIRCULATION STEPS CONTINUITY (C)',
+      qualitative: 'Connects radial aisles and circular seating tiers into a unified, continuous acoustic bowl geometry.',
+      quantitative: 'Smooths connections between transverse aisles and circumferential seating steps.',
+      tip: 'Slider: low = separated stair blocks; high = unified monolithic bowl.'
+    },
+    W: {
+      title: 'ACOUSTIC BOWL WHIPLASH (W)',
+      qualitative: 'Forms a concave acoustic bowl curvature with seating risers focusing directly on the presentation stage.',
+      quantitative: 'Radial focal depression centered at stage point; parabolic curve ascends outward.',
+      tip: 'Slider: low = shallow rake; high = dramatic steep amphitheater bowl.'
+    },
+    B: {
+      title: 'RADIAL AISLE BRANCHING (B)',
+      qualitative: 'Radial aisle steps and vomitory entrances branch through the seating bowl, organizing audience circulation.',
+      quantitative: '5 radial vomitory aisles slicing symmetrically through seating tiers.',
+      tip: 'Slider: low = single central stair; high = 5 articulated radial aisles and portal entries.'
+    }
+  },
+  VOID_FIELD_GATHERING: {
+    C: {
+      title: 'CONVERGING PATHS CONTINUITY (C)',
+      qualitative: 'Blends multiple converging floor spokes into a unified central gathering crossroads beneath a towering void.',
+      quantitative: 'Radial path convergence merging at central civic node.',
+      tip: 'Slider: low = crisscrossing floor paths; high = unified civic plaza floor.'
+    },
+    W: {
+      title: 'SOARING VAULT RIBS WHIPLASH (W)',
+      qualitative: 'Slender vertical ribs spring from ground crossroads and fan upward into organic vault canopies over the gathering.',
+      quantitative: 'Vertical parabolic curvature fanning outward near ceiling.',
+      tip: 'Slider: low = modest column shafts; high = soaring fanned vault canopies.'
+    },
+    B: {
+      title: 'MEETING CLUSTER BRANCHING (B)',
+      qualitative: 'Circular seating and meeting clusters branch at path crossroads, creating intimate gathering pockets in the vast hall.',
+      quantitative: 'Radial cluster nodes positioned at circulation junctures.',
+      tip: 'Slider: low = open crossroads; high = articulated gathering pods with integrated seating.'
+    }
+  },
+  INSERTED_PLATE: {
+    C: {
+      title: 'SUSPENSION LINK CONTINUITY (C)',
+      qualitative: 'Draws structural tensile lines and fluid connections linking the suspended mezzanine to the parent shell.',
+      quantitative: 'Vertical tensile connections merging platform slab to upper primary structure.',
+      tip: 'Slider: low = isolated floating plate; high = organically hung mezzanine.'
+    },
+    W: {
+      title: 'MEZZANINE CRADLE WHIPLASH (W)',
+      qualitative: 'Sculpts organic curved hull ribs that cradle the suspended platform floating mid-height within the volume.',
+      quantitative: 'Catenary cradle curves supporting intermediate horizontal plate (y = 0.5 spanY).',
+      tip: 'Slider: low = planar floating slab; high = organic curved hull cradle.'
+    },
+    B: {
+      title: 'PYLON SUPPORT BRANCHING (B)',
+      qualitative: 'Organic structural pylons branch upward from ground and downward from ceiling to cradle the inserted plate.',
+      quantitative: 'Tree-like branching pylons supporting intermediate plate corners.',
+      tip: 'Slider: low = vertical hanger rods; high = branching organic structural cradles.'
+    }
+  },
+  CONTAINED_ROOM: {
+    C: {
+      title: 'POD ENCLOSURE CONTINUITY (C)',
+      qualitative: 'Welds and seals pod shell seams into an unbroken, acoustically isolated organic room capsule.',
+      quantitative: 'Enclosure shell closure; eliminates exterior air gaps to create a distinct room-within-a-room.',
+      tip: 'Slider: low = open louvered pavilion; high = fully sealed organic cocoon.'
+    },
+    W: {
+      title: 'COCOON POD WHIPLASH (W)',
+      qualitative: 'Shapes a bulbous, organic cocoon vessel enclosed inside the larger hall volume for intimate gatherings.',
+      quantitative: 'Spherical/ellipsoidal contraction and flaring creating an enclosed room pod volume.',
+      tip: 'Slider: low = open curved screen; high = complete bulbous cocoon capsule.'
+    },
+    B: {
+      title: 'SCREEN LOUVER BRANCHING (B)',
+      qualitative: 'Branches wrap around the pod as decorative and structural screen louvers, modulating light and privacy.',
+      quantitative: 'Circumferential rib cage branching encircling the pod volume.',
+      tip: 'Slider: low = simple framing ribs; high = intricate Art Nouveau privacy brise-soleil.'
+    }
+  },
+  LINEAR_EDGE_GALLERY: {
+    C: {
+      title: 'GALLERY PROMENADE CONTINUITY (C)',
+      qualitative: 'Smooths the overlook ribbon into an uninterrupted linear promenade along the building perimeter.',
+      quantitative: 'Continuous edge curve joining intermediate viewing bays into one seamless walkway.',
+      tip: 'Slider: low = segmented balconies; high = uninterrupted continuous promenade.'
+    },
+    W: {
+      title: 'BALUSTRADE RIBBON WHIPLASH (W)',
+      qualitative: 'Sweeps an elongated Art Nouveau overlook balustrade along the building perimeter edge.',
+      quantitative: 'Longitudinal edge undulation with continuous railing and cantilevers.',
+      tip: 'Slider: low = straight perimeter edge; high = sweeping sinusoidal overlook balconies.'
+    },
+    B: {
+      title: 'OUTLOOK PROW BRANCHING (B)',
+      qualitative: 'Branches extend forward beyond the facade as dramatic outlook prows cantilevering over the view.',
+      quantitative: 'Cantilevered lookout pods projecting outward from the linear gallery edge.',
+      tip: 'Slider: low = subtle balcony swell; high = dramatic flying lookout prows.'
+    }
+  }
+};
+window.TYPOLOGY_DOMAIN_B_RULES = TYPOLOGY_DOMAIN_B_RULES;
+
+function selectDomainATypology(typologyKey) {
+  onTypologySelectionChanged(typologyKey);
+}
+window.selectDomainATypology = selectDomainATypology;
+
+function onTypologySelectionChanged(typologyKey) {
+  const typo = BASE_TYPOLOGIES[typologyKey] || BASE_TYPOLOGIES.VERTICAL_VOID;
+  domainState.selectedTypology = typo.id;
+  currentTypologyCategory = typo.category;
+
+  // Domain A Rule Card Elements
+  const titleA = document.getElementById('domain-a-selected-title');
+  if (titleA) titleA.textContent = typo.name.toUpperCase();
+
+  const badgeA = document.getElementById('domain-a-selected-badge');
+  if (badgeA) badgeA.textContent = typo.category;
+
+  const descA = document.getElementById('domain-a-desc-text');
+  if (descA) descA.textContent = typo.description;
+
+  const ruleA = document.getElementById('domain-a-spatial-rule');
+  if (ruleA) ruleA.textContent = typo.spatialRule;
+
+  const prinA = document.getElementById('domain-a-principles-badge');
+  if (prinA) prinA.textContent = typo.principlesBadge;
+
+  const geomA = document.getElementById('domain-a-geom-action');
+  if (geomA) geomA.textContent = typo.baseGeometryAction;
+
+  // Domain B Active Typology Banner
+  const seedNameB = document.getElementById('domain-b-active-seed-name');
+  if (seedNameB) seedNameB.textContent = `${typo.name} (${typo.category})`;
+
+  // Domain C readout
+  const cTypoEl = document.getElementById('c-readout-typology');
+  if (cTypoEl) cTypoEl.textContent = typo.name;
+
+  const cPrincipleEl = document.getElementById('c-readout-principle');
+  if (cPrincipleEl) cPrincipleEl.textContent = PRINCIPLE_NAMES[typo.dominantPrinciple] || typo.dominantPrinciple;
+
+  // Sync active pill in Domain A dropdown tabs
+  document.querySelectorAll('.domain-a-pill').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.key === typo.id);
+  });
+
+  const hiddenInput = document.getElementById('select-base-typology');
+  if (hiddenInput) hiddenInput.value = typo.id;
+
+  const catTag = document.getElementById('domain-a-category-tag');
+  if (catTag) catTag.textContent = typo.category;
+
+  // Domain B Typology Geometric Influence banner
+  const bTitle = document.getElementById('domain-b-influence-title');
+  if (bTitle) bTitle.textContent = typo.name.toUpperCase();
+
+  const bCat = document.getElementById('domain-b-influence-cat');
+  if (bCat) bCat.textContent = typo.category;
+
+  const bGoal = document.getElementById('domain-b-influence-goal');
+  if (bGoal) bGoal.textContent = typo.spatialGoal || typo.description;
+
+  const bRationale = document.getElementById('domain-b-influence-rationale');
+  if (bRationale) bRationale.textContent = typo.rulesSummary || typo.spatialLimits?.limitRationale || typo.description;
+
+  const bResult = document.getElementById('domain-b-influence-result');
+  if (bResult) bResult.textContent = typo.expectedResult || '';
+
+  const bRule = document.getElementById('domain-b-influence-rule');
+  if (bRule) bRule.textContent = typo.spatialRule;
+
+  const bStatus = document.getElementById('domain-b-influence-status');
+  const dna = domainState.dna || [0,0,0,0,0,0];
+  const isEngaged = (dna[0] > 0 || dna[1] > 0 || dna[2] > 0);
+  if (bStatus) {
+    bStatus.textContent = isEngaged ? `ACTIVE â€” ${typo.name.toUpperCase()} RULES` : 'READY â€” MODIFY SLIDERS TO ACTIVATE';
+  }
+
+  // Update Dynamic Rule Definitions for the 3 Domain B Sliders
+  const typoRules = TYPOLOGY_DOMAIN_B_RULES[typo.id] || TYPOLOGY_DOMAIN_B_RULES.VERTICAL_VOID;
+  if (typoRules) {
+    // Continuity
+    const tC = document.getElementById('title-dna-c'); if (tC) tC.textContent = typoRules.C.title;
+    const qC = document.getElementById('def-dna-c-qual'); if (qC) qC.textContent = typoRules.C.qualitative;
+    const nC = document.getElementById('def-dna-c-quant'); if (nC) nC.textContent = typoRules.C.quantitative;
+    const iC = document.getElementById('def-dna-c-tip'); if (iC) iC.textContent = typoRules.C.tip;
+
+    // Whiplash
+    const tW = document.getElementById('title-dna-w'); if (tW) tW.textContent = typoRules.W.title;
+    const qW = document.getElementById('def-dna-w-qual'); if (qW) qW.textContent = typoRules.W.qualitative;
+    const nW = document.getElementById('def-dna-w-quant'); if (nW) nW.textContent = typoRules.W.quantitative;
+    const iW = document.getElementById('def-dna-w-tip'); if (iW) iW.textContent = typoRules.W.tip;
+
+    // Branching
+    const tB = document.getElementById('title-dna-b'); if (tB) tB.textContent = typoRules.B.title;
+    const qB = document.getElementById('def-dna-b-qual'); if (qB) qB.textContent = typoRules.B.qualitative;
+    const nB = document.getElementById('def-dna-b-quant'); if (nB) nB.textContent = typoRules.B.quantitative;
+    const iB = document.getElementById('def-dna-b-tip'); if (iB) iB.textContent = typoRules.B.tip;
+  }
+
+  // Update suggested target limits indicators in Domain B
+  const sLimits = typo.spatialLimits?.sliderLimits || {
+    W: [0, 100], C: [0, 100], B: [0, 100], M: [0, 100], V: [0, 100], G: [0, 100]
+  };
+  domainState.activeTypologyLimits = typo.spatialLimits;
+
+  const sliderKeys = [
+    { code: 'C', id: 'slider-dna-c', limitId: 'limit-dna-c', dnaIdx: 0, pId: 'CONTINUITY' },
+    { code: 'W', id: 'slider-dna-w', limitId: 'limit-dna-w', dnaIdx: 2, pId: 'WHIPLASH' },
+    { code: 'B', id: 'slider-dna-b', limitId: 'limit-dna-b', dnaIdx: 1, pId: 'BRANCHING' },
+    { code: 'M', id: 'slider-dna-m', limitId: 'limit-dna-m', dnaIdx: 3, pId: 'MERGING' },
+    { code: 'V', id: 'slider-dna-v', limitId: 'limit-dna-v', dnaIdx: 4, pId: 'POSITIVE_NEGATIVE' },
+    { code: 'G', id: 'slider-dna-g', limitId: 'limit-dna-g', dnaIdx: 5, pId: 'GROWTH' }
+  ];
+
+  sliderKeys.forEach(item => {
+    const limits = sLimits[item.code] || [0, 100];
+    const lEl = document.getElementById(item.limitId);
+    if (lEl) {
+      lEl.textContent = `[${limits[0]}–${limits[1]}%]`;
+    }
+
+    const sliderEl = document.getElementById(item.id);
+    if (sliderEl) {
+      const container = sliderEl.closest('.slider-group-dna');
+      const isActive = (typo.dominantPrinciple === item.pId) || (typo.secondaryPrinciples && typo.secondaryPrinciples.includes(item.pId));
+      if (container) {
+        if (isActive) {
+          container.style.opacity = '1.0';
+          container.style.pointerEvents = 'auto';
+          sliderEl.disabled = false;
+        } else {
+          container.style.opacity = '0.35';
+          container.style.pointerEvents = 'none';
+          sliderEl.disabled = true;
+          sliderEl.value = 0;
+          if (window.domainState && window.domainState.dna) {
+            window.domainState.dna[item.dnaIdx] = 0;
+          }
+        }
+      }
+    }
+  });
+
+  if (typeof updateDnaUIAndViewport === 'function') {
+    updateDnaUIAndViewport();
+  }
+
+  // Store starting conditions for the next generated iteration
+  domainState.pendingTypologyParams = {
+    typologyId: typo.id,
+    baseDna: [...typo.baseDna],
+    dominantPrinciple: typo.dominantPrinciple,
+    secondaryPrinciples: [...typo.secondaryPrinciples],
+    spatialLimits: typo.spatialLimits,
+    typologyProfile: typo.typologyProfile,
+    spatialGrammar: typo.spatialGrammar
+  };
+}
+window.onTypologySelectionChanged = onTypologySelectionChanged;
+
+/**
+ * ACTIVATE / APPLY TYPOLOGY RULES IN DOMAIN B
+ * Directly engages the currently selected Domain A Typology's rules in Domain B.
+ * If sliders are currently 0%, sets them to the typology's baseline parameters.
+ * If sliders already have values, re-evaluates the geometry under the active typology.
+ */
+function activateDomainBRules(forceBaseline = false) {
+  const typoKey = (window.domainState && window.domainState.selectedTypology) || 'VERTICAL_VOID';
+  const typo = BASE_TYPOLOGIES[typoKey] || BASE_TYPOLOGIES.VERTICAL_VOID;
+  const currentDna = (window.domainState && window.domainState.dna) || [0,0,0,0,0,0];
+
+  const allZero = (currentDna[0] <= 0.001 && currentDna[1] <= 0.001 && currentDna[2] <= 0.001);
+
+  if (allZero && forceBaseline && typo.baseDna) {
+    // Set 3 primary sliders to typology recommended baseline
+    const cVal = Math.round((typo.baseDna[0] || 0.70) * 100);
+    const bVal = Math.round((typo.baseDna[1] || 0.25) * 100);
+    const wVal = Math.round((typo.baseDna[2] || 0.70) * 100);
+
+    const sC = document.getElementById('slider-dna-c'); if (sC) sC.value = cVal;
+    const sB = document.getElementById('slider-dna-b'); if (sB) sB.value = bVal;
+    const sW = document.getElementById('slider-dna-w'); if (sW) sW.value = wVal;
+
+    domainState.dna[0] = cVal / 100.0;
+    domainState.dna[1] = bVal / 100.0;
+    domainState.dna[2] = wVal / 100.0;
+  }
+
+  if (typeof window.switchVisualComparisonMode === 'function') {
+    window.switchVisualComparisonMode('ITERATION');
+  } else {
+    window.activeVisualCompMode = 'ITERATION';
+    domainState.visualComparisonMode = 'ITERATION';
+  }
+
+  const bStatus = document.getElementById('domain-b-influence-status');
+  if (bStatus) bStatus.textContent = `ACTIVE â€” ${typo.name.toUpperCase()} RULES APPLIED`;
+
+  updateDnaUIAndViewport();
+}
+window.activateDomainBRules = activateDomainBRules;
+function validateTypologyGeometry(defPos, origPos, bounds, typologyKey) {
+  if (!defPos || !origPos || defPos.length === 0) return { pass: true, score: 100, checks: [] };
+
+  const typoKey = typologyKey || (window.domainState && window.domainState.selectedTypology) || 'VERTICAL_VOID';
+  const typoDef = window.BASE_TYPOLOGIES && window.BASE_TYPOLOGIES[typoKey];
+  const goal = typoDef ? typoDef.spatialGoal : '';
+
+  const minX = bounds?.min?.x ?? -10, maxX = bounds?.max?.x ?? 10;
+  const minY = bounds?.min?.y ?? -10, maxY = bounds?.max?.y ?? 10;
+  const minZ = bounds?.min?.z ?? -10, maxZ = bounds?.max?.z ?? 10;
+  const spanX = Math.max(0.1, maxX - minX);
+  const spanY = Math.max(0.1, maxY - minY);
+  const spanZ = Math.max(0.1, maxZ - minZ);
+  const transSpan = Math.max(spanX, spanZ);
+  const centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2, centerZ = (minZ + maxZ) / 2;
+
+  let checks = [];
+  let pass = true;
+
+  let centerVertCount = 0;
+  let maxDY = 0;
+  let floorVertsMoved = 0;
+  let upperVertsMoved = 0;
+  let totalVerts = Math.floor(defPos.length / 3);
+
+  let defMinX = Infinity, defMaxX = -Infinity;
+  let defMinY = Infinity, defMaxY = -Infinity;
+  let defMinZ = Infinity, defMaxZ = -Infinity;
+
+  for (let i = 0; i < defPos.length; i += 3) {
+    let dx = defPos[i] - centerX, dz = defPos[i+2] - centerZ;
+    let r = Math.sqrt(dx * dx + dz * dz);
+    if (r < 0.22 * transSpan) centerVertCount++;
+
+    let dy = Math.abs(defPos[i+1] - origPos[i+1]);
+    if (dy > maxDY) maxDY = dy;
+
+    if (origPos[i+1] <= centerY) {
+      if (dy > 0.05 * spanY) floorVertsMoved++;
+    } else {
+      if (dy > 0.05 * spanY) upperVertsMoved++;
+    }
+
+    if (defPos[i] < defMinX) defMinX = defPos[i];
+    if (defPos[i] > defMaxX) defMaxX = defPos[i];
+    if (defPos[i+1] < defMinY) defMinY = defPos[i+1];
+    if (defPos[i+1] > defMaxY) defMaxY = defPos[i+1];
+    if (defPos[i+2] < defMinZ) defMinZ = defPos[i+2];
+    if (defPos[i+2] > defMaxZ) defMaxZ = defPos[i+2];
+  }
+
+  const defSpanX = defMaxX - defMinX;
+  const defSpanZ = defMaxZ - defMinZ;
+  const centerDensityPct = (centerVertCount / Math.max(1, totalVerts)) * 100;
+
+  if (typoKey === 'VERTICAL_VOID' || typoKey === 'VOID_FIELD_GATHERING') {
+    const isVoidClear = centerDensityPct < 15.0;
+    checks.push({
+      name: 'Central Void Clearance (center remains open)',
+      pass: isVoidClear,
+      value: `${centerDensityPct.toFixed(1)}% density`
+    });
+    if (!isVoidClear) pass = false;
+  }
+
+  if (typoKey === 'FLAT_DEEP_PLAN') {
+    const isFlat = maxDY < 0.25 * spanY;
+    checks.push({
+      name: 'Plate Flatness Preservation (minimal vertical deformation)',
+      pass: isFlat,
+      value: `maxDY: ${maxDY.toFixed(2)} ft`
+    });
+    if (!isFlat) pass = false;
+  }
+
+  if (typoKey === 'TOPOGRAPHIC_GROUND') {
+    const isGroundBiased = floorVertsMoved >= upperVertsMoved;
+    checks.push({
+      name: 'Ground-Field Priority (floor moves more than canopy)',
+      pass: isGroundBiased,
+      value: `floor: ${floorVertsMoved} vs upper: ${upperVertsMoved}`
+    });
+    if (!isGroundBiased) pass = false;
+  }
+
+  if (typoKey === 'LINEAR_GALLERY') {
+    const isAxial = defSpanX > defSpanZ * 1.5;
+    checks.push({
+      name: 'Directional Axis Dominance (longitudinal elongation)',
+      pass: isAxial,
+      value: `length: ${defSpanX.toFixed(1)} vs depth: ${defSpanZ.toFixed(1)}`
+    });
+    if (!isAxial) pass = false;
+  }
+
+  return {
+    pass: pass,
+    score: pass ? 95 : 60,
+    checks: checks,
+    spatialGoal: goal,
+    typologyKey: typoKey
+  };
+}
+window.validateTypologyGeometry = validateTypologyGeometry;
 
 /**
  * GENERATE CONTROLLED ITERATIONS (DOMAIN C)
@@ -1999,7 +3306,8 @@ function generatePopulation() {
     }
 
     // Execute transformation engine
-    const defPos = window.applyArtNouveauDNA(origPos, childDna, bounds, userThreshold);
+    const activeTypo = domainState.selectedTypology || 'VERTICAL_VOID';
+    const defPos = window.applyArtNouveauDNA(origPos, childDna, bounds, userThreshold, true, activeTypo);
     const stats = window.lastEngineStats || {};
     const seedIdentityPct = stats.seedIdentityPct || 100;
     const measuredOutput = window.measureGeometryMetrics(defPos, origPos, bounds);
@@ -2024,6 +3332,7 @@ function generatePopulation() {
       measuredOutput: measuredOutput,
       ruleValidation: stats.ruleValidation || {},
       whyText: whyText,
+      typologyKey: activeTypo,
       isSaved: false
     };
 
@@ -2541,7 +3850,7 @@ function initDetail3DCanvas(iter) {
   // Build Geometry Mesh
   const origPos = window.getOriginalMeshPositions();
   const bounds = window.getModelBounds();
-  const defPos = window.applyArtNouveauDNA(origPos, iter.dna, bounds, domainState.seedIdentityThreshold);
+  const defPos = window.applyArtNouveauDNA(origPos, iter.dna, bounds, domainState.seedIdentityThreshold, true, iter.typologyKey || domainState.selectedTypology);
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(defPos, 3));
@@ -2614,7 +3923,7 @@ function render3DMeshThumbnail(iter, canvasId) {
   const bounds = window.getModelBounds();
   if (!origPos || !bounds) return;
 
-  const defPos = window.applyArtNouveauDNA(origPos, iter.dna, bounds, domainState.seedIdentityThreshold);
+  const defPos = window.applyArtNouveauDNA(origPos, iter.dna, bounds, domainState.seedIdentityThreshold, true, iter.typologyKey || domainState.selectedTypology);
 
   const ctx = canvas.getContext('2d');
   const w = canvas.width;
@@ -2801,4 +4110,7 @@ window.revertToOriginalRhinoSeed = revertToOriginalRhinoSeed;
 if (!window.restoreOriginalImportedGeometry) {
   window.restoreOriginalImportedGeometry = revertToOriginalRhinoSeed;
 }
+
+
+
 

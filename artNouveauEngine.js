@@ -53,28 +53,65 @@ function generateArtNouveauGeometry(topology, width, height, seed, designIntent,
   });
   const secondarySplineD = getCatmullRomBezierPath(offsetPoints);
 
-  // 4. Branching Support Columns & Curving Ribs
+  // 4. Quantitative Branching Architectural Walls & Supports
   const branchingRibs = [];
   const columns = [];
+  const branchingWalls = [];
 
+  // Quantitative Branch Parameters:
+  // Wall Thickness: 6–12 in (8–16 px canvas scale)
+  // Wall Height: 8–14 ft (160–280 px canvas scale)
+  // Branch Count: 2–4 secondary branches per primary wall
+  // Divergence Angle: 20–60°
+  // Base Transition: 2–6 ft (20–60 px horizontal blend)
   topology.plates.forEach((plate, idx) => {
-    // Structural columns connecting floor plates to ceiling vault
     const colX = (plate.x1 + plate.x2) / 2;
     const ceilingY = baselineY - 20;
+    const wallHeightPx = Math.abs(plate.y1 - ceilingY);
+    const wallThicknessPx = 8 + (idx % 3) * 3; // 8–14 in scale
     
-    // Art Nouveau Whiplash Column (S-curve stem)
+    // Primary Architectural Wall (S-curve stem with upward Z-pull)
     const midX = colX + (idx % 2 === 0 ? 18 : -18);
     const midY = (plate.y1 + ceilingY) / 2;
     const colPathD = `M ${colX.toFixed(1)},${plate.y1.toFixed(1)} Q ${midX.toFixed(1)},${midY.toFixed(1)} ${colX.toFixed(1)},${ceilingY.toFixed(1)}`;
     
-    columns.push({ pathD: colPathD, x: colX, y1: plate.y1, y2: ceilingY });
+    columns.push({
+      pathD: colPathD,
+      x: colX,
+      y1: plate.y1,
+      y2: ceilingY,
+      thicknessPx: wallThicknessPx,
+      heightFt: Number((wallHeightPx / 20).toFixed(1)) // 1 ft ~ 20 px scale
+    });
+
+    // Generate 2–4 Secondary Branches at 20–60° divergence angle
+    const secondaryCount = 2 + (idx % 3); // 2–4 branches
+    for (let b = 1; b <= secondaryCount; b++) {
+      const branchAngleDeg = 20 + b * 12; // 20–60°
+      const branchAngleRad = (branchAngleDeg * Math.PI) / 180;
+      const branchLenRatio = 0.30 + b * 0.12; // 30–70% length
+      const branchLenPx = wallHeightPx * branchLenRatio;
+      
+      const dirSign = (b % 2 === 1) ? 1 : -1;
+      const bEndX = colX + Math.sin(branchAngleRad) * branchLenPx * dirSign;
+      const bEndY = ceilingY + Math.cos(branchAngleRad) * branchLenPx * 0.4;
+      const bMidX = colX + (bEndX - colX) * 0.5 + (dirSign * 10);
+      const bMidY = (ceilingY + bEndY) / 2;
+
+      branchingRibs.push({
+        pathD: `M ${colX.toFixed(1)},${ceilingY.toFixed(1)} Q ${bMidX.toFixed(1)},${bMidY.toFixed(1)} ${bEndX.toFixed(1)},${bEndY.toFixed(1)}`,
+        angleDeg: branchAngleDeg,
+        lengthRatioPct: Math.round(branchLenRatio * 100),
+        thicknessIn: Math.round(wallThicknessPx * 0.8)
+      });
+    }
 
     if (idx > 0) {
       const startPt = { x: plate.x1, y: plate.y1 };
       const endPt = { x: plate.x2, y: plate.y2 };
       const ribMidX = (startPt.x + endPt.x) / 2;
       const ribMidY = (startPt.y + endPt.y) / 2 - 35;
-      branchingRibs.push({
+      branchingWalls.push({
         pathD: `M ${startPt.x.toFixed(1)},${startPt.y.toFixed(1)} Q ${ribMidX.toFixed(1)},${ribMidY.toFixed(1)} ${endPt.x.toFixed(1)},${endPt.y.toFixed(1)}`
       });
     }
