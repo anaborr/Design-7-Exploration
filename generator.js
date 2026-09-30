@@ -2011,7 +2011,7 @@ const BASE_TYPOLOGIES = {
       growthBias: 'CHOKE_RELEASE_EXPAND',
       whiplashStyle: 'CHOKE_RELEASE_INFLECTION',
       continuityMode: 'ZONE_TRANSITIONS',
-      branchingConstraint: 'LOW_PRIORITY',
+      branchingConstraint: 'CHOKE_PORTALS',
       mergingBehavior: 'COMPRESSION_CHOKE',
       voidBehavior: 'ZONE_WIDTH'
     }
@@ -3019,13 +3019,11 @@ function onTypologySelectionChanged(typologyKey) {
           container.style.pointerEvents = 'auto';
           sliderEl.disabled = false;
         } else {
+          // Dim visually but DO NOT zero the value — the spatial grammar in applyRule
+          // constrains the geometry per-typology regardless of slider values.
           container.style.opacity = '0.35';
           container.style.pointerEvents = 'none';
           sliderEl.disabled = true;
-          sliderEl.value = 0;
-          if (window.domainState && window.domainState.dna) {
-            window.domainState.dna[item.dnaIdx] = 0;
-          }
         }
       }
     }
