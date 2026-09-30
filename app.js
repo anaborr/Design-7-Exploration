@@ -562,12 +562,6 @@ function restoreOriginalImportedGeometry() {
   if (window.clearBranchingGeometry) {
     window.clearBranchingGeometry();
   }
-  if (window.clearContinuityConnections) {
-    window.clearContinuityConnections();
-  }
-  if (window.syncContinuityConnections) {
-    window.syncContinuityConnections(0);
-  }
 
 
 
@@ -1875,12 +1869,21 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // ═══════════════════════════════════════════════════════════════════════════
   // RULE 6: CONTINUITY (C)
-  // Definition: Separate elements extend and connect to become one continuous form.
-  // Geometric Rule: As Continuity increases, the number of disconnected elements
-  // decreases through continuous connections across all axial directions (X, Y, Z).
-  //   - Low Continuity (0 < C <= 0.30): Elements remain mostly separate with open gaps at extremities. Minimal connections.
-  //   - Medium Continuity (0.30 < C <= 0.70): One extremity extends and connects into a continuous U-loop while the other remains open.
-  //   - High Continuity (0.70 < C <= 1.0): Both extremities extend and connect into ONE continuous closed form/envelope across X, Y, and Z.
+  // Architectural Definition: The degree to which separate geometric elements
+  // connect, overlap, align, or flow into one another to create a unified and
+  // uninterrupted spatial form.
+  // Visual Experience: Designing so that the view in a space moves smoothly from
+  // one element to the next without abrupt breaks or jarring dislocations.
+  // Continuity does NOT simply make everything closer together: it unifies the
+  // architecture through 4 spatial mechanisms:
+  //   1. ALIGN: Visual trajectories, slopes, and longitudinal ridges align tangentially
+  //      (G1/G2 continuity) so sightlines glide seamlessly across elements.
+  //   2. FLOW INTO ONE ANOTHER: Horizontal floor plates, vertical walls, and ceiling
+  //      canopies blend with fluid filleted transitions (eliminating sharp joints).
+  //   3. OVERLAP: Elements extend and overlap across spatial thresholds (cantilevers
+  //      overlap ground; canopy overlaps tower and void), creating layered spatial continuity.
+  //   4. CONNECT: Disjointed extremities and separate components unify into continuous
+  //      architectural ribbons and envelopes across all 3 axial planes (X, Y, Z).
   // ═══════════════════════════════════════════════════════════════════════════
   else if (upperRule === 'CONTINUITY' || upperRule === 'C') {
     const C = Math.max(0, Math.min(1.0, strength));
@@ -1892,23 +1895,14 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
       return t * t * (3 - 2 * t);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // CONTINUITY DIAGRAM STAGES (Exact Reference Diagram Implementation):
-    // Stage 1 (Low C, 0–30%): Elements remain separate, parallel with open gaps at both ends
-    // Stage 2 (Med C, 30–70%): One end connects into a rounded continuous U-loop; other end open
-    // Stage 3 (High C, 70–100%): Both ends extend and connect into ONE continuous closed loop
-    // Interior architectural volume and ceiling loft are strictly preserved.
-    // ═══════════════════════════════════════════════════════════════════════════
-    const intro = Math.min(1.0, C / 0.06);
-    const lowFactor = intro * (C <= 0.30 ? (1.0 - (C / 0.30)) : 0.0);
-    // Stage 2 peaks at Med C (around 50%) where one end is connected and other open
-    const stage2Factor = C <= 0.25 
-      ? 0.0 
-      : (C <= 0.55 ? smoothstep(0.25, 0.55, C) : 1.0);
-    // Stage 3 reaches 1.0 at C >= 0.80, fully closing both ends into a continuous loop at high slider values
-    const stage3Factor = C <= 0.50 
-      ? 0.0 
-      : smoothstep(0.50, 0.80, C);
+    // Continuity Progression Factors:
+    // Low C (0–30%): Elements remain mostly separate with articulated breaks and steps
+    const lowFactor = C <= 0.30 ? (1.0 - (C / 0.30)) : 0.0;
+    // Medium-to-High C (30–100%): Seamless progression of alignment, flowing fillets, overlap, and continuous connection
+    const flowFactor = C;
+    const alignFactor = smoothstep(0.20, 0.85, C);
+    const overlapFactor = smoothstep(0.25, 0.90, C);
+    const filletFactor = smoothstep(0.30, 0.85, C);
 
     for (let i = 0; i < out.length; i += 3) {
       let x = out[i], y = out[i+1], z = out[i+2];
@@ -1923,149 +1917,168 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
       let dY = 0;
       let dZ = 0;
 
-      // ─── 1. LOW CONTINUITY (STAGE 1): PARALLEL SEPARATE ELEMENTS ──────────
-      // Distinct separate elements with open gaps at both extremities (Left & Right)
+      // ─── 1. LOW CONTINUITY: SEGMENTED, SEPARATE TECTONIC ELEMENTS ─────────
+      // Elements have distinct, separate boundaries, stepped breaks, and interrupted sightlines
       if (lowFactor > 0.001) {
-        // Left cantilever arms remain distinct and separate
-        if (x < -2.0) {
-          let wLeftLow = smoothstep(-2.0, -8.0, x);
-          dX += 0.8 * wLeftLow * lowFactor; // slight inward stance
-        }
-        // Right vertical connection separates to emphasize distinct levels
-        if (x > 14.0) {
-          let wRightLow = smoothstep(14.0, 19.5, x);
-          dX -= 0.9 * wRightLow * lowFactor;
-        }
-        // Front and back edges separate along Z
-        let zEdgeDist = Math.abs(z - centerZ) / (spanZ * 0.5 + 0.01);
-        dZ += Math.sign(dz) * 0.8 * Math.pow(zEdgeDist, 1.5) * lowFactor;
+        let segWaveX = Math.sin(uX * Math.PI * 4.0);
+        let segWaveZ = Math.sin(uZ * Math.PI * 4.0);
+        dX += lowFactor * 0.05 * spanX * Math.sign(segWaveX) * Math.pow(Math.abs(segWaveX), 0.5);
+        dZ += lowFactor * 0.05 * spanZ * Math.sign(segWaveZ) * Math.pow(Math.abs(segWaveZ), 0.5);
+        dY += lowFactor * 0.9 * Math.sign(y - 9.0) * Math.pow(Math.abs(Math.sin(uX * Math.PI * 3.0)), 0.6);
       }
 
-      // ─── 2. MEDIUM CONTINUITY (STAGE 2): INITIAL BRIDGING & OVERLAP ─────────
-      // Elements extend boundary flanges to meet and overlap at connection points (G1 alignment)
-      if (stage2Factor > 0.001) {
-        // Cantilever arms extend outward along X to overlap the terminal loop
-        if (x < -2.0) {
-          let wArmMed = smoothstep(-2.0, -9.5, x);
-          dX -= 1.4 * wArmMed * stage2Factor;
-          // Gentle G1 tangent alignment along arm edges
-          dY += Math.sign(y - 8.2) * 0.20 * wArmMed * stage2Factor;
+      // ─── 2. ALIGN: SIGHTLINES & CONTOURS GLIDE SMOOTHLY ACROSS ELEMENTS ───
+      // Unifies the visual trajectory: view travels effortlessly from the lower wing,
+      // through the atrium, and up the tower sweep without abrupt breaks or angular kinks
+      if (alignFactor > 0.001) {
+        // Continuous harmonic flow curve aligning longitudinal slopes (G1/G2 tangent continuity)
+        // Gentle upward sightline trajectory through the atrium waist (uX ~ 0.20 to 0.70)
+        let wWaist = Math.sin(Math.PI * Math.min(1.0, Math.max(0.0, (uX - 0.20) / 0.50)));
+        let waistLift = Math.max(0.0, 9.5 - y) * 0.22 * wWaist;
+        dY += alignFactor * waistLift;
+
+        let sightlineWave = Math.sin(Math.PI * (uX * 1.3 - 0.15));
+        let corridorWeight = Math.sin(Math.PI * Math.min(1.0, Math.max(0.0, uZ)));
+        dY += alignFactor * 1.4 * sightlineWave * corridorWeight;
+
+        // Visual ridge alignment along X: contours align into continuous flowing bands
+        let ridgeAlign = Math.sin(2.0 * Math.PI * uX) * Math.cos(Math.PI * (uZ - 0.5));
+        dX += alignFactor * 1.4 * ridgeAlign;
+      }
+
+      // ─── 3. FLOW INTO ONE ANOTHER: FLUID FILLETED TRANSITIONS ─────────────
+      // Eliminates sharp joints: vertical tower sweeps into horizontal plinth and canopy
+      if (filletFactor > 0.001) {
+        // A. Tower Base Fillet: Tower column flares into horizontal plinth and atrium floor
+        if (x > 11.0 && y < 10.0) {
+          let wBaseFillet = smoothstep(10.0, 0.0, y) * smoothstep(11.0, 18.0, x);
+          dX += filletFactor * 2.6 * wBaseFillet;
+          dZ += Math.sign(dz) * filletFactor * 1.6 * wBaseFillet;
+          dY -= filletFactor * 0.9 * wBaseFillet;
         }
-        // Overlapping structural flanges at mid-cantilever (x ~ -5.5) and portal (x ~ 1.0)
-        let atMid = Math.exp(-Math.pow((x - (-5.5)) / 1.5, 2));
-        let atPortal = Math.exp(-Math.pow((x - 1.0) / 1.5, 2));
-        let flange = (atMid + atPortal) * stage2Factor;
-        if (flange > 0.01) {
-          dZ += Math.sign(dz) * 0.35 * flange; // lateral overlap flange
+
+        // B. Tower Crown Fillet: Tower crest sweeps forward and outward into the roof canopy
+        if (x > 10.0 && y > 12.0) {
+          let wCrownFillet = smoothstep(12.0, 20.0, y) * smoothstep(10.0, 18.0, x);
+          dX -= filletFactor * 2.5 * wCrownFillet;
+          dY += filletFactor * 0.9 * Math.sin(Math.PI * uZ) * wCrownFillet;
         }
-        // Transverse back edge connects
-        let wBack = smoothstep(0.55, 1.0, uZ);
-        if (wBack > 0.001) {
-          dZ += (centerZ - z) * 0.15 * wBack * stage2Factor;
+
+        // C. Cantilever Junction Blend: Cantilever wings flow seamlessly into the central core
+        if (uX >= 0.18 && uX <= 0.45) {
+          let wJunction = Math.sin(Math.PI * (uX - 0.18) / 0.27);
+          let blendTrajectory = Math.sin(Math.PI * uZ) * 0.8;
+          dY += filletFactor * blendTrajectory * wJunction;
         }
       }
 
-      // ─── 3. HIGH CONTINUITY (STAGE 3): FULL G2 CURVATURE FLOW & OVERLAP ─────
-      // Elements achieve continuous tangent and curvature flow into all connection bridges
-      // Floor and ceiling plate clearance is fully preserved (NO squashing)
-      if (stage3Factor > 0.001) {
-        // Cantilever tip fully extends and overlaps with the terminal U-loop
-        if (x < -2.0) {
-          let wArmHigh = smoothstep(-2.0, -9.8, x);
-          dX -= 2.2 * wArmHigh * stage3Factor;
-
-          // Organic Gaudí flared footings at connection anchors (G2 curvature continuity)
-          // Plates flare smoothly outward where they join the terminal loop
-          let tipDist = Math.max(0, -7.5 - x) / 2.5; // 0 at x=-7.5, 1 at x=-10.0
-          let flareY = Math.sign(y - 8.2) * 0.35 * Math.pow(tipDist, 2.0) * stage3Factor;
-          dY += flareY;
+      // ─── 4. OVERLAP: EXTENDING SURFACES ACROSS SPATIAL THRESHOLDS ──────────
+      // Creates layered spatial shelter and continuous depth without squashing space
+      if (overlapFactor > 0.001) {
+        // Upper cantilever plate extends outward to dramatically overlap the lower deck
+        if (uX < 0.35 && y > 8.5) {
+          let wOverlapUpper = smoothstep(0.35, 0.0, uX) * smoothstep(8.5, 12.0, y);
+          dX -= overlapFactor * 3.6 * wOverlapUpper;
         }
-
-        // Flared anchor footings at intermediate connection nodes:
-        // x = -7.5, -5.5, -3.5 (cantilever bays), x = 1.0 (portal), x = 6.0 (atrium), x = 14.5 (perimeter)
-        for (let anchorX of [-7.5, -5.5, -3.5, 1.0, 6.0, 14.5]) {
-          let dAnchor = Math.abs(x - anchorX);
-          if (dAnchor < 1.6) {
-            let wAnchor = Math.cos((dAnchor / 1.6) * Math.PI * 0.5);
-            // Bell flare flowing into the bridge footings
-            let nodeFlare = (y < 8.2 ? 0.30 : -0.30) * wAnchor * stage3Factor;
-            dY += nodeFlare;
-            // Overlapping lateral flange
-            dZ += Math.sign(dz) * 0.25 * wAnchor * stage3Factor;
-          }
+        // Lower plate forms extended welcoming terrace
+        if (uX < 0.28 && y <= 8.5) {
+          let wOverlapLower = smoothstep(0.28, 0.0, uX) * smoothstep(8.5, 4.0, y);
+          dX -= overlapFactor * 1.6 * wOverlapLower;
         }
-
-        // Right side canopy smoothly extends to meet the perimeter pier
-        let wRightHigh = smoothstep(0.78, 1.0, uX);
-        if (wRightHigh > 0.001) {
-          let rightProfile = Math.sin(Math.min(1.0, Math.max(0, uY)) * Math.PI);
-          dX += rightProfile * 1.5 * wRightHigh * stage3Factor;
+        // Overhead canopy extends across the atrium void to overlap the vertical tower
+        if (uX > 0.40 && y > 11.0) {
+          let wOverlapCanopy = smoothstep(0.40, 0.85, uX) * smoothstep(11.0, 18.0, y);
+          dX += overlapFactor * 2.6 * wOverlapCanopy;
         }
-
-        // Front and back edges align along Z to close transverse envelope
-        let wFront = smoothstep(0.35, 0.0, uZ);
-        if (wFront > 0.001) {
-          dZ += (centerZ - z) * 0.22 * wFront * stage3Factor;
-        }
-        let wBack = smoothstep(0.65, 1.0, uZ);
-        if (wBack > 0.001) {
-          dZ += (centerZ - z) * 0.22 * wBack * stage3Factor;
-        }
-
-        // Continuous surface camber across top and bottom plates (G1/G2 surface flow)
-        let camberY = Math.sign(y - 10.0) * 0.35 * Math.sin(Math.PI * uX) * Math.sin(Math.PI * uZ) * stage3Factor;
-        dY += camberY;
       }
 
-      // ─── 4. DOMAIN A TYPOLOGY MODULATION ──────────────────────────────────
+      // ─── 5. CONNECT: UNIFIED ARCHITECTURAL RIBBON & ENVELOPE (NO SQUASHING)
+      // Connects separate elements into a single continuous system
+      if (flowFactor > 0.001) {
+        // A. Left Wing Perimeter Ribbon Connection:
+        // Sweeps the outer boundary (X -> -10) into a continuous aerodynamic loop ribbon,
+        // unifying upper and lower plates without compressing internal ceiling loft!
+        if (uX < 0.25) {
+          let wFascia = smoothstep(0.25, 0.0, uX);
+          let fasciaEnvelope = Math.sin(Math.PI * Math.min(1.0, Math.max(0.0, (y - 4.5) / 7.5)));
+          // Outward aerodynamic sweep along X forming continuous perimeter fascia
+          dX -= flowFactor * 3.2 * fasciaEnvelope * wFascia;
+        }
+
+        // B. Undercroft Arch Connection:
+        // Connects the tower base to the atrium plinth, bridging the open ground void into a continuous vault
+        if (x >= 7.5 && x <= 14.5 && y < 6.0) {
+          let archU = (x - 7.5) / 7.0;
+          let wArch = Math.sin(Math.PI * archU) * smoothstep(6.0, 0.0, y);
+          dY += flowFactor * 1.4 * wArch;
+          dZ += Math.sign(dz) * flowFactor * 0.8 * wArch;
+        }
+
+        // C. Transverse (Z) Curvilinear Envelope Continuity:
+        // Curving continuous perimeter wrapping along the transverse edges
+        let zEdgeDist = Math.abs(z - centerZ) / (spanZ * 0.5 + 0.001);
+        if (zEdgeDist > 0.35) {
+          let wZEnvelope = smoothstep(0.35, 1.0, zEdgeDist);
+          // Gently sculpts the outer perimeter into a continuous aerodynamic shell
+          dZ -= Math.sign(z - centerZ) * flowFactor * 0.8 * wZEnvelope;
+          dY += Math.cos(Math.PI * (uX - 0.5)) * flowFactor * 0.6 * wZEnvelope;
+        }
+      }
+
+      // ─── 6. DOMAIN A TYPOLOGY MODULATION (ALL 3 AXES: X, Y, Z) ─────────────
       if (grammar.continuityMode === 'VERTICAL_CONNECTIONS') {
-        // Vertical Void: Radial atrium void preserved at center; perimeter piers wrap Left-Right & Front-Back
+        // Vertical Void: Continuous upward surface flow drawing sightlines around the open core
         let rad = Math.cos(3.0 * theta);
-        if (stage2Factor > 0.001) {
-          dX += (dx / (rXZ + 0.01)) * stage2Factor * 0.12 * spanX * Math.max(0, rad);
-          dZ += (dz / (rXZ + 0.01)) * stage2Factor * 0.12 * spanZ * Math.max(0, rad);
+        if (flowFactor > 0.001) {
+          dX += (dx / (rXZ + 0.01)) * flowFactor * 0.12 * spanX * Math.max(0, rad);
+          dY += flowFactor * 0.16 * spanY * Math.cos(Math.PI * (uX - 0.5));
+          dZ += (dz / (rXZ + 0.01)) * flowFactor * 0.12 * spanZ * Math.max(0, rad);
         }
       } else if (grammar.continuityMode === 'ZONE_TRANSITIONS') {
-        // Compressed / Expanded: Ramps height Top-to-Bottom and widens Front-to-Back along longitudinal X
+        // Compressed / Expanded: Fluid sectional continuity along sequence, bridging choke threshold
         let atPortal = Math.exp(-Math.pow((uX - 0.40) * 8.0, 2));
         if (lowFactor > 0.001) {
-          dY -= lowFactor * 0.18 * spanY * atPortal;
-          dZ += Math.sign(dz) * lowFactor * 0.16 * spanZ * atPortal;
+          dY -= lowFactor * 0.16 * spanY * atPortal;
+          dZ += Math.sign(dz) * lowFactor * 0.15 * spanZ * atPortal;
         }
-        if (stage2Factor > 0.001) {
-          dY += stage2Factor * 0.20 * spanY * Math.max(0, uX - 0.33);
-          dZ += (centerZ - z) * stage2Factor * 0.20 * (1.0 - uX);
+        if (flowFactor > 0.001) {
+          dX += flowFactor * 0.10 * spanX * atPortal;
+          dY += flowFactor * 0.20 * spanY * Math.max(0, uX - 0.33);
+          dZ += Math.sign(centerZ - z) * flowFactor * 0.14 * spanZ * (1.0 - uX);
         }
       } else if (grammar.continuityMode === 'CONTINUOUS_SHELL') {
-        // Open Hall: Transverse shell arches bridge Top-to-Bottom and Front-to-Back over open floor
+        // Open Hall: Monolithic overarching canopy unifying roof and walls
         if (lowFactor > 0.001) {
           let bayJoint = Math.cos(uX * Math.PI * 4.0);
-          dY -= lowFactor * 0.18 * spanY * Math.pow(Math.max(0, -bayJoint), 2);
+          dY -= lowFactor * 0.16 * spanY * Math.pow(Math.max(0, -bayJoint), 2);
         }
-        if (stage2Factor > 0.001) {
-          dY += stage2Factor * 0.22 * spanY * Math.cos(Math.PI * (uX - 0.5));
-          dZ += (centerZ - z) * stage2Factor * 0.20;
+        if (flowFactor > 0.001) {
+          dX += flowFactor * 0.08 * spanX * Math.sin(Math.PI * uX);
+          dY += flowFactor * 0.22 * spanY * Math.cos(Math.PI * (uX - 0.5));
+          dZ += Math.sign(centerZ - z) * flowFactor * 0.12 * spanZ;
         }
       } else if (grammar.continuityMode === 'RISER_CONNECT') {
-        // Stepped Terraces: Connects riser treads Top-to-Bottom cascading along Left-to-Right slope
+        // Stepped Terraces: Smooth flowing treads and risers cascading into a continuous landscape
         let tierU = (uX * 4.0) % 1.0;
-        if (stage2Factor > 0.001) {
-          dY += stage2Factor * 0.22 * spanY * Math.sin(tierU * Math.PI);
-          dX += stage2Factor * 0.14 * spanX * (0.5 - tierU);
+        if (flowFactor > 0.001) {
+          dY += flowFactor * 0.22 * spanY * Math.sin(tierU * Math.PI);
+          dX += flowFactor * 0.14 * spanX * (0.5 - tierU);
+          dZ += flowFactor * 0.08 * spanZ * Math.cos(tierU * Math.PI);
         }
       } else if (grammar.continuityMode === 'AXIAL_PATH') {
-        // Linear Gallery: Colonnade arch lintels along longitudinal axis Left-to-Right
-        if (stage2Factor > 0.001) {
-          dY += stage2Factor * 0.18 * spanY * Math.sin(uX * Math.PI * 4.0);
-          dZ += (centerZ - z) * stage2Factor * 0.25;
+        // Linear Gallery: Colonnade arch lintels along longitudinal axis
+        if (flowFactor > 0.001) {
+          dX += flowFactor * 0.10 * spanX * Math.cos(uX * Math.PI * 4.0);
+          dY += flowFactor * 0.18 * spanY * Math.sin(uX * Math.PI * 4.0);
+          dZ += Math.sign(centerZ - z) * flowFactor * 0.14 * spanZ;
         }
       } else if (grammar.continuityMode === 'CREASE_FACETS') {
         // Folded Facets: Welds diagonal crease ridges across X, Y, and Z
         let diag = Math.sin(3.0 * Math.PI * (uX + uZ));
-        if (stage2Factor > 0.001) {
-          dX += stage2Factor * 0.16 * spanX * diag;
-          dY += stage2Factor * 0.24 * spanY * diag;
-          dZ += (centerZ - z) * stage2Factor * 0.18 * diag;
+        if (flowFactor > 0.001) {
+          dX += flowFactor * 0.16 * spanX * diag;
+          dY += flowFactor * 0.24 * spanY * diag;
+          dZ += Math.sign(centerZ - z) * flowFactor * 0.12 * spanZ * diag;
         }
       }
 
@@ -2124,13 +2137,6 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     window.syncBranchingFromDnaSlider(B * 100, W, C, typoKey);
   } else if (B === 0 && window.clearBranchingGeometry) {
     window.clearBranchingGeometry();
-  }
-
-  // Synchronize additive architectural continuity connections if active
-  if (C > 0.001 && window.syncContinuityConnections) {
-    window.syncContinuityConnections(C, typoKey);
-  } else if (C === 0 && window.clearContinuityConnections) {
-    window.clearContinuityConnections();
   }
 
   // Execute pipeline strictly through applyRule with the active Domain A Typology
@@ -2374,18 +2380,12 @@ function renderIterationGeometry(recipeOrDna, explicitMode, explicitTypologyKey 
     const vpTag = document.getElementById('vp-gen-tag');
     if (vpTag) vpTag.textContent = 'GENERATION 0: ORIGINAL RHINO SEED';
 
-    // Clear branching and continuity geometry immediately
+    // Clear branching geometry immediately
     if (window.clearBranchingGeometry) {
       window.clearBranchingGeometry();
     }
     if (window.syncBranchingFromDnaSlider) {
       window.syncBranchingFromDnaSlider(0, 0, 0, activeTypologyKey);
-    }
-    if (window.clearContinuityConnections) {
-      window.clearContinuityConnections();
-    }
-    if (window.syncContinuityConnections) {
-      window.syncContinuityConnections(0, activeTypologyKey);
     }
     window._lastComputedWeldedPositions = null;
     window._lastComputedIndices = null;
@@ -2399,12 +2399,12 @@ function renderIterationGeometry(recipeOrDna, explicitMode, explicitTypologyKey 
       meanDisplacement: 0,
       seedIdentityPct: 100,
       ruleValidation: {
-        continuity: { pass: true, msg: '✓ PRISTINE SEED' },
-        branching: { pass: true, msg: '✓ SINGULAR TRAJECTORY' },
-        whiplash: { pass: true, msg: '✓ UNMODIFIED' },
-        merging: { pass: true, msg: '✓ NO MERGE NEEDED' },
-        posneg: { pass: true, msg: '✓ SOLID ENCLOSED' },
-        growth: { pass: true, msg: '✓ CONTAINED SEED' }
+        continuity: { pass: true, msg: 'âœ“ PRISTINE SEED' },
+        branching: { pass: true, msg: 'âœ“ SINGULAR TRAJECTORY' },
+        whiplash: { pass: true, msg: 'âœ“ UNMODIFIED' },
+        merging: { pass: true, msg: 'âœ“ NO MERGE NEEDED' },
+        posneg: { pass: true, msg: 'âœ“ SOLID ENCLOSED' },
+        growth: { pass: true, msg: 'âœ“ CONTAINED SEED' }
       }
     };
   } else if (compMode === 'SEED' || !explicitMode) {
@@ -2420,21 +2420,6 @@ function renderIterationGeometry(recipeOrDna, explicitMode, explicitTypologyKey 
 
     const vpTag = document.getElementById('vp-gen-tag');
     if (vpTag) vpTag.textContent = 'INTERACTIVE LIVE TWEAK';
-  }
-
-  // Synchronize continuity connection bridges in iteration mode
-  if (!isSeedDna && window.syncContinuityConnections) {
-    let activeC = 0;
-    if (Array.isArray(recipeOrDna) && typeof recipeOrDna[0] === 'number') {
-      activeC = recipeOrDna[0];
-    } else if (window.domainState && window.domainState.dna) {
-      activeC = window.domainState.dna[0];
-    }
-    if (activeC > 0.001) {
-      window.syncContinuityConnections(activeC, activeTypologyKey);
-    } else if (window.clearContinuityConnections) {
-      window.clearContinuityConnections();
-    }
   }
 
   // Ensure render groups are visible
