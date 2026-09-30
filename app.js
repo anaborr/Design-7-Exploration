@@ -1871,10 +1871,10 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
   // RULE 6: CONTINUITY (C)
   // Definition: Separate elements extend and connect to become one continuous form.
   // Geometric Rule: As Continuity increases, the number of disconnected elements
-  // decreases through continuous connections.
-  //   - Low Continuity (0 < C <= 0.30): Elements remain mostly separate with gaps and breaks. Minimal connections.
-  //   - Medium Continuity (0.30 < C <= 0.70): Elements extend connecting bridges across gaps. Connections become frequent and intentional.
-  //   - High Continuity (0.70 < C <= 1.0): Gaps minimized, elements flow into one another as a continuous, cohesive form.
+  // decreases through continuous connections across all axial directions (X, Y, Z).
+  //   - Low Continuity (0 < C <= 0.30): Elements remain mostly separate with open gaps at extremities. Minimal connections.
+  //   - Medium Continuity (0.30 < C <= 0.70): One extremity extends and connects into a continuous U-loop while the other remains open.
+  //   - High Continuity (0.70 < C <= 1.0): Both extremities extend and connect into ONE continuous closed form/envelope across X, Y, and Z.
   // ═══════════════════════════════════════════════════════════════════════════
   else if (upperRule === 'CONTINUITY' || upperRule === 'C') {
     const C = Math.max(0, Math.min(1.0, strength));
@@ -1887,19 +1887,22 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CONTINUITY DIAGRAM STAGES (Reference Image Specification):
-    // Stage 1 (Low C, 0–30%): Disconnected parallel elements, open on both ends with gaps
-    // Stage 2 (Med C, 30–70%): First extremity (Right/Back) curves towards midplane to form a U-loop
-    // Stage 3 (High C, 70–100%): Second extremity (Left/Front) also closes, forming a fully closed continuous loop/capsule
+    // CONTINUITY DIAGRAM STAGES (Exact Reference Diagram Implementation):
+    // Stage 1 (Low C, 0–30%): Elements remain separate, parallel with open gaps at both ends
+    // Stage 2 (Med C, 30–70%): One end connects into a rounded continuous U-loop; other end open
+    // Stage 3 (High C, 70–100%): Both ends extend and connect into ONE continuous closed loop
+    // Interior architectural volume and ceiling loft are strictly preserved.
     // ═══════════════════════════════════════════════════════════════════════════
     const intro = Math.min(1.0, C / 0.06);
-    const gapFactor = intro * (C <= 0.30 ? (1.0 - (C / 0.30)) : 0.0);
-    const stage2Factor = C <= 0.30 
+    const lowFactor = intro * (C <= 0.30 ? (1.0 - (C / 0.30)) : 0.0);
+    // Stage 2 peaks at Med C (around 50%) where one end is connected and other open
+    const stage2Factor = C <= 0.25 
       ? 0.0 
-      : (C <= 0.70 ? smoothstep(0.30, 0.70, C) : 1.0);
-    const stage3Factor = C <= 0.70 
+      : (C <= 0.55 ? smoothstep(0.25, 0.55, C) : 1.0);
+    // Stage 3 reaches 1.0 at C >= 0.80, fully closing both ends into a continuous loop at high slider values
+    const stage3Factor = C <= 0.50 
       ? 0.0 
-      : smoothstep(0.70, 1.0, C);
+      : smoothstep(0.50, 0.80, C);
 
     for (let i = 0; i < out.length; i += 3) {
       let x = out[i], y = out[i+1], z = out[i+2];
@@ -1910,73 +1913,90 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
       let uY = Math.min(1, Math.max(0, (y - minY) / spanY));
       let uZ = Math.min(1, Math.max(0, (z - minZ) / spanZ));
 
-      let k = getKey(x, y, z);
-      let normObj = vNormals && vNormals.get ? vNormals.get(k) : null;
-
-      // Normalized coordinates from center (-1 to +1)
-      let cX = spanX > 0.001 ? (x - centerX) / (spanX * 0.5) : 0;
-      let cY = spanY > 0.001 ? (y - centerY) / (spanY * 0.5) : 0;
-      let cZ = spanZ > 0.001 ? (z - centerZ) / (spanZ * 0.5) : 0;
-
       let dX = 0;
       let dY = 0;
       let dZ = 0;
 
       // ─── 1. LOW CONTINUITY (STAGE 1): PARALLEL SEPARATE ELEMENTS ──────────
-      // Parallel horizontal plates remain separate with distinct gap breaks
-      if (gapFactor > 0.001) {
-        // Separate upper and lower plates along Y
-        let ySep = Math.sign(cY) * Math.pow(Math.abs(cY), 0.5) * 0.16 * spanY;
-        dY += gapFactor * ySep;
-
-        // Longitudinal and transverse breaks along X and Z
-        let xWave = Math.sin(uX * Math.PI * 3.0);
-        let zWave = Math.sin(uZ * Math.PI * 3.0);
-        dX -= gapFactor * 0.18 * spanX * Math.sign(xWave) * Math.pow(Math.abs(xWave), 0.6);
-        dZ -= gapFactor * 0.18 * spanZ * Math.sign(zWave) * Math.pow(Math.abs(zWave), 0.6);
+      // Distinct separate elements with open gaps at both extremities (Left & Right)
+      if (lowFactor > 0.001) {
+        // Left cantilever arms separate vertically and pull inward
+        if (x < -2.0) {
+          let wLeftLow = smoothstep(-2.0, -8.0, x);
+          let armMidY = 8.2;
+          dY += Math.sign(y - armMidY) * 1.5 * wLeftLow * lowFactor;
+          dX += 1.2 * wLeftLow * lowFactor; // retract outward extension
+        }
+        // Right vertical connection separates to open the right end into parallel elements
+        if (x > 14.0) {
+          let wRightLow = smoothstep(14.0, 19.5, x);
+          let rightMidY = 10.0;
+          dY += Math.sign(y - rightMidY) * 2.8 * wRightLow * lowFactor;
+          dX -= 1.5 * wRightLow * lowFactor; // pull inward
+        }
+        // Front and back edges separate along Z
+        let zEdgeDist = Math.abs(z - centerZ) / (spanZ * 0.5 + 0.01);
+        dZ += Math.sign(dz) * 1.0 * Math.pow(zEdgeDist, 1.5) * lowFactor;
       }
 
-      // ─── 2. MEDIUM CONTINUITY (STAGE 2): U-LOOP CLOSURE AT FIRST END ──────
-      // Right (+X) and Back (+Z) ends curve toward midplane (cY = 0) to form U-turn closing walls
-      if (stage2Factor > 0.001) {
-        // Right extremity weight (uX from 0.40 to 1.0)
-        let wRight = smoothstep(0.40, 0.96, uX);
-        // Back extremity weight (uZ from 0.40 to 1.0)
-        let wBack = smoothstep(0.40, 0.96, uZ);
-
-        // Vertical closure: Top curves down (-cY), Bottom curves up (+cY)
-        let closeY_X = -cY * (spanY * 0.44) * wRight * stage2Factor;
-        let closeY_Z = -cY * (spanY * 0.38) * wBack * stage2Factor;
-        dY += (closeY_X + closeY_Z) * 0.55;
-
-        // Rounded horizontal fillet bulging outward to form smooth continuous U-bend
-        let filletX = (1.0 - Math.min(1.0, cY * cY)) * (spanX * 0.16) * wRight * stage2Factor;
-        let filletZ = (1.0 - Math.min(1.0, cY * cY)) * (spanZ * 0.16) * wBack * stage2Factor;
-        dX += filletX;
-        dZ += filletZ;
+      // ─── 2. MEDIUM CONTINUITY (STAGE 2): ONE END CONNECTS (U-LOOP) ─────────
+      // Right end connects smoothly into a continuous vertical wall/bridge (State 2: ⊃)
+      // Left cantilever arms begin gentle extension towards one another
+      if (stage2Factor > 0.001 && stage3Factor <= 0.001) {
+        // Subtle left arm convergence without fully closing yet
+        if (uX < 0.22) {
+          let wArmMed = smoothstep(0.22, 0.0, uX);
+          let armMidY = 8.2;
+          dY += -(y - armMidY) * 0.40 * wArmMed * stage2Factor;
+          dX -= 1.8 * wArmMed * stage2Factor;
+        }
+        // Transverse back edge connects
+        let wBack = smoothstep(0.55, 1.0, uZ);
+        if (wBack > 0.001) {
+          dZ += (centerZ - z) * 0.15 * wBack * stage2Factor;
+        }
       }
 
-      // ─── 3. HIGH CONTINUITY (STAGE 3): FULL CLOSED LOOP / CAPSULE ────────
-      // Left (-X) and Front (-Z) ends ALSO curve toward midplane, forming a 100% closed loop
+      // ─── 3. HIGH CONTINUITY (STAGE 3): BOTH ENDS CONNECT (CLOSED CONTINUOUS FORM) ─
+      // Left cantilever arms EXTEND outward and FUSE the gap into a full-height rounded U-bridge!
       if (stage3Factor > 0.001) {
-        // Left extremity weight (uX from 0.60 down to 0.04)
-        let wLeft = smoothstep(0.60, 0.04, uX);
-        // Front extremity weight (uZ from 0.60 down to 0.04)
-        let wFront = smoothstep(0.60, 0.04, uZ);
+        let wArmHigh = smoothstep(0.24, 0.0, uX);
+        if (wArmHigh > 0.001) {
+          let armMidY = 8.2;
+          let gapDist = Math.abs(y - armMidY);
+          // Only pull the inner gap surfaces (gapDist < 3.2) towards midplane to close the opening
+          // Outer top roof (Y ~ 11.5) and bottom floor (Y ~ 5.5) retain full vertical height!
+          let wInnerGap = smoothstep(3.2, 0.0, gapDist);
+          let bridgeY = -(y - armMidY) * wInnerGap * wArmHigh * stage3Factor;
 
-        // Vertical closure on the opposite side: completes the closed loop ring
-        let closeY_left = -cY * (spanY * 0.44) * wLeft * stage3Factor;
-        let closeY_front = -cY * (spanY * 0.38) * wFront * stage3Factor;
-        dY += (closeY_left + closeY_front) * 0.55;
+          // Outward horizontal extension forming the rounded vertical U-wall seen in diagram
+          let normDist = Math.min(1.0, gapDist / 3.5);
+          let cornerRound = 1.0 - normDist * normDist * 0.5; // slight rounded corner fillet
+          let extendX = -3.2 * cornerRound * wArmHigh * stage3Factor;
 
-        // Rounded horizontal fillet bulging outward to the left and front
-        let filletLeft = -(1.0 - Math.min(1.0, cY * cY)) * (spanX * 0.16) * wLeft * stage3Factor;
-        let filletFront = -(1.0 - Math.min(1.0, cY * cY)) * (spanZ * 0.16) * wFront * stage3Factor;
-        dX += filletLeft;
-        dZ += filletFront;
+          dX += extendX;
+          dY += bridgeY;
+        }
 
-        // Smooth continuous camber/barrel tension along top and bottom faces (as in Stage 3 diagram)
-        let camberY = Math.sign(cY) * (spanY * 0.09) * Math.sin(Math.PI * uX) * Math.sin(Math.PI * uZ) * stage3Factor;
+        // Right side smoothly extends outward to complete the closed capsule ring
+        let wRightHigh = smoothstep(0.78, 1.0, uX);
+        if (wRightHigh > 0.001) {
+          let rightProfile = Math.sin(Math.min(1.0, Math.max(0, uY)) * Math.PI);
+          dX += rightProfile * 1.8 * wRightHigh * stage3Factor;
+        }
+
+        // Front and back edges extend towards centerZ to close transverse perimeter in 3D
+        let wFront = smoothstep(0.35, 0.0, uZ);
+        if (wFront > 0.001) {
+          dZ += (centerZ - z) * 0.20 * wFront * stage3Factor;
+        }
+        let wBack = smoothstep(0.65, 1.0, uZ);
+        if (wBack > 0.001) {
+          dZ += (centerZ - z) * 0.20 * wBack * stage3Factor;
+        }
+
+        // Continuous surface camber across top and bottom plates (subtle G1 camber)
+        let camberY = Math.sign(y - 10.0) * 0.4 * Math.sin(Math.PI * uX) * Math.sin(Math.PI * uZ) * stage3Factor;
         dY += camberY;
       }
 
@@ -1985,18 +2005,15 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
         // Vertical Void: Radial atrium void preserved at center; perimeter piers wrap Left-Right & Front-Back
         let rad = Math.cos(3.0 * theta);
         if (stage2Factor > 0.001) {
-          dX += (dx / (rXZ + 0.01)) * stage2Factor * 0.16 * spanX * Math.max(0, rad);
-          dZ += (dz / (rXZ + 0.01)) * stage2Factor * 0.16 * spanZ * Math.max(0, rad);
-        }
-        if (stage3Factor > 0.001) {
-          dY += stage3Factor * 0.15 * spanY * (1.0 - Math.min(1.0, rXZ / (transSpan * 0.5)));
+          dX += (dx / (rXZ + 0.01)) * stage2Factor * 0.12 * spanX * Math.max(0, rad);
+          dZ += (dz / (rXZ + 0.01)) * stage2Factor * 0.12 * spanZ * Math.max(0, rad);
         }
       } else if (grammar.continuityMode === 'ZONE_TRANSITIONS') {
         // Compressed / Expanded: Ramps height Top-to-Bottom and widens Front-to-Back along longitudinal X
         let atPortal = Math.exp(-Math.pow((uX - 0.40) * 8.0, 2));
-        if (gapFactor > 0.001) {
-          dY -= gapFactor * 0.18 * spanY * atPortal;
-          dZ += Math.sign(dz) * gapFactor * 0.16 * spanZ * atPortal;
+        if (lowFactor > 0.001) {
+          dY -= lowFactor * 0.18 * spanY * atPortal;
+          dZ += Math.sign(dz) * lowFactor * 0.16 * spanZ * atPortal;
         }
         if (stage2Factor > 0.001) {
           dY += stage2Factor * 0.20 * spanY * Math.max(0, uX - 0.33);
@@ -2004,9 +2021,9 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
         }
       } else if (grammar.continuityMode === 'CONTINUOUS_SHELL') {
         // Open Hall: Transverse shell arches bridge Top-to-Bottom and Front-to-Back over open floor
-        if (gapFactor > 0.001) {
+        if (lowFactor > 0.001) {
           let bayJoint = Math.cos(uX * Math.PI * 4.0);
-          dY -= gapFactor * 0.18 * spanY * Math.pow(Math.max(0, -bayJoint), 2);
+          dY -= lowFactor * 0.18 * spanY * Math.pow(Math.max(0, -bayJoint), 2);
         }
         if (stage2Factor > 0.001) {
           dY += stage2Factor * 0.22 * spanY * Math.cos(Math.PI * (uX - 0.5));
