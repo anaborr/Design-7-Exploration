@@ -271,119 +271,67 @@
 
           <div class="sidebar-card-body">
 
-            <!-- DOMAIN A: BASE SPATIAL TYPOLOGIES (DROPDOWN TABS) -->
+            <!-- DOMAIN A: BASE SPATIAL TYPOLOGIES (6 TYPOLOGIES) -->
             <div style="margin-bottom: 12px;">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                <span style="font-weight:600; color:#cccccc; font-size:9px; letter-spacing:0.8px;">DOMAIN A — BASE TYPOLOGIES</span>
-                <span id="domain-a-category-tag" style="font-size:7px; padding:1px 5px; background:#141414; color:#cccccc; border:1px solid #333333; border-radius:2px; font-weight:500;">LOBBY</span>
+                <span style="font-weight:600; color:#cccccc; font-size:9px; letter-spacing:0.8px;">DOMAIN A — 6 BASE TYPOLOGIES</span>
+                <span id="domain-a-category-tag" style="font-size:7px; padding:1px 5px; background:#141414; color:#cccccc; border:1px solid #333333; border-radius:2px; font-weight:500;">6 TYPES</span>
               </div>
 
               <input type="hidden" id="select-base-typology" value="VERTICAL_VOID">
 
-              <!-- DROPDOWN TAB 1: LOBBY -->
-              <details class="domain-a-tab" open>
-                <summary>
-                  <span>LOBBY / ENTRANCE</span>
-                  <span style="font-size:7px; color:#888888; background:#141414; padding:1px 4px; border:1px solid #282828; border-radius:2px;">5 TYPES</span>
-                </summary>
-                <div style="padding:4px 6px 6px; display:flex; flex-direction:column; gap:3px;">
-                  <button type="button" class="domain-a-pill active" data-key="VERTICAL_VOID" onclick="selectDomainATypology('VERTICAL_VOID')">
-                    <span class="p-title">Vertical void lobby</span>
-                    <span class="p-sub">Multi-storey atrium shaft, look up & across void</span>
-                  </button>
-                  <button type="button" class="domain-a-pill" data-key="COMPRESSED_SEQUENTIAL" onclick="selectDomainATypology('COMPRESSED_SEQUENTIAL')">
-                    <span class="p-title">Compressed sequential lobby</span>
-                    <span class="p-sub">Chambered entry, choke → release sequence</span>
-                  </button>
-                  <button type="button" class="domain-a-pill" data-key="CONTINUOUS_HALL" onclick="selectDomainATypology('CONTINUOUS_HALL')">
-                    <span class="p-title">Continuous hall lobby</span>
-                    <span class="p-sub">Single large volume, free plan under shell</span>
-                  </button>
-                  <button type="button" class="domain-a-pill" data-key="TOPOGRAPHIC_GROUND" onclick="selectDomainATypology('TOPOGRAPHIC_GROUND')">
-                    <span class="p-title">Topographic / ground-field</span>
-                    <span class="p-sub">Sloped/folded landscape floor continuum</span>
-                  </button>
-                  <button type="button" class="domain-a-pill" data-key="LINEAR_GALLERY" onclick="selectDomainATypology('LINEAR_GALLERY')">
-                    <span class="p-title">Linear gallery lobby</span>
-                    <span class="p-sub">Elongated path along directional section</span>
-                  </button>
-                </div>
-              </details>
+              <div style="display:flex; flex-direction:column; gap:3px;">
+                <!-- 1. VERTICAL VOID -->
+                <button type="button" class="domain-a-pill active" data-key="VERTICAL_VOID" onclick="selectDomainATypology('VERTICAL_VOID')">
+                  <span class="p-title">1. VERTICAL VOID</span>
+                  <span class="p-sub">Create a tall opening through multiple levels</span>
+                </button>
 
-              <!-- DROPDOWN TAB 2: WORKSPACE -->
-              <details class="domain-a-tab">
-                <summary>
-                  <span>WORKSPACE</span>
-                  <span style="font-size:7px; color:#888888; background:#141414; padding:1px 4px; border:1px solid #282828; border-radius:2px;">5 TYPES</span>
-                </summary>
-                <div style="padding:4px 6px 6px; display:flex; flex-direction:column; gap:3px;">
-                  <button type="button" class="domain-a-pill" data-key="OPEN_HALL" onclick="selectDomainATypology('OPEN_HALL')">
-                    <span class="p-title">Open hall workspace</span>
-                    <span class="p-sub">Continuous horizontal work field under one roof</span>
-                  </button>
-                  <button type="button" class="domain-a-pill" data-key="CASCADED_TERRACED" onclick="selectDomainATypology('CASCADED_TERRACED')">
-                    <span class="p-title">Cascaded / terraced plates</span>
-                    <span class="p-sub">Tiers stepping down a slope or section</span>
-                  </button>
-                  <button type="button" class="domain-a-pill" data-key="FLAT_DEEP_PLAN" onclick="selectDomainATypology('FLAT_DEEP_PLAN')">
-                    <span class="p-title">Flat deep-plan plate</span>
-                    <span class="p-sub">Extensive plate organized around cores/light wells</span>
-                  </button>
-                  <button type="button" class="domain-a-pill" data-key="VOID_EDGE" onclick="selectDomainATypology('VOID_EDGE')">
-                    <span class="p-title">Void-edge workspace</span>
-                    <span class="p-sub">Workspace rings an internal light well or void</span>
-                  </button>
-                  <button type="button" class="domain-a-pill" data-key="FOLDED_UNDULATED" onclick="selectDomainATypology('FOLDED_UNDULATED')">
-                    <span class="p-title">Folded / undulating work surface</span>
-                    <span class="p-sub">Continuous surface ramping up and down</span>
-                  </button>
-                </div>
-              </details>
+                <!-- 2. COMPRESSED → EXPANDED -->
+                <button type="button" class="domain-a-pill" data-key="COMPRESSED_EXPANDED" onclick="selectDomainATypology('COMPRESSED_EXPANDED')">
+                  <span class="p-title">2. COMPRESSED → EXPANDED</span>
+                  <span class="p-sub">Narrow space opening into larger volume</span>
+                </button>
 
-              <!-- DROPDOWN TAB 3: GATHERING -->
-              <details class="domain-a-tab">
-                <summary>
-                  <span>GATHERING / COLLABORATION</span>
-                  <span style="font-size:7px; color:#888888; background:#141414; padding:1px 4px; border:1px solid #282828; border-radius:2px;">5 TYPES</span>
-                </summary>
-                <div style="padding:4px 6px 6px; display:flex; flex-direction:column; gap:3px;">
-                  <button type="button" class="domain-a-pill" data-key="STEPPED_AMPHITHEATER" onclick="selectDomainATypology('STEPPED_AMPHITHEATER')">
-                    <span class="p-title">Stepped amphitheater</span>
-                    <span class="p-sub">Tiered seating/standing facing focal point</span>
-                  </button>
-                  <button type="button" class="domain-a-pill" data-key="VOID_FIELD_GATHERING" onclick="selectDomainATypology('VOID_FIELD_GATHERING')">
-                    <span class="p-title">Void-field gathering</span>
-                    <span class="p-sub">Ground floor of high void where paths cross</span>
-                  </button>
-                  <button type="button" class="domain-a-pill" data-key="INSERTED_PLATE" onclick="selectDomainATypology('INSERTED_PLATE')">
-                    <span class="p-title">Inserted horizontal plate</span>
-                    <span class="p-sub">Suspended platform/mezzanine floating in space</span>
-                  </button>
-                  <button type="button" class="domain-a-pill" data-key="CONTAINED_ROOM" onclick="selectDomainATypology('CONTAINED_ROOM')">
-                    <span class="p-title">Contained room-within-volume</span>
-                    <span class="p-sub">Distinct enclosed pavilion/pod inside volume</span>
-                  </button>
-                  <button type="button" class="domain-a-pill" data-key="LINEAR_EDGE_GALLERY" onclick="selectDomainATypology('LINEAR_EDGE_GALLERY')">
-                    <span class="p-title">Linear edge gallery</span>
-                    <span class="p-sub">Elongated overlook balcony along perimeter</span>
-                  </button>
-                </div>
-              </details>
+                <!-- 3. OPEN HALL -->
+                <button type="button" class="domain-a-pill" data-key="OPEN_HALL" onclick="selectDomainATypology('OPEN_HALL')">
+                  <span class="p-title">3. OPEN HALL</span>
+                  <span class="p-sub">One large uninterrupted volume</span>
+                </button>
+
+                <!-- 4. TERRACED / STEPPED -->
+                <button type="button" class="domain-a-pill" data-key="TERRACED_STEPPED" onclick="selectDomainATypology('TERRACED_STEPPED')">
+                  <span class="p-title">4. TERRACED / STEPPED</span>
+                  <span class="p-sub">Stepped or offset floor plates</span>
+                </button>
+
+                <!-- 5. LINEAR / DIRECTIONAL -->
+                <button type="button" class="domain-a-pill" data-key="LINEAR_DIRECTIONAL" onclick="selectDomainATypology('LINEAR_DIRECTIONAL')">
+                  <span class="p-title">5. LINEAR / DIRECTIONAL</span>
+                  <span class="p-sub">Stretch geometry along one dominant axis</span>
+                </button>
+
+                <!-- 6. FOLDED / UNDULATING -->
+                <button type="button" class="domain-a-pill" data-key="FOLDED_UNDULATING" onclick="selectDomainATypology('FOLDED_UNDULATING')">
+                  <span class="p-title">6. FOLDED / UNDULATING</span>
+                  <span class="p-sub">Continuous flowing surface</span>
+                </button>
+              </div>
 
               <!-- ACTIVE SEED MINI RULE PREVIEW -->
               <div style="margin-top:6px; background:#080808; border:1px solid #282828; border-radius:3px; padding:6px 8px; font-size:7.5px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
-                  <span style="color:#777777;">ACTIVE SEED:</span>
-                  <span id="domain-a-selected-title" style="color:#ffffff; font-weight:600;">VERTICAL VOID LOBBY</span>
+                  <span style="color:#777777;">ACTIVE TYPOLOGY:</span>
+                  <span id="domain-a-selected-title" style="color:#ffffff; font-weight:600;">VERTICAL VOID</span>
                 </div>
                 <div id="domain-a-desc-text" style="color:#888888; font-size:7px; line-height:1.3; margin-bottom:4px;">
-                  multi-storey atrium or shaft; arrival volume is organized by looking up and across a continuous void.
+                  Create a tall opening through multiple levels. Extend the void vertically · Connect multiple floors visually · Organize surrounding geometry toward the void.
                 </div>
                 <div style="display:flex; justify-content:space-between; font-size:7px; color:#cccccc; border-top:1px solid #1f1f1f; padding-top:3px;">
-                  <span>Rule: <b id="domain-a-spatial-rule" style="color:#ffffff; font-weight:500;">LOOK UP & ACROSS VOID</b></span>
-                  <span>DNA: <b id="domain-a-principles-badge" style="color:#cccccc; font-weight:500;">W + V</b></span>
+                  <span>Rule: <b id="domain-a-spatial-rule" style="color:#ffffff; font-weight:500;">EXTEND VOID · CONNECT FLOORS · ORGANIZE TOWARD VOID</b></span>
+                  <span>DNA: <b id="domain-a-principles-badge" style="color:#cccccc; font-weight:500;">W + V + C + B</b></span>
                 </div>
-                <span id="domain-a-geom-action" style="display:none;">Vertical Atrium Shaft & Upward Ribs</span>
+                <span id="domain-a-geom-action" style="display:none;">Vertical Void Shaft & Upward Ribs</span>
               </div>
             </div>
 
@@ -406,20 +354,20 @@
                 <div id="domain-b-influence-banner" style="margin-bottom:10px; background:#080808; padding:8px; border:1px solid #333333; border-radius:3px;">
                   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
                     <span style="font-size:7px; color:#888888; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;">DOMAIN A SPATIAL INFLUENCE</span>
-                    <span id="domain-b-influence-cat" style="font-size:7px; color:#cccccc; border:1px solid #444444; padding:1px 5px; border-radius:2px; text-transform:uppercase;">LOBBY</span>
+                    <span id="domain-b-influence-cat" style="font-size:7px; color:#cccccc; border:1px solid #444444; padding:1px 5px; border-radius:2px; text-transform:uppercase;">TYPOLOGY</span>
                   </div>
-                  <div id="domain-b-influence-title" style="font-size:8.5px; color:#ffffff; font-weight:600; text-transform:uppercase; letter-spacing:0.3px;">VERTICAL VOID LOBBY</div>
+                  <div id="domain-b-influence-title" style="font-size:8.5px; color:#ffffff; font-weight:600; text-transform:uppercase; letter-spacing:0.3px;">VERTICAL VOID</div>
                   <div style="font-size:7px; color:#ffffff; margin-top:3px; line-height:1.35;">
-                    <b>Spatial Goal:</b> <span id="domain-b-influence-goal" style="color:#e0e0e0;">create a tall continuous void.</span>
+                    <b>Rule:</b> <span id="domain-b-influence-goal" style="color:#e0e0e0;">Create a tall opening through multiple levels.</span>
                   </div>
                   <div id="domain-b-influence-rationale" style="font-size:7px; color:#aaaaaa; margin-top:3px; line-height:1.35;">
-                    Growth: favors +Z / vertical direction around void. Positive/Negative: enlarges one major vertical void. Continuity: connects lower and upper surfaces. Whiplash: curves surfaces upward. Branching: limited so the central void stays clear.
+                    Extend the void vertically · Connect multiple floors visually · Organize surrounding geometry toward the void.
                   </div>
                   <div style="font-size:7px; color:#bbbbbb; margin-top:3px; line-height:1.35;">
-                    <b>Result:</b> <span id="domain-b-influence-result" style="color:#ffffff;">geometry grows around a tall open center.</span>
+                    <b>Result:</b> <span id="domain-b-influence-result" style="color:#ffffff;">Geometry grows around a tall open center with upward-sweeping forms.</span>
                   </div>
                   <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px; padding-top:4px; border-top:1px solid #222222; font-size:7px; color:#777777;">
-                    <span>SPATIAL RULE: <b id="domain-b-influence-rule" style="color:#ffffff; font-weight:500;">LOOK UP & ACROSS VOID</b></span>
+                    <span>SPATIAL RULE: <b id="domain-b-influence-rule" style="color:#ffffff; font-weight:500;">EXTEND VOID · CONNECT FLOORS · ORGANIZE TOWARD VOID</b></span>
                     <span id="domain-b-influence-status" style="color:#cccccc; font-weight:500;">SPATIAL GRAMMAR ACTIVE</span>
                   </div>
                   <button id="btn-activate-domain-b" class="btn btn-header-cyan" style="width:100%; margin-top:6px; font-size:7.5px; padding:3px 6px; letter-spacing:0.5px; justify-content:center;" onclick="activateDomainBRules(true)">

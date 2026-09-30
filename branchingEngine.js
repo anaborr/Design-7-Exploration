@@ -347,23 +347,20 @@
     const c = params.continuity || 0.0;
 
     // Center Z corridor for branching members (aligned with terrace/cantilever plates)
-    
+    const activeTypo = params.activeTypology || branchingSystemState.activeTypology || (window.domainState && window.domainState.selectedTypology) || 'VERTICAL_VOID';
     
     let numGrids = 4;
-    if (activeTypo === 'OPEN_HALL') numGrids = 8;
-    if (activeTypo === 'COMPRESSED_SEQUENTIAL') numGrids = 3;
-    if (activeTypo === 'VERTICAL_VOID') numGrids = 5;
+    if (activeTypo === 'OPEN_HALL' || activeTypo === 'CONTINUOUS_HALL') numGrids = 8;
+    if (activeTypo === 'COMPRESSED_EXPANDED' || activeTypo === 'COMPRESSED_SEQUENTIAL') numGrids = 3;
+    if (activeTypo === 'VERTICAL_VOID' || activeTypo === 'VOID_FIELD_GATHERING') numGrids = 5;
+    if (activeTypo === 'TERRACED_STEPPED' || activeTypo === 'CASCADED_TERRACED' || activeTypo === 'STEPPED_AMPHITHEATER') numGrids = 6;
+    if (activeTypo === 'LINEAR_DIRECTIONAL' || activeTypo === 'LINEAR_GALLERY' || activeTypo === 'LINEAR_EDGE_GALLERY') numGrids = 4;
+    if (activeTypo === 'FOLDED_UNDULATING' || activeTypo === 'TOPOGRAPHIC_GROUND' || activeTypo === 'FOLDED_UNDULATED') numGrids = 5;
     
     const zSteps = [];
     for (let i = 1; i <= numGrids; i++) {
        zSteps.push(bnds.minZ + (bnds.spanZ * (i / (numGrids + 1))));
     }
-
-    zSteps.forEach(zMid => {
-    const depthZ = baseRadius * 1.5;
-
-    const thickness = inchesToUnits(params.wallThicknessInches || 10.0);
-    const baseRadius = Math.max(0.08, thickness * 0.15);
 
     const geometries = [];
 
@@ -394,7 +391,12 @@
     branchingSystemState.divisionCount = divisionCount;
     branchingSystemState.activeStage = activeStage;
 
-    const commonOpts = {
+    zSteps.forEach(zMid => {
+      const thickness = inchesToUnits(params.wallThicknessInches || 10.0);
+      const baseRadius = Math.max(0.08, thickness * 0.15);
+      const depthZ = baseRadius * 1.5;
+
+      const commonOpts = {
       numSegments: 20,
       numRadial: 14,
       whiplash: w,
@@ -455,7 +457,7 @@
       const g3 = buildStrutGeometry(p3Curve, baseRadius * 1.3, baseRadius * 0.85, baseRadius * 1.4, depthZ * 0.8, gStage1, commonOpts);
       if (g3) geometries.push(g3);
 
-    } else if (activeTypo === 'LINEAR_GALLERY') {
+    } else if (activeTypo === 'LINEAR_DIRECTIONAL' || activeTypo === 'LINEAR_GALLERY' || activeTypo === 'LINEAR_EDGE_GALLERY') {
       // LINEAR GALLERY: Transverse portal frames spanning across the corridor along Z
       const p1Curve = [
         new THREE.Vector3(xP1, fc1.yBot - 0.2, -depthZ * 1.1),
@@ -481,7 +483,7 @@
       const g3 = buildStrutGeometry(p3Curve, baseRadius * 1.2, baseRadius * 0.85, baseRadius * 1.2, depthZ * 0.6, gStage1, commonOpts);
       if (g3) geometries.push(g3);
 
-    } else if (activeTypo === 'OPEN_HALL') {
+    } else if (activeTypo === 'OPEN_HALL' || activeTypo === 'CONTINUOUS_HALL' || activeTypo === 'FLAT_DEEP_PLAN') {
       // CONTINUOUS HALL: Perimeter flying buttresses leaning outward, center 100% open
       const p1Curve = [
         new THREE.Vector3(xP1 - 1.8, fc1.yBot - 0.35, zMid),
@@ -499,7 +501,7 @@
       const g3 = buildStrutGeometry(p3Curve, baseRadius * 1.6, baseRadius * 0.9, baseRadius * 1.5, depthZ, gStage1, commonOpts);
       if (g3) geometries.push(g3);
 
-    } else if (activeTypo === 'FOLDED_UNDULATED' || activeTypo === 'CASCADED_TERRACED') {
+    } else if (activeTypo === 'FOLDED_UNDULATING' || activeTypo === 'FOLDED_UNDULATED' || activeTypo === 'TERRACED_STEPPED' || activeTypo === 'CASCADED_TERRACED' || activeTypo === 'TOPOGRAPHIC_GROUND' || activeTypo === 'STEPPED_AMPHITHEATER') {
       // TOPOGRAPHIC GROUND: Low landscape retaining curbs and terrain dividers across floor
       const curbY1 = fc1.yBot + 2.8;
       const curbY2 = fcApex.yBot + 2.8;
@@ -751,7 +753,7 @@
       branchCount: branchCount,
       divisionCount: divisionCount,
       growthFraction: g,
-      startPoint: new THREE.Vector3(xP1, yBot, zMid),
+      startPoint: new THREE.Vector3(bnds.minX + bnds.spanX * 0.16, bnds.minY, (bnds.minZ + bnds.maxZ) / 2),
       totalTriangles: mergedIdx.length / 3
     };
   }
