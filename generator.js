@@ -300,9 +300,10 @@ function updateSeedGeometricProfileUI(profile) {
  */
 function getQualitativeStateLabel(principleKey, val) {
   if (principleKey === 'CONTINUITY') {
-    if (val <= 0.30) return 'MOSTLY SEPARATE';
-    if (val <= 0.70) return 'PARTIALLY CONNECTED';
-    return 'CONTINUOUS FORM';
+    if (val <= 0.05) return 'DISCONNECTED';
+    if (val <= 0.30) return 'MOSTLY SEPARATE (1 CONN)';
+    if (val <= 0.70) return 'PARTIALLY CONNECTED (3 CONN)';
+    return 'CONTINUOUS UNIFIED SYSTEM (7 CONN)';
   } else if (principleKey === 'BRANCHING') {
     if (val <= 0.20) return 'SINGULAR';
     if (val <= 0.60) return 'BIFURCATING';
@@ -432,32 +433,27 @@ function updateDnaUIAndViewport() {
 
   const mCDisc = document.getElementById('metric-c-disconnected');
   if (mCDisc) {
-    if (c === 0) {
-      mCDisc.textContent = 'Original';
+    if (c <= 0.05) {
+      mCDisc.textContent = '5 Elements (Separate)';
     } else if (c <= 0.30) {
-      const elCount = Math.round(6 - (c / 0.30) * 1);
-      mCDisc.textContent = `${elCount} Elements (Separate)`;
+      mCDisc.textContent = '4 Elements (1 Bridge)';
     } else if (c <= 0.70) {
-      const elCount = Math.round(5 - ((c - 0.30) / 0.40) * 3);
-      mCDisc.textContent = `${elCount} Elements (Bridging)`;
+      mCDisc.textContent = '2 Elements (3 Bridges)';
     } else {
-      mCDisc.textContent = '1 Continuous Form (Unified)';
+      mCDisc.textContent = '1 Continuous System (7 Bridges)';
     }
   }
 
   const mCConn = document.getElementById('metric-c-connected');
   if (mCConn) {
-    if (c === 0) {
-      mCConn.textContent = '0%';
+    if (c <= 0.05) {
+      mCConn.textContent = '0 Connections';
     } else if (c <= 0.30) {
-      const pct = Math.round((c / 0.30) * 25);
-      mCConn.textContent = `${pct}% (Minimal)`;
+      mCConn.textContent = '1 Conn (Terminal U-Loop)';
     } else if (c <= 0.70) {
-      const pct = Math.round(25 + ((c - 0.30) / 0.40) * 50);
-      mCConn.textContent = `${pct}% (Intentional)`;
+      mCConn.textContent = '3 Conn (G1 Tangent Arches)';
     } else {
-      const pct = Math.round(75 + ((c - 0.70) / 0.30) * 25);
-      mCConn.textContent = `${pct}% (Unified Form)`;
+      mCConn.textContent = '7 Conn (G2 Curvature Flow)';
     }
   }
 

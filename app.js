@@ -562,6 +562,12 @@ function restoreOriginalImportedGeometry() {
   if (window.clearBranchingGeometry) {
     window.clearBranchingGeometry();
   }
+  if (window.clearContinuityConnections) {
+    window.clearContinuityConnections();
+  }
+  if (window.syncContinuityConnections) {
+    window.syncContinuityConnections(0);
+  }
 
 
 
@@ -1920,35 +1926,37 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
       // ─── 1. LOW CONTINUITY (STAGE 1): PARALLEL SEPARATE ELEMENTS ──────────
       // Distinct separate elements with open gaps at both extremities (Left & Right)
       if (lowFactor > 0.001) {
-        // Left cantilever arms separate vertically and pull inward
+        // Left cantilever arms remain distinct and separate
         if (x < -2.0) {
           let wLeftLow = smoothstep(-2.0, -8.0, x);
-          let armMidY = 8.2;
-          dY += Math.sign(y - armMidY) * 1.5 * wLeftLow * lowFactor;
-          dX += 1.2 * wLeftLow * lowFactor; // retract outward extension
+          dX += 0.8 * wLeftLow * lowFactor; // slight inward stance
         }
-        // Right vertical connection separates to open the right end into parallel elements
+        // Right vertical connection separates to emphasize distinct levels
         if (x > 14.0) {
           let wRightLow = smoothstep(14.0, 19.5, x);
-          let rightMidY = 10.0;
-          dY += Math.sign(y - rightMidY) * 2.8 * wRightLow * lowFactor;
-          dX -= 1.5 * wRightLow * lowFactor; // pull inward
+          dX -= 0.9 * wRightLow * lowFactor;
         }
         // Front and back edges separate along Z
         let zEdgeDist = Math.abs(z - centerZ) / (spanZ * 0.5 + 0.01);
-        dZ += Math.sign(dz) * 1.0 * Math.pow(zEdgeDist, 1.5) * lowFactor;
+        dZ += Math.sign(dz) * 0.8 * Math.pow(zEdgeDist, 1.5) * lowFactor;
       }
 
-      // ─── 2. MEDIUM CONTINUITY (STAGE 2): ONE END CONNECTS (U-LOOP) ─────────
-      // Right end connects smoothly into a continuous vertical wall/bridge (State 2: ⊃)
-      // Left cantilever arms begin gentle extension towards one another
-      if (stage2Factor > 0.001 && stage3Factor <= 0.001) {
-        // Subtle left arm convergence without fully closing yet
-        if (uX < 0.22) {
-          let wArmMed = smoothstep(0.22, 0.0, uX);
-          let armMidY = 8.2;
-          dY += -(y - armMidY) * 0.40 * wArmMed * stage2Factor;
-          dX -= 1.8 * wArmMed * stage2Factor;
+      // ─── 2. MEDIUM CONTINUITY (STAGE 2): INITIAL BRIDGING & OVERLAP ─────────
+      // Elements extend boundary flanges to meet and overlap at connection points (G1 alignment)
+      if (stage2Factor > 0.001) {
+        // Cantilever arms extend outward along X to overlap the terminal loop
+        if (x < -2.0) {
+          let wArmMed = smoothstep(-2.0, -9.5, x);
+          dX -= 1.4 * wArmMed * stage2Factor;
+          // Gentle G1 tangent alignment along arm edges
+          dY += Math.sign(y - 8.2) * 0.20 * wArmMed * stage2Factor;
+        }
+        // Overlapping structural flanges at mid-cantilever (x ~ -5.5) and portal (x ~ 1.0)
+        let atMid = Math.exp(-Math.pow((x - (-5.5)) / 1.5, 2));
+        let atPortal = Math.exp(-Math.pow((x - 1.0) / 1.5, 2));
+        let flange = (atMid + atPortal) * stage2Factor;
+        if (flange > 0.01) {
+          dZ += Math.sign(dz) * 0.35 * flange; // lateral overlap flange
         }
         // Transverse back edge connects
         let wBack = smoothstep(0.55, 1.0, uZ);
@@ -1957,46 +1965,55 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
         }
       }
 
-      // ─── 3. HIGH CONTINUITY (STAGE 3): BOTH ENDS CONNECT (CLOSED CONTINUOUS FORM) ─
-      // Left cantilever arms EXTEND outward and FUSE the gap into a full-height rounded U-bridge!
+      // ─── 3. HIGH CONTINUITY (STAGE 3): FULL G2 CURVATURE FLOW & OVERLAP ─────
+      // Elements achieve continuous tangent and curvature flow into all connection bridges
+      // Floor and ceiling plate clearance is fully preserved (NO squashing)
       if (stage3Factor > 0.001) {
-        let wArmHigh = smoothstep(0.24, 0.0, uX);
-        if (wArmHigh > 0.001) {
-          let armMidY = 8.2;
-          let gapDist = Math.abs(y - armMidY);
-          // Only pull the inner gap surfaces (gapDist < 3.2) towards midplane to close the opening
-          // Outer top roof (Y ~ 11.5) and bottom floor (Y ~ 5.5) retain full vertical height!
-          let wInnerGap = smoothstep(3.2, 0.0, gapDist);
-          let bridgeY = -(y - armMidY) * wInnerGap * wArmHigh * stage3Factor;
+        // Cantilever tip fully extends and overlaps with the terminal U-loop
+        if (x < -2.0) {
+          let wArmHigh = smoothstep(-2.0, -9.8, x);
+          dX -= 2.2 * wArmHigh * stage3Factor;
 
-          // Outward horizontal extension forming the rounded vertical U-wall seen in diagram
-          let normDist = Math.min(1.0, gapDist / 3.5);
-          let cornerRound = 1.0 - normDist * normDist * 0.5; // slight rounded corner fillet
-          let extendX = -3.2 * cornerRound * wArmHigh * stage3Factor;
-
-          dX += extendX;
-          dY += bridgeY;
+          // Organic Gaudí flared footings at connection anchors (G2 curvature continuity)
+          // Plates flare smoothly outward where they join the terminal loop
+          let tipDist = Math.max(0, -7.5 - x) / 2.5; // 0 at x=-7.5, 1 at x=-10.0
+          let flareY = Math.sign(y - 8.2) * 0.35 * Math.pow(tipDist, 2.0) * stage3Factor;
+          dY += flareY;
         }
 
-        // Right side smoothly extends outward to complete the closed capsule ring
+        // Flared anchor footings at intermediate connection nodes:
+        // x = -7.5, -5.5, -3.5 (cantilever bays), x = 1.0 (portal), x = 6.0 (atrium), x = 14.5 (perimeter)
+        for (let anchorX of [-7.5, -5.5, -3.5, 1.0, 6.0, 14.5]) {
+          let dAnchor = Math.abs(x - anchorX);
+          if (dAnchor < 1.6) {
+            let wAnchor = Math.cos((dAnchor / 1.6) * Math.PI * 0.5);
+            // Bell flare flowing into the bridge footings
+            let nodeFlare = (y < 8.2 ? 0.30 : -0.30) * wAnchor * stage3Factor;
+            dY += nodeFlare;
+            // Overlapping lateral flange
+            dZ += Math.sign(dz) * 0.25 * wAnchor * stage3Factor;
+          }
+        }
+
+        // Right side canopy smoothly extends to meet the perimeter pier
         let wRightHigh = smoothstep(0.78, 1.0, uX);
         if (wRightHigh > 0.001) {
           let rightProfile = Math.sin(Math.min(1.0, Math.max(0, uY)) * Math.PI);
-          dX += rightProfile * 1.8 * wRightHigh * stage3Factor;
+          dX += rightProfile * 1.5 * wRightHigh * stage3Factor;
         }
 
-        // Front and back edges extend towards centerZ to close transverse perimeter in 3D
+        // Front and back edges align along Z to close transverse envelope
         let wFront = smoothstep(0.35, 0.0, uZ);
         if (wFront > 0.001) {
-          dZ += (centerZ - z) * 0.20 * wFront * stage3Factor;
+          dZ += (centerZ - z) * 0.22 * wFront * stage3Factor;
         }
         let wBack = smoothstep(0.65, 1.0, uZ);
         if (wBack > 0.001) {
-          dZ += (centerZ - z) * 0.20 * wBack * stage3Factor;
+          dZ += (centerZ - z) * 0.22 * wBack * stage3Factor;
         }
 
-        // Continuous surface camber across top and bottom plates (subtle G1 camber)
-        let camberY = Math.sign(y - 10.0) * 0.4 * Math.sin(Math.PI * uX) * Math.sin(Math.PI * uZ) * stage3Factor;
+        // Continuous surface camber across top and bottom plates (G1/G2 surface flow)
+        let camberY = Math.sign(y - 10.0) * 0.35 * Math.sin(Math.PI * uX) * Math.sin(Math.PI * uZ) * stage3Factor;
         dY += camberY;
       }
 
@@ -2107,6 +2124,13 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     window.syncBranchingFromDnaSlider(B * 100, W, C, typoKey);
   } else if (B === 0 && window.clearBranchingGeometry) {
     window.clearBranchingGeometry();
+  }
+
+  // Synchronize additive architectural continuity connections if active
+  if (C > 0.001 && window.syncContinuityConnections) {
+    window.syncContinuityConnections(C, typoKey);
+  } else if (C === 0 && window.clearContinuityConnections) {
+    window.clearContinuityConnections();
   }
 
   // Execute pipeline strictly through applyRule with the active Domain A Typology
@@ -2350,12 +2374,18 @@ function renderIterationGeometry(recipeOrDna, explicitMode, explicitTypologyKey 
     const vpTag = document.getElementById('vp-gen-tag');
     if (vpTag) vpTag.textContent = 'GENERATION 0: ORIGINAL RHINO SEED';
 
-    // Clear branching geometry immediately
+    // Clear branching and continuity geometry immediately
     if (window.clearBranchingGeometry) {
       window.clearBranchingGeometry();
     }
     if (window.syncBranchingFromDnaSlider) {
       window.syncBranchingFromDnaSlider(0, 0, 0, activeTypologyKey);
+    }
+    if (window.clearContinuityConnections) {
+      window.clearContinuityConnections();
+    }
+    if (window.syncContinuityConnections) {
+      window.syncContinuityConnections(0, activeTypologyKey);
     }
     window._lastComputedWeldedPositions = null;
     window._lastComputedIndices = null;
@@ -2369,12 +2399,12 @@ function renderIterationGeometry(recipeOrDna, explicitMode, explicitTypologyKey 
       meanDisplacement: 0,
       seedIdentityPct: 100,
       ruleValidation: {
-        continuity: { pass: true, msg: 'âœ“ PRISTINE SEED' },
-        branching: { pass: true, msg: 'âœ“ SINGULAR TRAJECTORY' },
-        whiplash: { pass: true, msg: 'âœ“ UNMODIFIED' },
-        merging: { pass: true, msg: 'âœ“ NO MERGE NEEDED' },
-        posneg: { pass: true, msg: 'âœ“ SOLID ENCLOSED' },
-        growth: { pass: true, msg: 'âœ“ CONTAINED SEED' }
+        continuity: { pass: true, msg: '✓ PRISTINE SEED' },
+        branching: { pass: true, msg: '✓ SINGULAR TRAJECTORY' },
+        whiplash: { pass: true, msg: '✓ UNMODIFIED' },
+        merging: { pass: true, msg: '✓ NO MERGE NEEDED' },
+        posneg: { pass: true, msg: '✓ SOLID ENCLOSED' },
+        growth: { pass: true, msg: '✓ CONTAINED SEED' }
       }
     };
   } else if (compMode === 'SEED' || !explicitMode) {
@@ -2390,6 +2420,21 @@ function renderIterationGeometry(recipeOrDna, explicitMode, explicitTypologyKey 
 
     const vpTag = document.getElementById('vp-gen-tag');
     if (vpTag) vpTag.textContent = 'INTERACTIVE LIVE TWEAK';
+  }
+
+  // Synchronize continuity connection bridges in iteration mode
+  if (!isSeedDna && window.syncContinuityConnections) {
+    let activeC = 0;
+    if (Array.isArray(recipeOrDna) && typeof recipeOrDna[0] === 'number') {
+      activeC = recipeOrDna[0];
+    } else if (window.domainState && window.domainState.dna) {
+      activeC = window.domainState.dna[0];
+    }
+    if (activeC > 0.001) {
+      window.syncContinuityConnections(activeC, activeTypologyKey);
+    } else if (window.clearContinuityConnections) {
+      window.clearContinuityConnections();
+    }
   }
 
   // Ensure render groups are visible
