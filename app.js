@@ -1867,90 +1867,230 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // RULE 6: CONTINUITY (C)
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RULE 6: CONTINUITY (C)
+  // Definition: Separate elements extend and connect to become one continuous form.
+  // Geometric Rule: As Continuity increases, the number of disconnected elements
+  // decreases through continuous connections.
+  //   - Low Continuity (0 < C <= 0.30): Elements remain mostly separate with gaps and breaks. Minimal connections.
+  //   - Medium Continuity (0.30 < C <= 0.70): Elements extend connecting bridges across gaps. Connections become frequent and intentional.
+  //   - High Continuity (0.70 < C <= 1.0): Gaps minimized, elements flow into one another as a continuous, cohesive form.
+  // ═══════════════════════════════════════════════════════════════════════════
   else if (upperRule === 'CONTINUITY' || upperRule === 'C') {
+    const C = Math.max(0, Math.min(1.0, strength));
+    if (C < 0.001) return out;
+
+    // 1. Calculate Gap Separation Factor vs Connection Bridging Factor
+    // Low C: gapFactor > 0 opens visible physical gaps/breaks between elements
+    // Med C: connectFactor extends bridging surfaces across the gaps
+    // High C: smoothBlendFactor creates seamless continuous tangent curvature (G1/G2 flow)
+    const intro = Math.min(1.0, C / 0.06);
+    const gapFactor = intro * (C <= 0.30 ? (1.0 - (C / 0.30)) : 0.0);
+    const connectFactor = C <= 0.30 
+      ? (C / 0.30) * 0.25 
+      : (C <= 0.70 ? 0.25 + ((C - 0.30) / 0.40) * 0.55 : 0.80 + ((C - 0.70) / 0.30) * 0.20);
+    const smoothBlendFactor = C > 0.70 ? ((C - 0.70) / 0.30) : 0.0;
+
     for (let i = 0; i < out.length; i += 3) {
       let x = out[i], y = out[i+1], z = out[i+2];
       let dx = x - centerX, dy = y - centerY, dz = z - centerZ;
       let rXZ = Math.sqrt(dx * dx + dz * dz);
-      let rNorm = rXZ / (transSpan * 0.5);
       let theta = Math.atan2(dz, dx);
       let uX = Math.min(1, Math.max(0, (x - minX) / spanX));
       let uY = Math.min(1, Math.max(0, (y - minY) / spanY));
       let uZ = Math.min(1, Math.max(0, (z - minZ) / spanZ));
 
+      let nx = vNormals ? vNormals[i] : 0;
+      let ny = vNormals ? vNormals[i+1] : 1;
+      let nz = vNormals ? vNormals[i+2] : 0;
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // TYPOLOGY 1: VERTICAL_VOID (VERTICAL_CONNECTIONS)
+      // Elements: Vertical floor strata / perimeter rings across the atrium shaft
+      // Low C: Deep horizontal gap breaks between floor levels across the void
+      // Med C: Vertical structural piers & ribbons bridge across the void gap
+      // High C: Continuous sweeping vertical rib vaults and floor-to-vault unity
+      // ─────────────────────────────────────────────────────────────────────────
       if (grammar.continuityMode === 'VERTICAL_CONNECTIONS') {
-        // Vertical Void: connects lower and upper surfaces vertically across the atrium shaft
-        let vertPull = strength * 0.35 * spanY * Math.sign(-dy) * Math.min(1.0, Math.abs(dy) / (0.45 * spanY));
-        out[i+1] += vertPull;
-      } else if (grammar.continuityMode === 'ZONE_TRANSITIONS') {
-        // Compressed Sequential: smoothly bridges chamber-to-chamber transitions along X
-        let tChoke = (uX * 3.0) % 1.0;
-        let blend = Math.sin(tChoke * Math.PI * 2);
-        out[i] += strength * spanX * 0.22 * blend;
-      } else if (grammar.continuityMode === 'CONTINUOUS_SHELL') {
-        // Continuous Hall: merges ceiling segments into one unbroken horizontal shell
-        let edgePull = strength * 0.28 * spanY * Math.cos(Math.PI * (uX - 0.5));
-        out[i+1] += edgePull;
-        out[i+2] += (centerZ - z) * strength * 0.25;
-      } else if (grammar.continuityMode === 'SLOPE_CONNECT') {
-        // Topographic Ground: bridges stepped terraces into continuous walkable ramps
-        if (uY < 0.65) {
-          let rampBlend = strength * spanY * 0.30 * Math.sin(2.5 * Math.PI * uX) * (1.0 - uY);
-          out[i+1] += rampBlend;
+        if (gapFactor > 0.001) {
+          // Open horizontal separation gaps between lower, mezzanine, and upper levels
+          let levelBreak = Math.sin(uY * Math.PI * 4.0);
+          let gapSeparation = gapFactor * 0.25 * spanY * Math.sign(levelBreak) * Math.pow(Math.abs(levelBreak), 0.7);
+          out[i+1] += gapSeparation;
+          // Recess edges near void boundary to exaggerate separate horizontal strata
+          if (rXZ < transSpan * 0.45) {
+            out[i] -= nx * gapFactor * 0.16 * spanX;
+            out[i+2] -= nz * gapFactor * 0.16 * spanZ;
+          }
         }
-      } else if (grammar.continuityMode === 'AXIAL_PATH') {
-        // Linear Gallery: reinforces longitudinal enfilade path, aligning surfaces to main axis
-        out[i] += strength * spanX * 0.28 * (uX - 0.5);
-        out[i+2] += (centerZ - z) * strength * 0.35;
-      } else if (grammar.continuityMode === 'FIELD_MERGE') {
-        // Open Hall Workspace: eliminates interior seams into a continuous horizontal field
-        out[i+1] += (centerY - y) * strength * 0.24;
-      } else if (grammar.continuityMode === 'RISER_CONNECT') {
-        // Cascaded Terraces: fillets riser faces to treads into continuous cascades
+        if (connectFactor > 0.001) {
+          // Vertical connecting piers and sweeping arches bridge lower to upper floors across the void
+          let vertPull = connectFactor * 0.38 * spanY * Math.sign(-dy) * Math.min(1.0, Math.abs(dy) / (0.42 * spanY));
+          out[i+1] += vertPull;
+          // Extend bridging ribs along primary radial quadrants (connecting columns)
+          let radialBridge = Math.cos(4.0 * theta);
+          if (radialBridge > 0.15) {
+            let bridgeReach = connectFactor * 0.26 * (transSpan * 0.5 - rXZ) * radialBridge;
+            out[i] += (dx / (rXZ + 0.01)) * bridgeReach;
+            out[i+2] += (dz / (rXZ + 0.01)) * bridgeReach;
+          }
+        }
+        if (smoothBlendFactor > 0.001) {
+          // Seamless organic tangent flow uniting void perimeter and vault
+          let shellUnify = smoothBlendFactor * 0.20 * spanY * (1.0 - Math.abs(dy) / (0.5 * spanY));
+          out[i+1] += shellUnify * Math.sin(Math.PI * uX);
+        }
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // TYPOLOGY 2: COMPRESSED_EXPANDED (ZONE_TRANSITIONS)
+      // Elements: Sequential chambers along longitudinal axis X (Choke -> Throat -> Hall)
+      // Low C: Abrupt transverse portal gap breaks separating entry from main hall
+      // Med C: Tapered transitional bridge vaults and floor ramps extend across portal
+      // High C: One continuous, aerodynamic tapered horn without seams or breaks
+      // ─────────────────────────────────────────────────────────────────────────
+      else if (grammar.continuityMode === 'ZONE_TRANSITIONS') {
+        if (gapFactor > 0.001) {
+          // Open gap breaks at zone boundaries (uX = 0.33 and uX = 0.66)
+          let zoneGap = Math.sin(uX * Math.PI * 3.0);
+          out[i] -= Math.sign(zoneGap) * gapFactor * 0.24 * spanX * Math.pow(Math.abs(zoneGap), 0.6);
+          // Indent portal threshold to separate chambers
+          let atPortal = Math.exp(-Math.pow((uX - 0.40) * 8.0, 2));
+          out[i+1] -= gapFactor * 0.22 * spanY * atPortal;
+        }
+        if (connectFactor > 0.001) {
+          // Transition bridge smoothly connects entry chamber to the expanded hall
+          let tChoke = (uX * 3.0) % 1.0;
+          let blend = Math.sin(tChoke * Math.PI * 2);
+          out[i] += connectFactor * spanX * 0.28 * blend;
+          // Ramping connection from low threshold to double-height volume
+          let rampConn = connectFactor * 0.30 * spanY * (uX - 0.33);
+          out[i+1] += Math.max(0, rampConn);
+        }
+        if (smoothBlendFactor > 0.001) {
+          // Flawless continuous envelope from entry throat to release apex
+          let axialCont = smoothBlendFactor * 0.18 * spanX * (uX - 0.5);
+          out[i] += axialCont;
+        }
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // TYPOLOGY 3: OPEN_HALL (CONTINUOUS_SHELL)
+      // Elements: Segmented roof shell canopies and modular workspace bays
+      // Low C: Longitudinal expansion joint breaks separate the roof into distinct canopies
+      // Med C: Transverse structural shell arches bridge adjacent canopies
+      // High C: All canopies merge into one expansive, uninterrupted continuous shell
+      // ─────────────────────────────────────────────────────────────────────────
+      else if (grammar.continuityMode === 'CONTINUOUS_SHELL') {
+        if (gapFactor > 0.001) {
+          // Open distinct joint slots separating ceiling into 4 distinct canopies
+          let bayJoint = Math.cos(uX * Math.PI * 4.0);
+          let jointRecess = gapFactor * 0.26 * spanY * Math.pow(Math.max(0, -bayJoint), 2);
+          out[i+1] -= jointRecess;
+          out[i] -= gapFactor * 0.14 * spanX * Math.sin(uX * Math.PI * 4.0);
+        }
+        if (connectFactor > 0.001) {
+          // Transverse connecting shell arches bridge between the canopies
+          let edgePull = connectFactor * 0.34 * spanY * Math.cos(Math.PI * (uX - 0.5));
+          out[i+1] += edgePull;
+          out[i+2] += (centerZ - z) * connectFactor * 0.30;
+        }
+        if (smoothBlendFactor > 0.001) {
+          // Monolithic smooth shell spanning entire hall without joints
+          let domeUnify = smoothBlendFactor * 0.22 * spanY * Math.sin(Math.PI * uX) * Math.sin(Math.PI * uZ);
+          out[i+1] += domeUnify;
+        }
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // TYPOLOGY 4: STEPPED_TERRACES (RISER_CONNECT)
+      // Elements: Stepped horizontal terrace platforms cascading along the slope
+      // Low C: Separate horizontal steps with sharp vertical drop breaks & chasms
+      // Med C: Curvilinear ramp bridges and fillet ribbons connect consecutive tiers
+      // High C: Monolithic flowing landscape cascade uniting treads and risers seamlessly
+      // ─────────────────────────────────────────────────────────────────────────
+      else if (grammar.continuityMode === 'RISER_CONNECT') {
         let tierU = (uX * 4.0) % 1.0;
-        if (tierU > 0.80 || tierU < 0.20) {
-          out[i+1] -= strength * 0.20 * spanY * Math.sin(tierU * Math.PI * 2);
+        if (gapFactor > 0.001) {
+          // Exaggerate sharp disconnected drops between terrace levels
+          if (tierU > 0.75 || tierU < 0.25) {
+            let drop = gapFactor * 0.26 * spanY * (tierU > 0.75 ? -1.0 : 1.0);
+            out[i+1] += drop;
+          }
         }
-      } else if (grammar.continuityMode === 'FLAT_PLATE') {
-        // Flat Deep-Plan: enforces strict planar leveling of horizontal plates
-        let targetLevel = (uY > 0.5) ? maxY - 0.2 * spanY : minY + 0.2 * spanY;
-        out[i+1] += (targetLevel - y) * strength * 0.44;
-      } else if (grammar.continuityMode === 'PERIMETER_RING') {
-        // Void-Edge: closes annular ring surfaces into a seamless 360-degree ribbon
-        let rTarget = 0.5 * transSpan;
-        let deltaR = rTarget - rXZ;
-        out[i] += (dx / (rXZ + 0.01)) * deltaR * strength * 0.38;
-        out[i+2] += (dz / (rXZ + 0.01)) * deltaR * strength * 0.38;
-      } else if (grammar.continuityMode === 'CREASE_FACETS') {
-        // Folded Undulated: aligns origami creases into continuous diagonal ridges
+        if (connectFactor > 0.001) {
+          // Fillet ramp surfaces smoothly connect riser to tread into continuous cascade
+          let filletBlend = connectFactor * 0.30 * spanY * Math.sin(tierU * Math.PI);
+          out[i+1] += filletBlend;
+          out[i] += connectFactor * 0.16 * spanX * (0.5 - tierU);
+        }
+        if (smoothBlendFactor > 0.001) {
+          // Continuous rolling topography where all steps melt into one natural slope
+          let topoCascade = smoothBlendFactor * 0.24 * spanY * Math.sin(Math.PI * uX * 2.0);
+          out[i+1] += topoCascade;
+        }
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // TYPOLOGY 5: LINEAR_GALLERY (AXIAL_PATH)
+      // Elements: Modular pavilion bays along the primary longitudinal axis
+      // Low C: Transverse breaks divide the promenade into disconnected rooms
+      // Med C: Colonnade arch bridges connect consecutive pavilions along the axis
+      // High C: Unbroken continuous enfilade gallery promenade flowing end-to-end
+      // ─────────────────────────────────────────────────────────────────────────
+      else if (grammar.continuityMode === 'AXIAL_PATH') {
+        if (gapFactor > 0.001) {
+          // Open transverse gaps between gallery bays along X
+          let bayBreak = Math.sin(uX * Math.PI * 4.0);
+          out[i] -= gapFactor * 0.24 * spanX * Math.sign(bayBreak) * Math.pow(Math.abs(bayBreak), 0.7);
+          out[i+2] += gapFactor * 0.18 * spanZ * Math.cos(uX * Math.PI * 4.0);
+        }
+        if (connectFactor > 0.001) {
+          // Continuous arcade bridge aligns and connects all bays along longitudinal enfilade
+          out[i] += connectFactor * spanX * 0.34 * (uX - 0.5);
+          out[i+2] += (centerZ - z) * connectFactor * 0.40;
+        }
+        if (smoothBlendFactor > 0.001) {
+          // Uninterrupted vista ribbon spanning full length of gallery
+          let ribFlow = smoothBlendFactor * 0.20 * spanY * Math.sin(Math.PI * uX);
+          out[i+1] += ribFlow;
+        }
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // TYPOLOGY 6: FOLDED_FACETS (CREASE_FACETS)
+      // Elements: Origami faceted plates along diagonal creases
+      // Low C: Deep open seam gaps fracture adjacent facet plates into separate pieces
+      // Med C: Crease bridges begin welding facet edges along primary diagonal ridges
+      // High C: All facets fully welded into an unbroken, continuous folded shell
+      // ─────────────────────────────────────────────────────────────────────────
+      else if (grammar.continuityMode === 'CREASE_FACETS') {
         let diag = Math.sin(3.0 * Math.PI * (uX + uZ));
-        out[i+1] += strength * spanY * 0.28 * diag;
-      } else if (grammar.continuityMode === 'CIRCULATION_STEPS') {
-        // Stepped Amphitheater: connects aisles and seating tiers into unified bowl
-        let rF = Math.hypot(x - (minX + spanX * 0.25), z - centerZ);
-        out[i+1] += strength * spanY * 0.18 * Math.cos(rF / transSpan * Math.PI * 6);
-      } else if (grammar.continuityMode === 'CONVERGING_PATHS') {
-        // Void-Field Gathering: blends converging floor spokes into a unified crossroads
-        let spoke = Math.cos(4.0 * theta);
-        out[i+1] += strength * spanY * 0.18 * spoke * (1.0 - uY);
-      } else if (grammar.continuityMode === 'SUSPENSION_LINKS') {
-        // Inserted Plate: draws tensile tendon lines connecting platform to upper structure
-        if (uY > 0.40) {
-          out[i+1] += strength * spanY * 0.25 * Math.sin(Math.PI * uX);
+        if (gapFactor > 0.001) {
+          // Open gaps along fold creases, pulling facet plates apart
+          let seamGap = gapFactor * 0.26 * spanY * Math.sign(diag) * (1.0 - Math.abs(diag));
+          out[i+1] -= seamGap;
+          out[i] -= nx * gapFactor * 0.16 * spanX;
         }
-      } else if (grammar.continuityMode === 'ENCLOSURE_SHELL') {
-        // Contained Room: welds pod shell seams into an unbroken organic capsule
-        let rPod = Math.hypot(dx, dy * 1.4, dz);
-        let targetR = 0.35 * transSpan;
-        let pull = (targetR - rPod) * strength * 0.44;
-        out[i] += (dx / (rPod + 0.01)) * pull;
-        out[i+1] += (dy / (rPod + 0.01)) * pull * 0.7;
-        out[i+2] += (dz / (rPod + 0.01)) * pull;
-      } else if (grammar.continuityMode === 'GALLERY_PATH') {
-        // Linear Edge Gallery: smooths overlook ribbon into uninterrupted promenade
-        out[i] += strength * spanX * 0.24 * (uX - 0.5);
-      } else {
-        out[i] += strength * spanX * 0.15 * (uX - 0.5);
+        if (connectFactor > 0.001) {
+          // Weld facet seams into continuous diagonal structural ridges
+          out[i+1] += connectFactor * spanY * 0.34 * diag;
+          out[i+2] += (centerZ - z) * connectFactor * 0.26 * diag;
+        }
+        if (smoothBlendFactor > 0.001) {
+          // Smooth tangent continuity across all facet boundaries
+          out[i+1] += smoothBlendFactor * 0.18 * spanY * Math.cos(2.0 * Math.PI * (uX - uZ));
+        }
+      }
+
+      // Default fallback continuity
+      else {
+        if (gapFactor > 0.001) {
+          out[i] -= gapFactor * 0.18 * spanX * Math.sin(uX * Math.PI * 3.0);
+        }
+        if (connectFactor > 0.001) {
+          out[i] += connectFactor * spanX * 0.22 * (uX - 0.5);
+        }
       }
     }
   }
@@ -2052,7 +2192,7 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
     seedIdentityPct: identityScore,
     scaledMagnitude: 100,
     ruleValidation: {
-      continuity: { pass: true, msg: C > 0.7 ? 'Ã¢Å“â€œ CONTINUOUS FLOW' : (C > 0.3 ? 'Ã¢Å“â€œ CONNECTED' : 'Ã¢Å“â€œ INDEPENDENT') },
+      continuity: { pass: true, msg: C > 0.7 ? '✓ CONTINUOUS FORM' : (C > 0.3 ? '✓ CONNECTING ELEMENTS' : '✓ SEPARATE ELEMENTS') },
       branching: { pass: B < 0.2 || affectedCount > 0, msg: B >= 0.6 ? 'Ã¢Å“â€œ HIERARCHICAL BRANCHING' : (B >= 0.2 ? 'Ã¢Å“â€œ BIFURCATING' : 'Ã¢Å“â€œ SINGULAR') },
       whiplash: { pass: W === 0 || maxDisp > 0, msg: W > 0.6 ? 'Ã¢Å“â€œ WHIPLASH INFLECTED' : (W > 0.3 ? 'Ã¢Å“â€œ FLOWING CURVATURE' : 'Ã¢Å“â€œ LINEAR') },
       merging: { pass: M === 0 || (B >= 0.2 || totalVerts >= 30), msg: (B >= 0.2 || totalVerts >= 30) ? (M > 0.7 ? 'Ã¢Å“â€œ MERGED / UNIFIED' : 'Ã¢Å“â€œ CONVERGING') : 'Ã¢Å“â€¢ PRECONDITION NOT SATISFIED' },

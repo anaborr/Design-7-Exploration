@@ -300,9 +300,9 @@ function updateSeedGeometricProfileUI(profile) {
  */
 function getQualitativeStateLabel(principleKey, val) {
   if (principleKey === 'CONTINUITY') {
-    if (val <= 0.30) return 'INDEPENDENT';
-    if (val <= 0.70) return 'CONNECTED';
-    return 'CONTINUOUS FLOW';
+    if (val <= 0.30) return 'MOSTLY SEPARATE';
+    if (val <= 0.70) return 'PARTIALLY CONNECTED';
+    return 'CONTINUOUS FORM';
   } else if (principleKey === 'BRANCHING') {
     if (val <= 0.20) return 'SINGULAR';
     if (val <= 0.60) return 'BIFURCATING';
@@ -431,10 +431,35 @@ function updateDnaUIAndViewport() {
   if (mWCurvature) mWCurvature.textContent = Math.round(w * 85) + 'Â°';
 
   const mCDisc = document.getElementById('metric-c-disconnected');
-  if (mCDisc) mCDisc.textContent = c === 0 ? 'Original' : Math.max(0, Math.round(100 - c * 85)) + '%';
+  if (mCDisc) {
+    if (c === 0) {
+      mCDisc.textContent = 'Original';
+    } else if (c <= 0.30) {
+      const elCount = Math.round(6 - (c / 0.30) * 1);
+      mCDisc.textContent = `${elCount} Elements (Separate)`;
+    } else if (c <= 0.70) {
+      const elCount = Math.round(5 - ((c - 0.30) / 0.40) * 3);
+      mCDisc.textContent = `${elCount} Elements (Bridging)`;
+    } else {
+      mCDisc.textContent = '1 Continuous Form (Unified)';
+    }
+  }
 
   const mCConn = document.getElementById('metric-c-connected');
-  if (mCConn) mCConn.textContent = c === 0 ? '0%' : Math.min(100, Math.round(30 + c * 70)) + '%';
+  if (mCConn) {
+    if (c === 0) {
+      mCConn.textContent = '0%';
+    } else if (c <= 0.30) {
+      const pct = Math.round((c / 0.30) * 25);
+      mCConn.textContent = `${pct}% (Minimal)`;
+    } else if (c <= 0.70) {
+      const pct = Math.round(25 + ((c - 0.30) / 0.40) * 50);
+      mCConn.textContent = `${pct}% (Intentional)`;
+    } else {
+      const pct = Math.round(75 + ((c - 0.70) / 0.30) * 25);
+      mCConn.textContent = `${pct}% (Unified Form)`;
+    }
+  }
 
   const mBCnt = document.getElementById('metric-b-count');
   if (mBCnt) mBCnt.textContent = b < 0.05 ? '0' : (b < 0.3 ? '2' : (b < 0.65 ? '3' : '4'));
@@ -450,7 +475,7 @@ function updateDnaUIAndViewport() {
   }
 
   // Rule Validation Panel Checkmarks
-  const valCont = document.getElementById('val-rule-cont'); if (valCont) valCont.textContent = c > 0.7 ? 'âœ“ CONTINUOUS FLOW' : (c > 0.3 ? 'âœ“ CONNECTED' : 'âœ“ INDEPENDENT');
+  const valCont = document.getElementById('val-rule-cont'); if (valCont) valCont.textContent = c > 0.7 ? '✓ CONTINUOUS FORM' : (c > 0.3 ? '✓ CONNECTING ELEMENTS' : '✓ SEPARATE ELEMENTS');
   const valBranch = document.getElementById('val-rule-branch'); if (valBranch) valBranch.textContent = b >= 0.6 ? 'âœ“ HIERARCHICAL BRANCHING' : (b >= 0.2 ? 'âœ“ BIFURCATING' : 'âœ“ SINGULAR');
   const valWhip = document.getElementById('val-rule-whip'); if (valWhip) valWhip.textContent = w > 0.6 ? 'âœ“ WHIPLASH INFLECTED' : (w > 0.3 ? 'âœ“ FLOWING CURVATURE' : 'âœ“ LINEAR');
   const valMerge = document.getElementById('val-rule-merge'); if (valMerge) valMerge.textContent = (b >= 0.20) ? (m > 0.6 ? 'âœ“ MERGED / UNIFIED' : 'âœ“ CONVERGING') : 'âœ• PRECONDITION NOT SATISFIED';
