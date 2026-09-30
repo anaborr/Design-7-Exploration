@@ -1617,15 +1617,13 @@ function revertToOriginalRhinoSeed() {
     window.resetTransformations();
   }
 
-  // 4. Force meshGroup, curveGroup, cageGroup visibility to TRUE
+  // 4. Force meshGroup visibility to TRUE, keep curveGroup and cageGroup hidden
   if (window.meshGroup) window.meshGroup.visible = true;
-  if (window.curveGroup) window.curveGroup.visible = true;
-  if (window.cageGroup) window.cageGroup.visible = true;
+  if (window.curveGroup) window.curveGroup.visible = false;
+  if (window.cageGroup) window.cageGroup.visible = false;
 
   // Sync layer toggle buttons UI
   const btnMesh = document.getElementById('btn-toggle-mesh'); if (btnMesh) btnMesh.classList.add('active');
-  const btnCage = document.getElementById('btn-toggle-cage'); if (btnCage) btnCage.classList.add('active');
-  const btnCurves = document.getElementById('btn-toggle-curves'); if (btnCurves) btnCurves.classList.add('active');
 
   // 5. Explicitly restore original un-deformed vertex positions on ALL SubD meshes
   if (window.originalMeshes && Array.isArray(window.originalMeshes)) {

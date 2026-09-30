@@ -16,6 +16,8 @@ let threeControls = null;
 let meshGroup = new THREE.Group();
 let curveGroup = new THREE.Group();
 let cageGroup = new THREE.Group();
+curveGroup.visible = false;
+cageGroup.visible = false;
 
 // Memory Store for Original Imported Geometry & Bounds
 let originalMeshes = [];
@@ -227,8 +229,6 @@ function setupUIEventListeners() {
 
   // Visibility Toggles
   setupToggleBtn('btn-toggle-mesh', meshGroup);
-  setupToggleBtn('btn-toggle-curves', curveGroup);
-  setupToggleBtn('btn-toggle-cage', cageGroup);
 
   // Manual Sliders
   bindSlider('slider-whiplash', 'val-whiplash', 'whiplash', '%');
@@ -565,14 +565,18 @@ function restoreOriginalImportedGeometry() {
 
 
 
-  // 4. Force Groups & Layers to be Visible
+  // 4. Force Mesh Group to be Visible, keep curve/cage hidden
   if (meshGroup) meshGroup.visible = true;
-  if (curveGroup) curveGroup.visible = true;
-  if (cageGroup) cageGroup.visible = true;
+  if (curveGroup) {
+    curveGroup.visible = false;
+    clearGroup(curveGroup);
+  }
+  if (cageGroup) {
+    cageGroup.visible = false;
+    clearGroup(cageGroup);
+  }
 
   const btnMesh = document.getElementById('btn-toggle-mesh'); if (btnMesh) btnMesh.classList.add('active');
-  const btnCage = document.getElementById('btn-toggle-cage'); if (btnCage) btnCage.classList.add('active');
-  const btnCurves = document.getElementById('btn-toggle-curves'); if (btnCurves) btnCurves.classList.add('active');
 
   // 5. Restore ALL SubD and standard meshes to exact un-deformed positions
   originalMeshes.forEach(item => {
@@ -788,20 +792,20 @@ function parseRhinoObjects(doc, filename) {
 
     const typeInt = geom.objectType;
 
-    if (typeInt === rhino.ObjectType.Mesh) {
-      meshCount++;
-      buildThreeMesh(geom);
-    } else if (typeInt === rhino.ObjectType.Curve) {
-      curveCount++;
-      buildThreeCurve(geom);
-    } else if (typeInt === rhino.ObjectType.SubD) {
+    if (typeInt === rhino.ObjectType.SubD) {
       subdCount++;
       subdObjectsInMemory.push(geom);
-      buildSubDCageOverlay(geom);
+      // Cage overlay removed per user requirement: only SubD mesh is shown
 
       // Process & render actual SubD polygon mesh faces
       const res = processAndRenderSubDMesh(geom, subdCount);
       subdDiagnostics.push(res);
+    } else if (typeInt === rhino.ObjectType.Curve) {
+      // Curves disabled per user settings: only SubD mesh is shown, no Curves
+      console.log(`[IMPORTER] Ignored Curve object (index ${i}) per user settings`);
+    } else if (typeInt === rhino.ObjectType.Mesh) {
+      meshCount++;
+      buildThreeMesh(geom);
     }
   }
 
@@ -934,33 +938,8 @@ function buildThreeMesh(meshGeom) {
 }
 
 function buildThreeCurve(curveGeom) {
-  const dom = curveGeom.domain ? curveGeom.domain : [0, 1];
-  const samples = 80;
-  const positions = [];
-
-  for (let s = 0; s <= samples; s++) {
-    const t = dom[0] + (s / samples) * (dom[1] - dom[0]);
-    try {
-      const pt = curveGeom.pointAt ? curveGeom.pointAt(t) : null;
-      if (pt) {
-        const coords = getVertexCoords(pt);
-        const p3 = rhinoPointToThree(coords.x, coords.y, coords.z);
-        positions.push(p3.x, p3.y, p3.z);
-      }
-    } catch (e) {}
-  }
-
-  if (positions.length >= 6) {
-    const posArray = new Float32Array(positions);
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(posArray.slice(), 3));
-
-    const material = new THREE.LineBasicMaterial({ color: 0xffff00 });
-    const line = new THREE.Line(geometry, material);
-    curveGroup.add(line);
-
-    originalCurves.push({ line, originalPositions: posArray });
-  }
+  // Curves disabled per user settings: only SubD mesh is shown, no Curves
+  return;
 }
 
 function getVertexCoords(pt) {
@@ -1188,61 +1167,8 @@ function processAndRenderSubDMesh(subdGeom, subdIndex) {
 }
 
 function buildSubDCageOverlay(subdGeom) {
-  try {
-    const r = window.rhino || rhino;
-    let cageMesh = null;
-    if (r && r.Mesh && r.Mesh.createFromSubDControlNet) {
-      cageMesh = r.Mesh.createFromSubDControlNet(subdGeom, false);
-    }
-    if (!cageMesh && subdGeom.vertices) cageMesh = subdGeom;
-
-    if (cageMesh && cageMesh.vertices && cageMesh.faces) {
-      const verts = typeof cageMesh.vertices === 'function' ? cageMesh.vertices() : cageMesh.vertices;
-      const faces = typeof cageMesh.faces === 'function' ? cageMesh.faces() : cageMesh.faces;
-
-      const vertCount = typeof verts.count === 'number' ? verts.count : (verts.length || 0);
-      const faceCount = typeof faces.count === 'number' ? faces.count : (faces.length || 0);
-
-      const linePositions = [];
-      const pointPositions = [];
-
-      for (let f = 0; f < faceCount; f++) {
-        const face = faces.get(f);
-        const fIdx = getFaceIndices(face);
-        if (!fIdx) continue;
-
-        const p1 = rhinoPointToThree(getVertexCoords(verts.get(fIdx.a)).x, getVertexCoords(verts.get(fIdx.a)).y, getVertexCoords(verts.get(fIdx.a)).z);
-        const p2 = rhinoPointToThree(getVertexCoords(verts.get(fIdx.b)).x, getVertexCoords(verts.get(fIdx.b)).y, getVertexCoords(verts.get(fIdx.b)).z);
-        const p3 = rhinoPointToThree(getVertexCoords(verts.get(fIdx.c)).x, getVertexCoords(verts.get(fIdx.c)).y, getVertexCoords(verts.get(fIdx.c)).z);
-
-        linePositions.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
-        linePositions.push(p2.x, p2.y, p2.z, p3.x, p3.y, p3.z);
-        linePositions.push(p3.x, p3.y, p3.z, p1.x, p1.y, p1.z);
-      }
-
-      for (let v = 0; v < vertCount; v++) {
-        const pt = rhinoPointToThree(getVertexCoords(verts.get(v)).x, getVertexCoords(verts.get(v)).y, getVertexCoords(verts.get(v)).z);
-        pointPositions.push(pt.x, pt.y, pt.z);
-      }
-
-      const origLinePos = new Float32Array(linePositions);
-      const origPtPos = new Float32Array(pointPositions);
-
-      const lineGeom = new THREE.BufferGeometry();
-      lineGeom.setAttribute('position', new THREE.Float32BufferAttribute(origLinePos.slice(), 3));
-      const lineMat = new THREE.LineBasicMaterial({ color: 0x00ffff, opacity: 0.8, transparent: true });
-      const cageLines = new THREE.LineSegments(lineGeom, lineMat);
-      cageGroup.add(cageLines);
-
-      const pointGeom = new THREE.BufferGeometry();
-      pointGeom.setAttribute('position', new THREE.Float32BufferAttribute(origPtPos.slice(), 3));
-      const pointMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.3 });
-      const cagePoints = new THREE.Points(pointGeom, pointMat);
-      cageGroup.add(cagePoints);
-
-      originalCages.push({ cageLines, cagePoints, originalLinePositions: origLinePos, originalPtPositions: origPtPos });
-    }
-  } catch (e) {}
+  // SubD cage overlay disabled per user settings: only SubD mesh is shown
+  return;
 }
 
 function computeModelBounds() {
@@ -2365,8 +2291,8 @@ function renderIterationGeometry(recipeOrDna, explicitMode, explicitTypologyKey 
 
   // Ensure render groups are visible
   if (meshGroup) meshGroup.visible = true;
-  if (curveGroup) curveGroup.visible = true;
-  if (cageGroup) cageGroup.visible = true;
+  if (curveGroup) curveGroup.visible = false;
+  if (cageGroup) cageGroup.visible = false;
 
   // Deform or Restore SubD / Standard Meshes
   originalMeshes.forEach(item => {
