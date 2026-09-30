@@ -1906,252 +1906,120 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
       let ny = normObj ? normObj.y : 1;
       let nz = normObj ? normObj.z : (dz / (rXZ + 0.01));
 
-      // ─────────────────────────────────────────────────────────────────────────
-      // TYPOLOGY 1: VERTICAL_VOID (VERTICAL_CONNECTIONS)
-      // Elements: Vertical floor strata / perimeter rings across the atrium shaft
-      // All-axial (X, Y, Z) transformation:
-      //   - X plane: Radial atrium retraction and quadrant column alignment
-      //   - Y plane: Horizontal floor strata separation gaps -> vertical bridging piers -> sweeping vertical vault
-      //   - Z plane: Transverse flank breaks -> lateral arch bridging -> organic tangent shell
-      // ─────────────────────────────────────────────────────────────────────────
-      if (grammar.continuityMode === 'VERTICAL_CONNECTIONS') {
-        if (gapFactor > 0.001) {
-          // Y-axis: Open horizontal separation gaps between lower, mezzanine, and upper levels
-          let levelBreak = Math.sin(uY * Math.PI * 4.0);
-          let gapSeparation = gapFactor * 0.25 * spanY * Math.sign(levelBreak) * Math.pow(Math.abs(levelBreak), 0.7);
-          out[i+1] += gapSeparation;
-          // X & Z axes: Recess edges near void boundary to separate perimeter rings
-          let radCut = Math.cos(3.0 * theta);
-          out[i] -= (nx * 0.16 + (dx / (rXZ + 0.01)) * 0.12 * radCut) * gapFactor * spanX;
-          out[i+2] -= (nz * 0.16 + (dz / (rXZ + 0.01)) * 0.12 * radCut) * gapFactor * spanZ;
-        }
-        if (connectFactor > 0.001) {
-          // Y-axis: Vertical connecting piers and sweeping arches bridge lower to upper floors across the void
-          let vertPull = connectFactor * 0.38 * spanY * Math.sign(-dy) * Math.min(1.0, Math.abs(dy) / (0.42 * spanY));
-          out[i+1] += vertPull;
-          // X & Z axes: Extend bridging ribs along radial quadrants (connecting structural columns)
-          let radialBridge = Math.cos(4.0 * theta);
-          if (radialBridge > 0.10) {
-            let bridgeReach = connectFactor * 0.28 * (transSpan * 0.5 - rXZ) * radialBridge;
-            out[i] += (dx / (rXZ + 0.01)) * bridgeReach;
-            out[i+2] += (dz / (rXZ + 0.01)) * bridgeReach;
-          }
-        }
-        if (smoothBlendFactor > 0.001) {
-          // Y-axis: Seamless organic tangent flow uniting void perimeter and vault
-          let shellUnify = smoothBlendFactor * 0.20 * spanY * (1.0 - Math.abs(dy) / (0.5 * spanY));
-          out[i+1] += shellUnify * Math.sin(Math.PI * uX);
-          // X & Z axes: Tangent curvature rounding horizontal cross-sections into continuous hyperbolic profiles
-          out[i] += smoothBlendFactor * 0.14 * spanX * Math.sin(2.0 * Math.PI * uX) * (1.0 - uY);
-          out[i+2] += smoothBlendFactor * 0.14 * spanZ * Math.cos(2.0 * Math.PI * uZ) * (1.0 - uY);
-        }
+      // Universal 3-Axial Coordinate Factors
+      let cX = spanX > 0.001 ? (x - centerX) / (spanX * 0.5) : 0;
+      let cY = spanY > 0.001 ? (y - centerY) / (spanY * 0.5) : 0;
+      let cZ = spanZ > 0.001 ? (z - centerZ) / (spanZ * 0.5) : 0;
+
+      // 1. LEFT TO RIGHT (X-AXIS / X-PLANE)
+      // Low C: Splits left and right elements with prominent longitudinal gap breaks
+      // Med C: Extends connecting arches and corridors bridging left and right bays
+      // High C: Continuous, seamless tangent flow from left to right
+      let dX = 0;
+      if (gapFactor > 0.001) {
+        let xWave = Math.sin(uX * Math.PI * 3.0);
+        dX -= gapFactor * 0.24 * spanX * Math.sign(xWave) * Math.pow(Math.abs(xWave), 0.6);
+      }
+      if (connectFactor > 0.001) {
+        dX += connectFactor * 0.28 * spanX * Math.sin(uX * Math.PI * 2.0);
+      }
+      if (smoothBlendFactor > 0.001) {
+        dX += smoothBlendFactor * 0.18 * spanX * (uX - 0.5);
       }
 
-      // ─────────────────────────────────────────────────────────────────────────
-      // TYPOLOGY 2: COMPRESSED_EXPANDED (ZONE_TRANSITIONS)
-      // Elements: Sequential chambers along longitudinal axis X (Choke -> Throat -> Hall)
-      // All-axial (X, Y, Z) transformation:
-      //   - X plane: Longitudinal zone portal separation -> transition vault bridges -> continuous aerodynamic envelope
-      //   - Y plane: Vertical step threshold drop -> height transition ramp -> unified ceiling loft
-      //   - Z plane: Lateral portal pinch breaks -> side-wall convergence -> smooth cross-sectional lofting
-      // ─────────────────────────────────────────────────────────────────────────
-      else if (grammar.continuityMode === 'ZONE_TRANSITIONS') {
+      // 2. FRONT TO BACK (Z-AXIS / Z-PLANE)
+      // Low C: Splits front and back volumes with prominent transverse gap chasms
+      // Med C: Extends transverse structural tie-ribs bridging front and back wings
+      // High C: Continuous aerodynamic curvature fusing front and back envelopes
+      let dZ = 0;
+      if (gapFactor > 0.001) {
+        let zWave = Math.sin(uZ * Math.PI * 3.0);
+        dZ -= gapFactor * 0.24 * spanZ * Math.sign(zWave) * Math.pow(Math.abs(zWave), 0.6);
+      }
+      if (connectFactor > 0.001) {
+        dZ += connectFactor * 0.28 * spanZ * Math.sin(uZ * Math.PI * 2.0);
+      }
+      if (smoothBlendFactor > 0.001) {
+        dZ += smoothBlendFactor * 0.18 * spanZ * (uZ - 0.5);
+      }
+
+      // 3. TOP TO BOTTOM (Y-AXIS / Y-PLANE)
+      // Low C: Splits upper and lower floors with horizontal level gaps
+      // Med C: Extends vertical piers, columns, and ramps linking top and bottom
+      // High C: Continuous sweeping vertical envelope uniting floor to ceiling
+      let dY = 0;
+      if (gapFactor > 0.001) {
+        let yWave = Math.sin(uY * Math.PI * 3.0);
+        dY += gapFactor * 0.25 * spanY * Math.sign(yWave) * Math.pow(Math.abs(yWave), 0.6);
+      }
+      if (connectFactor > 0.001) {
+        dY += connectFactor * 0.34 * spanY * Math.sign(-cY) * Math.min(1.0, Math.abs(cY)) * (0.6 + 0.4 * Math.cos(uX * Math.PI * 2.0));
+      }
+      if (smoothBlendFactor > 0.001) {
+        dY += smoothBlendFactor * 0.24 * spanY * Math.sin(Math.PI * uX) * Math.sin(Math.PI * uZ);
+      }
+
+      // 4. DOMAIN A TYPOLOGY MODULATION (Modulates all 3 axial directions)
+      if (grammar.continuityMode === 'VERTICAL_CONNECTIONS') {
+        // Vertical Void: Radial atrium void preserved at center; perimeter piers wrap Left-Right & Front-Back
+        let rad = Math.cos(3.0 * theta);
+        if (connectFactor > 0.001) {
+          dX += (dx / (rXZ + 0.01)) * connectFactor * 0.18 * spanX * Math.max(0, rad);
+          dZ += (dz / (rXZ + 0.01)) * connectFactor * 0.18 * spanZ * Math.max(0, rad);
+        }
+        if (smoothBlendFactor > 0.001) {
+          dY += smoothBlendFactor * 0.16 * spanY * (1.0 - Math.min(1.0, rXZ / (transSpan * 0.5)));
+        }
+      } else if (grammar.continuityMode === 'ZONE_TRANSITIONS') {
+        // Compressed / Expanded: Ramps height Top-to-Bottom and widens Front-to-Back along longitudinal X
         let atPortal = Math.exp(-Math.pow((uX - 0.40) * 8.0, 2));
         if (gapFactor > 0.001) {
-          // X-axis: Open gap breaks at zone boundaries
-          let zoneGap = Math.sin(uX * Math.PI * 3.0);
-          out[i] -= Math.sign(zoneGap) * gapFactor * 0.24 * spanX * Math.pow(Math.abs(zoneGap), 0.6);
-          // Y-axis: Indent portal threshold to separate chambers vertically
-          out[i+1] -= gapFactor * 0.22 * spanY * atPortal;
-          // Z-axis: Separate lateral side flanks at the threshold
-          out[i+2] += Math.sign(dz) * gapFactor * 0.18 * spanZ * atPortal;
+          dY -= gapFactor * 0.18 * spanY * atPortal;
+          dZ += Math.sign(dz) * gapFactor * 0.16 * spanZ * atPortal;
         }
         if (connectFactor > 0.001) {
-          // X-axis: Transition bridge smoothly connects entry chamber to the expanded hall
-          let tChoke = (uX * 3.0) % 1.0;
-          let blend = Math.sin(tChoke * Math.PI * 2);
-          out[i] += connectFactor * spanX * 0.28 * blend;
-          // Y-axis: Ramping connection from low threshold to double-height volume
-          let rampConn = connectFactor * 0.30 * spanY * (uX - 0.33);
-          out[i+1] += Math.max(0, rampConn);
-          // Z-axis: Lateral convergence drawing side walls into continuous alignment
-          out[i+2] += (centerZ - z) * connectFactor * 0.24 * (1.0 - uX);
+          dY += connectFactor * 0.20 * spanY * Math.max(0, uX - 0.33);
+          dZ += (centerZ - z) * connectFactor * 0.20 * (1.0 - uX);
         }
-        if (smoothBlendFactor > 0.001) {
-          // X-axis: Flawless continuous axial envelope from entry throat to release apex
-          let axialCont = smoothBlendFactor * 0.18 * spanX * (uX - 0.5);
-          out[i] += axialCont;
-          // Y-axis: Continuous roof and floor lofting
-          out[i+1] += smoothBlendFactor * 0.16 * spanY * Math.sin(Math.PI * uX);
-          // Z-axis: Aerodynamic lateral curvature uniting flank envelopes
-          out[i+2] += smoothBlendFactor * 0.14 * spanZ * Math.sin(Math.PI * uX) * Math.sin(Math.PI * uZ);
-        }
-      }
-
-      // ─────────────────────────────────────────────────────────────────────────
-      // TYPOLOGY 3: OPEN_HALL (CONTINUOUS_SHELL)
-      // Elements: Segmented roof shell canopies and modular workspace bays
-      // All-axial (X, Y, Z) transformation:
-      //   - X plane: Longitudinal bay expansion breaks -> transverse ridge connectors -> monolithic longitudinal shell
-      //   - Y plane: Ceiling chasm recesses -> transverse shell arch bridges -> unbroken continuous dome vault
-      //   - Z plane: Lateral bay separation -> transverse tie-ribs -> seamless lateral perimeter lofting
-      // ─────────────────────────────────────────────────────────────────────────
-      else if (grammar.continuityMode === 'CONTINUOUS_SHELL') {
-        let bayJoint = Math.cos(uX * Math.PI * 4.0);
+      } else if (grammar.continuityMode === 'CONTINUOUS_SHELL') {
+        // Open Hall: Transverse shell arches bridge Top-to-Bottom and Front-to-Back over open floor
         if (gapFactor > 0.001) {
-          // X-axis: Open distinct joint slots separating ceiling into distinct canopies
-          out[i] -= gapFactor * 0.14 * spanX * Math.sin(uX * Math.PI * 4.0);
-          // Y-axis: Deep recessed joint chasms between ceiling modules
-          let jointRecess = gapFactor * 0.26 * spanY * Math.pow(Math.max(0, -bayJoint), 2);
-          out[i+1] -= jointRecess;
-          // Z-axis: Transverse perimeter retraction opening lateral seam slots
-          out[i+2] += Math.sign(dz) * gapFactor * 0.16 * spanZ * Math.sin(uZ * Math.PI * 2.0);
+          let bayJoint = Math.cos(uX * Math.PI * 4.0);
+          dY -= gapFactor * 0.18 * spanY * Math.pow(Math.max(0, -bayJoint), 2);
         }
         if (connectFactor > 0.001) {
-          // X-axis: Longitudinal continuity arches connecting consecutive bays
-          out[i] += connectFactor * 0.18 * spanX * Math.cos(Math.PI * uX);
-          // Y-axis: Transverse connecting shell arches bridge between the canopies
-          let edgePull = connectFactor * 0.34 * spanY * Math.cos(Math.PI * (uX - 0.5));
-          out[i+1] += edgePull;
-          // Z-axis: Lateral tie-ribs pulling perimeter towards center
-          out[i+2] += (centerZ - z) * connectFactor * 0.30;
+          dY += connectFactor * 0.22 * spanY * Math.cos(Math.PI * (uX - 0.5));
+          dZ += (centerZ - z) * connectFactor * 0.20;
         }
-        if (smoothBlendFactor > 0.001) {
-          // All 3 axes: Monolithic smooth shell spanning entire hall without joints
-          let shellField = Math.sin(Math.PI * uX) * Math.sin(Math.PI * uZ);
-          out[i] += smoothBlendFactor * 0.12 * spanX * (0.5 - uX) * shellField;
-          out[i+1] += smoothBlendFactor * 0.22 * spanY * shellField;
-          out[i+2] += smoothBlendFactor * 0.12 * spanZ * (0.5 - uZ) * shellField;
-        }
-      }
-
-      // ─────────────────────────────────────────────────────────────────────────
-      // TYPOLOGY 4: STEPPED_TERRACES (RISER_CONNECT)
-      // Elements: Stepped horizontal terrace platforms cascading along the slope
-      // All-axial (X, Y, Z) transformation:
-      //   - X plane: Horizontal tread breaks -> ramp bridge extensions -> rolling longitudinal landscape
-      //   - Y plane: Sharp vertical drop chasms -> curvilinear fillet ramps -> monolithic topographic cascade
-      //   - Z plane: Lateral platform offsets -> cross-contour alignment -> unified flowing landscape terrain
-      // ─────────────────────────────────────────────────────────────────────────
-      else if (grammar.continuityMode === 'RISER_CONNECT') {
+      } else if (grammar.continuityMode === 'RISER_CONNECT') {
+        // Stepped Terraces: Connects riser treads Top-to-Bottom cascading along Left-to-Right slope
         let tierU = (uX * 4.0) % 1.0;
-        if (gapFactor > 0.001) {
-          // X-axis: Separate horizontal step treads
-          out[i] += gapFactor * 0.16 * spanX * (tierU > 0.5 ? 0.5 : -0.5);
-          // Y-axis: Exaggerate sharp disconnected drops between terrace levels
-          if (tierU > 0.75 || tierU < 0.25) {
-            let drop = gapFactor * 0.26 * spanY * (tierU > 0.75 ? -1.0 : 1.0);
-            out[i+1] += drop;
-          }
-          // Z-axis: Lateral shear separating tiered terraces
-          out[i+2] += gapFactor * 0.16 * spanZ * Math.sin(uX * Math.PI * 4.0);
-        }
         if (connectFactor > 0.001) {
-          // X-axis: Ramp bridge treads extending between tiers
-          out[i] += connectFactor * 0.16 * spanX * (0.5 - tierU);
-          // Y-axis: Fillet ramp surfaces smoothly connect riser to tread into continuous cascade
-          let filletBlend = connectFactor * 0.30 * spanY * Math.sin(tierU * Math.PI);
-          out[i+1] += filletBlend;
-          // Z-axis: Lateral contour alignment stabilizing cascading plates
-          out[i+2] += (centerZ - z) * connectFactor * 0.22 * Math.sin(tierU * Math.PI);
+          dY += connectFactor * 0.22 * spanY * Math.sin(tierU * Math.PI);
+          dX += connectFactor * 0.14 * spanX * (0.5 - tierU);
         }
-        if (smoothBlendFactor > 0.001) {
-          // All 3 axes: Continuous rolling topography where all steps melt into one natural slope
-          out[i] += smoothBlendFactor * 0.14 * spanX * Math.cos(Math.PI * uX * 2.0);
-          out[i+1] += smoothBlendFactor * 0.24 * spanY * Math.sin(Math.PI * uX * 2.0);
-          out[i+2] += smoothBlendFactor * 0.14 * spanZ * Math.sin(Math.PI * uZ) * Math.sin(Math.PI * uX);
-        }
-      }
-
-      // ─────────────────────────────────────────────────────────────────────────
-      // TYPOLOGY 5: LINEAR_GALLERY (AXIAL_PATH)
-      // Elements: Modular pavilion bays along the primary longitudinal axis
-      // All-axial (X, Y, Z) transformation:
-      //   - X plane: Transverse portal fractures -> axial colonnade bridge -> unbroken gallery vista promenade
-      //   - Y plane: Ceiling height breaks -> arch lintel bridges -> sweeping longitudinal roof ribbon
-      //   - Z plane: Lateral corridor expansion/recession -> side-wall enfilade alignment -> uninterrupted flank lofting
-      // ─────────────────────────────────────────────────────────────────────────
-      else if (grammar.continuityMode === 'AXIAL_PATH') {
-        let bayBreak = Math.sin(uX * Math.PI * 4.0);
-        if (gapFactor > 0.001) {
-          // X-axis: Open transverse gaps between gallery bays along X
-          out[i] -= gapFactor * 0.24 * spanX * Math.sign(bayBreak) * Math.pow(Math.abs(bayBreak), 0.7);
-          // Y-axis: Height breaks between pavilion modules
-          out[i+1] -= gapFactor * 0.20 * spanY * Math.pow(Math.sin(uX * Math.PI * 4.0), 2);
-          // Z-axis: Lateral corridor expansion/recession gaps
-          out[i+2] += gapFactor * 0.18 * spanZ * Math.cos(uX * Math.PI * 4.0);
-        }
+      } else if (grammar.continuityMode === 'AXIAL_PATH') {
+        // Linear Gallery: Colonnade arch lintels along longitudinal axis Left-to-Right
         if (connectFactor > 0.001) {
-          // X-axis: Continuous arcade bridge aligns and connects all bays along longitudinal enfilade
-          out[i] += connectFactor * spanX * 0.34 * (uX - 0.5);
-          // Y-axis: Arch colonnade lintels bridging consecutive rooms vertically
-          out[i+1] += connectFactor * spanY * 0.22 * Math.sin(uX * Math.PI * 4.0);
-          // Z-axis: Lateral corridor convergence along the axial vista
-          out[i+2] += (centerZ - z) * connectFactor * 0.40;
+          dY += connectFactor * 0.18 * spanY * Math.sin(uX * Math.PI * 4.0);
+          dZ += (centerZ - z) * connectFactor * 0.25;
         }
-        if (smoothBlendFactor > 0.001) {
-          // All 3 axes: Uninterrupted vista ribbon spanning full length of gallery
-          out[i] += smoothBlendFactor * 0.16 * spanX * (uX - 0.5);
-          out[i+1] += smoothBlendFactor * 0.20 * spanY * Math.sin(Math.PI * uX);
-          out[i+2] += smoothBlendFactor * 0.16 * spanZ * Math.sin(Math.PI * uX) * (1.0 - uY);
-        }
-      }
-
-      // ─────────────────────────────────────────────────────────────────────────
-      // TYPOLOGY 6: FOLDED_FACETS (CREASE_FACETS)
-      // Elements: Origami faceted plates along diagonal creases
-      // All-axial (X, Y, Z) transformation:
-      //   - X plane: Plate boundary fractures -> crease seam welding -> continuous curved plate curvature
-      //   - Y plane: Deep fissure seam gaps -> diagonal structural ridge arches -> seamless tangent continuity
-      //   - Z plane: Transverse facet displacement -> lateral crease alignment -> unified folded shell
-      // ─────────────────────────────────────────────────────────────────────────
-      else if (grammar.continuityMode === 'CREASE_FACETS') {
+      } else if (grammar.continuityMode === 'CREASE_FACETS') {
+        // Folded Facets: Welds diagonal crease ridges across X, Y, and Z
         let diag = Math.sin(3.0 * Math.PI * (uX + uZ));
-        if (gapFactor > 0.001) {
-          // X & Z axes: Open gaps along fold creases, pulling facet plates apart horizontally
-          out[i] -= nx * gapFactor * 0.16 * spanX * Math.sign(diag);
-          out[i+2] -= nz * gapFactor * 0.16 * spanZ * Math.sign(diag);
-          // Y-axis: Open gaps along fold creases vertically
-          let seamGap = gapFactor * 0.26 * spanY * Math.sign(diag) * (1.0 - Math.abs(diag));
-          out[i+1] -= seamGap;
-        }
         if (connectFactor > 0.001) {
-          // X-axis: Crease welding pulling plates along X
-          out[i] += connectFactor * spanX * 0.22 * diag;
-          // Y-axis: Weld facet seams into continuous diagonal structural ridges
-          out[i+1] += connectFactor * spanY * 0.34 * diag;
-          // Z-axis: Welded crease boundaries pulling plates along Z
-          out[i+2] += (centerZ - z) * connectFactor * 0.26 * diag;
-        }
-        if (smoothBlendFactor > 0.001) {
-          // All 3 axes: Smooth tangent continuity across all facet boundaries into seamless shell
-          out[i] += smoothBlendFactor * 0.14 * spanX * Math.sin(2.0 * Math.PI * (uX - uZ));
-          out[i+1] += smoothBlendFactor * 0.18 * spanY * Math.cos(2.0 * Math.PI * (uX - uZ));
-          out[i+2] += smoothBlendFactor * 0.14 * spanZ * Math.cos(2.0 * Math.PI * (uX + uZ));
+          dX += connectFactor * 0.16 * spanX * diag;
+          dY += connectFactor * 0.24 * spanY * diag;
+          dZ += (centerZ - z) * connectFactor * 0.18 * diag;
         }
       }
 
-      // Default fallback continuity (Full 3D Axial Transformation across X, Y, Z)
-      else {
-        if (gapFactor > 0.001) {
-          out[i] -= gapFactor * 0.18 * spanX * Math.sin(uX * Math.PI * 3.0);
-          out[i+1] -= gapFactor * 0.15 * spanY * Math.cos(uY * Math.PI * 3.0);
-          out[i+2] -= gapFactor * 0.18 * spanZ * Math.sin(uZ * Math.PI * 3.0);
-        }
-        if (connectFactor > 0.001) {
-          out[i] += connectFactor * spanX * 0.22 * (uX - 0.5);
-          out[i+1] += connectFactor * spanY * 0.20 * (uY - 0.5);
-          out[i+2] += (centerZ - z) * connectFactor * 0.25;
-        }
-        if (smoothBlendFactor > 0.001) {
-          out[i] += smoothBlendFactor * 0.12 * spanX * Math.sin(Math.PI * uX);
-          out[i+1] += smoothBlendFactor * 0.14 * spanY * Math.sin(Math.PI * uY);
-          out[i+2] += smoothBlendFactor * 0.12 * spanZ * Math.sin(Math.PI * uZ);
-        }
-      }
+      // Apply 3-Axial Transformations to Vertex Position
+      out[i] += dX;
+      out[i+1] += dY;
+      out[i+2] += dZ;
     }
   }
-
 
   return out;
 }
