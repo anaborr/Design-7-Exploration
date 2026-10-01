@@ -1501,128 +1501,146 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
     // High / 100% B (>= 0.70): Rich multi-bay hypostyle colonnade in gallery & multi-row branching under chaise/atrium
     const midCols = [];
 
-    // ─── 1. GALLERY INTERIOR SPACE (X in [-4.0, 1.5]) ───
+    // ─── 1. GALLERY INTERIOR SPACE (X in [-4.0, 1.8]) ───
     if (B < 0.35) {
       // Stage 1: 1 central slender column
       midCols.push({
         x: -1.5, z: centerZ, xMin: -4.0, xMax: 1.5,
-        ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 6.2,
+        ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 7.05,
         floorMinY: 6.8, floorMaxY: 7.5, rShaft: 0.35, rCap: 0.80
       });
-    } else if (B < 0.70) {
-      // Stage 2: 2 longitudinal columns along center line
-      midCols.push(
-        {
-          x: -2.5, z: centerZ, xMin: -4.0, xMax: -1.3,
-          ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 6.2,
-          floorMinY: 6.8, floorMaxY: 7.5, rShaft: 0.35, rCap: 0.80
-        },
-        {
-          x: -0.5, z: centerZ, xMin: -1.3, xMax: 1.5,
-          ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 6.2,
-          floorMinY: 6.8, floorMaxY: 7.5, rShaft: 0.35, rCap: 0.80
-        }
-      );
+    } else if (B < 0.65) {
+      // Stage 2: 3 longitudinal columns along center line
+      const xBays = [-2.8, -1.2, 0.4];
+      xBays.forEach(bx => {
+        midCols.push({
+          x: bx, z: centerZ, xMin: bx - 0.7, xMax: bx + 0.7,
+          ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 7.05,
+          floorMinY: 6.8, floorMaxY: 7.5, rShaft: 0.32, rCap: 0.75
+        });
+      });
     } else {
-      // Stage 3 (High / 100% Branching):
-      // 4 bays along X (-3.3, -2.1, -0.9, 0.3) with double rows across Z (front & rear),
-      // forming an 8-column hypostyle colonnade richly filling the gallery!
-      const zOffset = 1.1;
-      const rShaft = 0.32;
-      const rCap = 0.75;
-      const xBays = [-3.3, -2.1, -0.9, 0.3];
+      // Stage 3 & 4 (High / 100% Branching):
+      // 5 bays along X with double rows across Z (front & rear),
+      // forming a 10-column hypostyle colonnade richly filling the gallery!
+      const zOffset = 1.15;
+      const rShaft = 0.34;
+      const rCap = 0.85;
+      const xBays = [-3.6, -2.4, -1.2, 0.0, 1.2];
       xBays.forEach((bx) => {
         // Front column
         midCols.push({
           x: bx, z: centerZ + zOffset,
-          xMin: bx - 0.75, xMax: bx + 0.75,
-          ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 6.2,
+          xMin: bx - 0.65, xMax: bx + 0.65,
+          ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 7.05,
           floorMinY: 6.8, floorMaxY: 7.5, rShaft, rCap
         });
         // Rear column
         midCols.push({
           x: bx, z: centerZ - zOffset,
-          xMin: bx - 0.75, xMax: bx + 0.75,
-          ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 6.2,
+          xMin: bx - 0.65, xMax: bx + 0.65,
+          ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 7.05,
           floorMinY: 6.8, floorMaxY: 7.5, rShaft, rCap
         });
       });
     }
 
-    // ─── 2. ENTIRE MIDDLE SPACE (X in [1.8, 11.0]) ───
+    // ─── 2. TRANSITION RAMP & CHAISE DIP (X in [2.0, 8.0]) ───
     if (B < 0.35) {
       // Stage 1: 1 central slender column under dip
       midCols.push({
-        x: 6.0, z: centerZ, xMin: 4.5, xMax: 7.5,
-        ceilMinY: 6.8, ceilMaxY: 7.8, targetFloor: 3.8,
-        floorMinY: 3.5, floorMaxY: 4.5, rShaft: 0.35, rCap: 0.80
+        x: 6.0, z: centerZ, xMin: 3.5, xMax: 8.5,
+        ceilMinY: 6.5, ceilMaxY: 7.8, targetFloor: 4.0,
+        floorMinY: 3.6, floorMaxY: 4.4, rShaft: 0.35, rCap: 0.80
       });
-    } else if (B < 0.70) {
-      // Stage 2: 3 columns along the middle sequence
+    } else if (B < 0.65) {
+      // Stage 2: 3 columns along ramp & under dip
       midCols.push(
         {
-          x: 3.6, z: centerZ, xMin: 2.8, xMax: 4.5,
-          ceilMinY: 8.8, ceilMaxY: 9.8, targetFloor: 6.0,
-          floorMinY: 5.8, floorMaxY: 6.8, rShaft: 0.34, rCap: 0.78
+          x: 3.8, z: centerZ, xMin: 2.8, xMax: 4.8,
+          ceilMinY: 8.4, ceilMaxY: 9.4, targetFloor: 5.8,
+          floorMinY: 5.4, floorMaxY: 6.2, rShaft: 0.32, rCap: 0.75
         },
         {
-          x: 5.8, z: centerZ, xMin: 4.8, xMax: 6.8,
-          ceilMinY: 6.8, ceilMaxY: 7.8, targetFloor: 3.8,
-          floorMinY: 3.5, floorMaxY: 4.4, rShaft: 0.34, rCap: 0.78
+          x: 5.6, z: centerZ, xMin: 4.8, xMax: 6.6,
+          ceilMinY: 6.8, ceilMaxY: 7.8, targetFloor: 4.4,
+          floorMinY: 3.9, floorMaxY: 4.8, rShaft: 0.32, rCap: 0.75
         },
         {
-          x: 7.8, z: centerZ, xMin: 6.8, xMax: 9.2,
-          ceilMinY: 5.6, ceilMaxY: 6.8, targetFloor: 2.2,
-          floorMinY: 1.8, floorMaxY: 2.8, rShaft: 0.34, rCap: 0.78
+          x: 7.2, z: centerZ, xMin: 6.6, xMax: 8.0,
+          ceilMinY: 6.0, ceilMaxY: 7.2, targetFloor: 3.1,
+          floorMinY: 2.8, floorMaxY: 3.5, rShaft: 0.32, rCap: 0.75
         }
       );
     } else {
-      // Stage 3 (High / 100% Branching):
-      // Populates the ENTIRE middle space (X from 2.0 to 11.5) with a dense, rhythmic hypostyle forest!
-      // 12 bays along X with paired and tripartite rows across Z (over 30 slender columns throughout the middle space)
-      const addBay = (bx, xMin, xMax, ceilMinY, ceilMaxY, targetFloor, floorMinY, floorMaxY, zList, rShaft = 0.28, rCap = 0.78) => {
-        zList.forEach(zVal => {
-          midCols.push({
-            x: bx, z: zVal, xMin, xMax, ceilMinY, ceilMaxY, targetFloor, floorMinY, floorMaxY, rShaft, rCap
-          });
+      // Stage 3 & 4 (High / 100% Branching):
+      // Double rows across Z along the transition slope and chaise dip (8 columns)
+      const rShaft = 0.34;
+      const rCap = 0.85;
+      const zOffset = 0.95;
+      const xSteps = [
+        { x: 2.6, ceilMinY: 9.0, ceilMaxY: 9.8, targetFloor: 6.5, floorMinY: 6.2, floorMaxY: 7.0 },
+        { x: 4.0, ceilMinY: 8.4, ceilMaxY: 9.4, targetFloor: 5.7, floorMinY: 5.4, floorMaxY: 6.2 },
+        { x: 5.5, ceilMinY: 6.8, ceilMaxY: 7.8, targetFloor: 4.3, floorMinY: 3.9, floorMaxY: 4.8 },
+        { x: 7.0, ceilMinY: 6.0, ceilMaxY: 7.2, targetFloor: 3.0, floorMinY: 2.8, floorMaxY: 3.5 }
+      ];
+      xSteps.forEach(step => {
+        midCols.push(
+          {
+            x: step.x, z: centerZ + zOffset, xMin: step.x - 0.65, xMax: step.x + 0.65,
+            ceilMinY: step.ceilMinY, ceilMaxY: step.ceilMaxY, targetFloor: step.targetFloor,
+            floorMinY: step.floorMinY, floorMaxY: step.floorMaxY, rShaft, rCap
+          },
+          {
+            x: step.x, z: centerZ - zOffset, xMin: step.x - 0.65, xMax: step.x + 0.65,
+            ceilMinY: step.ceilMinY, ceilMaxY: step.ceilMaxY, targetFloor: step.targetFloor,
+            floorMinY: step.floorMinY, floorMaxY: step.floorMaxY, rShaft, rCap
+          }
+        );
+      });
+    }
+
+    // ─── 3. GRAND ATRIUM & VERTICAL VOID (X in [8.0, 14.5]) ───
+    // Fills the entire right half of the building at high branching!
+    if (B >= 0.50) {
+      const zOffset = 0.90;
+      // Atrium threshold columns
+      midCols.push(
+        {
+          x: 8.6, z: centerZ + zOffset, xMin: 8.0, xMax: 9.4,
+          ceilMinY: 5.4, ceilMaxY: 6.4, targetFloor: 2.05,
+          floorMinY: 1.8, floorMaxY: 2.5, rShaft: 0.35, rCap: 0.85
+        },
+        {
+          x: 8.6, z: centerZ - zOffset, xMin: 8.0, xMax: 9.4,
+          ceilMinY: 5.4, ceilMaxY: 6.4, targetFloor: 2.05,
+          floorMinY: 1.8, floorMaxY: 2.5, rShaft: 0.35, rCap: 0.85
+        }
+      );
+
+      if (B >= 0.65) {
+        // Deep atrium colonnade spanning through the grand vertical void
+        const deepSteps = [
+          { x: 10.0, ceilMinY: 5.5, ceilMaxY: 6.8, targetFloor: 2.05, floorMinY: 1.8, floorMaxY: 2.5, rShaft: 0.36, rCap: 0.88 },
+          { x: 11.4, ceilMinY: 6.4, ceilMaxY: 7.8, targetFloor: 2.05, floorMinY: 1.8, floorMaxY: 2.5, rShaft: 0.36, rCap: 0.88 },
+          { x: 12.8, ceilMinY: 7.6, ceilMaxY: 9.2, targetFloor: 2.05, floorMinY: 1.8, floorMaxY: 2.5, rShaft: 0.38, rCap: 0.92 },
+          { x: 14.2, ceilMinY: 11.0, ceilMaxY: 13.0, targetFloor: 2.05, floorMinY: 1.8, floorMaxY: 2.5, rShaft: 0.38, rCap: 0.95 }
+        ];
+        deepSteps.forEach(ds => {
+          midCols.push(
+            {
+              x: ds.x, z: centerZ + zOffset, xMin: ds.x - 0.70, xMax: ds.x + 0.70,
+              ceilMinY: ds.ceilMinY, ceilMaxY: ds.ceilMaxY, targetFloor: ds.targetFloor,
+              floorMinY: ds.floorMinY, floorMaxY: ds.floorMaxY, rShaft: ds.rShaft, rCap: ds.rCap
+            },
+            {
+              x: ds.x, z: centerZ - zOffset, xMin: ds.x - 0.70, xMax: ds.x + 0.70,
+              ceilMinY: ds.ceilMinY, ceilMaxY: ds.ceilMaxY, targetFloor: ds.targetFloor,
+              floorMinY: ds.floorMinY, floorMaxY: ds.floorMaxY, rShaft: ds.rShaft, rCap: ds.rCap
+            }
+          );
         });
-      };
-
-      // Bay M1: Middle Throat Entry (X = 2.4) - Paired
-      addBay(2.4, 1.8, 2.9, 9.6, 10.6, 6.7, 6.5, 7.4, [centerZ + 1.0, centerZ - 1.0], 0.28, 0.75);
-
-      // Bay M2: Throat Slope (X = 3.2) - Tripartite (Front, Center, Rear)
-      addBay(3.2, 2.8, 3.7, 9.2, 10.2, 6.3, 6.0, 6.8, [centerZ + 1.0, centerZ, centerZ - 1.0], 0.28, 0.75);
-
-      // Bay M3: Upper Ramp (X = 4.0) - Paired
-      addBay(4.0, 3.6, 4.5, 8.6, 9.6, 5.8, 5.4, 6.2, [centerZ + 0.95, centerZ - 0.95], 0.28, 0.75);
-
-      // Bay M4: Mid Ramp (X = 4.7) - Tripartite
-      addBay(4.7, 4.3, 5.2, 8.0, 9.0, 5.0, 4.6, 5.5, [centerZ + 0.95, centerZ, centerZ - 0.95], 0.28, 0.75);
-
-      // Bay M5: Chaise Dip Approach (X = 5.4) - Paired
-      addBay(5.4, 5.0, 5.9, 7.3, 8.3, 4.3, 3.9, 4.8, [centerZ + 1.0, centerZ - 1.0], 0.28, 0.78);
-
-      // Bay M6: Chaise Dip Base (X = 6.1) - Tripartite
-      addBay(6.1, 5.7, 6.6, 6.7, 7.7, 3.7, 3.3, 4.2, [centerZ + 1.05, centerZ, centerZ - 1.05], 0.28, 0.80);
-
-      // Bay M7: Chaise Transition Rise (X = 6.8) - Paired
-      addBay(6.8, 6.4, 7.3, 6.2, 7.2, 3.1, 2.7, 3.6, [centerZ + 1.0, centerZ - 1.0], 0.28, 0.80);
-
-      // Bay M8: Ramp Terminal / Western Threshold (X = 7.6) - Tripartite
-      addBay(7.6, 7.2, 8.1, 5.7, 6.8, 2.4, 2.0, 2.9, [centerZ + 1.0, centerZ, centerZ - 1.0], 0.30, 0.85);
-
-      // Bay M9: Atrium Threshold (X = 8.4) - 3 columns across Z
-      addBay(8.4, 8.0, 8.9, 5.5, 6.6, 2.1, 1.7, 2.5, [-2.2, -3.5, -4.8], 0.30, 0.95);
-
-      // Bay M10: Atrium Central Plaza (X = 9.2) - 3 columns across Z
-      addBay(9.2, 8.8, 9.7, 5.4, 6.6, 2.0, 1.6, 2.4, [-1.8, -3.0, -4.5], 0.30, 0.95);
-
-      // Bay M11: Grand Atrium Soaring Canopy (X = 10.1) - Paired
-      addBay(10.1, 9.6, 10.6, 5.5, 7.0, 2.0, 1.5, 2.4, [-1.6, -2.6, -3.8], 0.32, 1.0);
-
-      // Bay M12: Grand Atrium Eastern Portal (X = 11.0) - Paired
-      addBay(11.0, 10.5, 11.5, 6.0, 7.5, 2.0, 1.5, 2.4, [-1.5, -2.8, -4.2], 0.32, 1.0);
+      }
     }
 
     const reach = Math.min(1.0, B * 1.35);
@@ -1635,10 +1653,6 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
       let normZ = (z - centerZ) / (spanZ * 0.5 + 0.001);
 
       // ─── 1. SLENDER COLUMN-LIKE STRUCTURAL BRANCHES IN THE MIDDLE OF SPACES ───
-      // Non-cumulative maxDrop / maxRise calculation prevents double-displacement spikes
-      let maxDrop = 0;
-      let maxRise = 0;
-
       for (let c = 0; c < midCols.length; c++) {
         let col = midCols[c];
         if (x < col.xMin || x > col.xMax) continue;
@@ -1658,46 +1672,47 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
 
           // Ceiling downward branch extending across the space to the floor
           if (y >= col.ceilMinY && y <= col.ceilMaxY) {
-            let drop = (y - col.targetFloor) * reach * w;
-            if (drop > maxDrop) maxDrop = drop;
+            let drop = y - col.targetFloor;
+            let dY = -reach * drop * w;
+            out[i+1] += dY;
           }
           // Floor plate upward pedestal flaring to meet the descending column
           else if (y >= col.floorMinY && y <= col.floorMaxY) {
-            let pedestalHeight = Math.min(0.35, (col.ceilMinY - col.targetFloor) * 0.08);
-            let targetPedestal = col.targetFloor + pedestalHeight;
-            let rise = Math.max(0, targetPedestal - y) * reach * w;
-            if (rise > maxRise) maxRise = rise;
+            let dY = reach * 0.22 * w;
+            out[i+1] += dY;
           }
         }
       }
 
-      if (maxDrop > 0) {
-        out[i+1] -= maxDrop;
-      } else if (maxRise > 0) {
-        out[i+1] += maxRise;
-      }
-
       // ─── 2. DOMAIN A TYPOLOGY GRAMMAR MODULATION ───
-      // Subtle organic lateral continuity modulation per active typology
+      // Subtle organic continuity modulation per active typology
       if (grammar.branchingConstraint === 'CHOKE_PORTALS') {
-        // Compressed Sequential: Columns frame monumental portal at transition threshold
+        // Compressed Sequential: Columns frame monumental portal at transition threshold negative space
         let atChoke = Math.exp(-Math.pow((uX - 0.38) * 8.0, 2));
-        out[i+2] += normZ * B * 0.12 * spanZ * atChoke;
+        out[i+2] += normZ * B * 0.14 * spanZ * atChoke;
       } else if (grammar.branchingConstraint === 'PERIMETER_BUTTRESS' || grammar.branchingConstraint === 'PERIMETER_ALCOVES') {
         // Open Hall: Columns act as perimeter buttresses, breaking flanks into intimate alcove spaces
         let flankDist = Math.abs(normZ);
         if (flankDist > 0.35) {
           let buttressW = smoothstep(0.35, 0.85, flankDist);
-          out[i+2] += normZ * B * 0.14 * spanZ * buttressW * Math.sin(3.0 * Math.PI * uX);
+          out[i+2] += normZ * B * 0.16 * spanZ * buttressW * Math.sin(3.0 * Math.PI * uX);
+          out[i+1] += B * 0.10 * spanY * buttressW * Math.sin(Math.PI * uX);
         }
+      } else if (grammar.branchingConstraint === 'TERRACE_CANTILEVERS' || grammar.branchingConstraint === 'GROUND_DIVIDE') {
+        // Terraced Stepped: Branches step down through the vertical negative spaces between terrace plates
+        let tierU = (uX * 3.0) % 1.0;
+        out[i+1] -= B * 0.15 * spanY * tierU * smoothstep(0.1, 0.45, uY);
       } else if (grammar.branchingConstraint === 'SECONDARY_AXIAL') {
         // Linear Gallery: Columns form rhythmic enfilade colonnade along longitudinal axis
         let enfiladeBay = Math.sin(4.0 * Math.PI * uX);
-        out[i+2] += normZ * B * 0.14 * spanZ * Math.max(0, enfiladeBay);
+        out[i+2] += normZ * B * 0.16 * spanZ * Math.max(0, enfiladeBay);
+      } else if (grammar.branchingConstraint === 'CREST_NOOKS') {
+        // Folded Undulating: Columns follow diagonal valley folds
+        let foldDiag = Math.sin(3.0 * Math.PI * (uX + normZ * 0.5));
+        out[i+1] -= B * 0.14 * spanY * Math.max(0, -foldDiag) * smoothstep(0.2, 0.5, uY);
       }
     }
   }
-
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // RULE 3: WHIPLASH (W)
