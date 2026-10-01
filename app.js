@@ -206,6 +206,11 @@ function initRhino3dm() {
       rhino = loadedRhino;
       window.rhino = loadedRhino;
       console.log('[RHINO3DM] WebAssembly ready!');
+      setTimeout(() => {
+        if (typeof window.loadRhinoFromUrl === 'function') {
+          window.loadRhinoFromUrl('compressed.3dm');
+        }
+      }, 150);
     }).catch(err => {
       console.error('[RHINO3DM ERROR] Failed to initialize rhino3dm:', err);
     });
@@ -1487,164 +1492,267 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   else if (upperRule === 'BRANCHING' || upperRule === 'B') {
     const B = Math.max(0, Math.min(1.0, strength));
-    if (B < 0.001) return out;
+    if (B < 0.001) {
+      window.branchingMemberCounts = {
+        vertical: 0,
+        horizontal: 0,
+        diagonal: 0,
+        total: 0,
+        divisions: 0,
+        orientationMode: window.branchingOrientationMode || 'ALL'
+      };
+      return out;
+    }
 
     const smoothstep = (e0, e1, v) => {
       const t = Math.max(0, Math.min(1, (v - e0) / (e1 - e0)));
       return t * t * (3 - 2 * t);
     };
 
-    // Columns strictly situated IN THE MIDDLE OF THE SPACES:
-    // Progressive structural colonnade and branching hierarchy filling the interior volumes:
-    // Low B (< 0.35): Singular central columns
-    // Med B (0.35 - 0.70): Secondary structural colonnade
-    // High / 100% B (>= 0.70): Rich multi-bay hypostyle colonnade in gallery & multi-row branching under chaise/atrium
-    const midCols = [];
+    const reach = Math.min(1.0, B * 1.35);
+    const orientationMode = window.branchingOrientationMode || 'ALL';
+
+    const zFront = centerZ + 1.15;
+    const zRear = centerZ - 1.15;
+
+    // MULTI-DIRECTIONAL STRUCTURAL BRANCHING MEMBERS
+    // Horizontal, Vertical, and Diagonal structural members calibrated to the spaces of the seed geometry:
+    // 1. Gallery Interior Space (X in [-4.0, 1.8])
+    // 2. Transition Ramp & Chaise Dip (X in [2.0, 8.5])
+    // 3. Grand Atrium & Vertical Void (X in [8.5, 15.0])
+    const members = [];
 
     // ─── 1. GALLERY INTERIOR SPACE (X in [-4.0, 1.8]) ───
-    if (B < 0.35) {
-      // Stage 1: 1 central slender column
-      midCols.push({
-        x: -1.5, z: centerZ, xMin: -4.0, xMax: 1.5,
-        ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 7.05,
-        floorMinY: 6.8, floorMaxY: 7.5, rShaft: 0.35, rCap: 0.80
-      });
-    } else if (B < 0.65) {
-      // Stage 2: 3 longitudinal columns along center line
-      const xBays = [-2.8, -1.2, 0.4];
-      xBays.forEach(bx => {
-        midCols.push({
-          x: bx, z: centerZ, xMin: bx - 0.7, xMax: bx + 0.7,
-          ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 7.05,
-          floorMinY: 6.8, floorMaxY: 7.5, rShaft: 0.32, rCap: 0.75
-        });
-      });
-    } else {
-      // Stage 3 & 4 (High / 100% Branching):
-      // 5 bays along X with double rows across Z (front & rear),
-      // forming a 10-column hypostyle colonnade richly filling the gallery!
-      const zOffset = 1.15;
-      const rShaft = 0.34;
-      const rCap = 0.85;
-      const xBays = [-3.6, -2.4, -1.2, 0.0, 1.2];
-      xBays.forEach((bx) => {
-        // Front column
-        midCols.push({
-          x: bx, z: centerZ + zOffset,
-          xMin: bx - 0.65, xMax: bx + 0.65,
-          ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 7.05,
-          floorMinY: 6.8, floorMaxY: 7.5, rShaft, rCap
-        });
-        // Rear column
-        midCols.push({
-          x: bx, z: centerZ - zOffset,
-          xMin: bx - 0.65, xMax: bx + 0.65,
-          ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 7.05,
-          floorMinY: 6.8, floorMaxY: 7.5, rShaft, rCap
+    const gBays = B < 0.35 ? [-1.5] : (B < 0.65 ? [-2.8, -1.2, 0.4] : [-3.6, -2.4, -1.2, 0.0, 1.2]);
+
+    // VERTICAL MEMBERS (Columns & Shafts)
+    if (orientationMode === 'ALL' || orientationMode === 'VERTICAL') {
+      gBays.forEach(bx => {
+        const zRows = (B >= 0.65) ? [zFront, zRear] : [centerZ];
+        zRows.forEach(zPos => {
+          members.push({
+            type: 'VERTICAL',
+            p1: [bx, 10.4, zPos], p2: [bx, 7.05, zPos],
+            rShaft: 0.32, rCap: 0.80,
+            xMin: bx - 0.75, xMax: bx + 0.75,
+            ceilMinY: 9.4, ceilMaxY: 10.8,
+            targetFloor: 7.05, floorMinY: 6.8, floorMaxY: 7.5
+          });
         });
       });
     }
 
-    // ─── 2. TRANSITION RAMP & CHAISE DIP (X in [2.0, 8.0]) ───
-    if (B < 0.35) {
-      // Stage 1: 1 central slender column under dip
-      midCols.push({
-        x: 6.0, z: centerZ, xMin: 3.5, xMax: 8.5,
-        ceilMinY: 6.5, ceilMaxY: 7.8, targetFloor: 4.0,
-        floorMinY: 3.6, floorMaxY: 4.4, rShaft: 0.35, rCap: 0.80
-      });
-    } else if (B < 0.65) {
-      // Stage 2: 3 columns along ramp & under dip
-      midCols.push(
-        {
-          x: 3.8, z: centerZ, xMin: 2.8, xMax: 4.8,
-          ceilMinY: 8.4, ceilMaxY: 9.4, targetFloor: 5.8,
-          floorMinY: 5.4, floorMaxY: 6.2, rShaft: 0.32, rCap: 0.75
-        },
-        {
-          x: 5.6, z: centerZ, xMin: 4.8, xMax: 6.6,
-          ceilMinY: 6.8, ceilMaxY: 7.8, targetFloor: 4.4,
-          floorMinY: 3.9, floorMaxY: 4.8, rShaft: 0.32, rCap: 0.75
-        },
-        {
-          x: 7.2, z: centerZ, xMin: 6.6, xMax: 8.0,
-          ceilMinY: 6.0, ceilMaxY: 7.2, targetFloor: 3.1,
-          floorMinY: 2.8, floorMaxY: 3.5, rShaft: 0.32, rCap: 0.75
+    // HORIZONTAL MEMBERS (Beams, Arched Lintels & Transverse Ties)
+    if (orientationMode === 'ALL' || orientationMode === 'HORIZONTAL') {
+      // A. Longitudinal arched lintels bridging between adjacent columns along X at ceiling level
+      if (gBays.length >= 2) {
+        for (let i = 0; i < gBays.length - 1; i++) {
+          const xA = gBays[i], xB = gBays[i+1];
+          const zRows = (B >= 0.65) ? [zFront, zRear] : [centerZ];
+          zRows.forEach(zPos => {
+            members.push({
+              type: 'HORIZONTAL',
+              p1: [xA, 9.2, zPos], p2: [xB, 9.2, zPos],
+              rShaft: 0.30, rCap: 0.80,
+              xMin: xA - 0.2, xMax: xB + 0.2,
+              ceilMinY: 9.4, ceilMaxY: 10.8, targetY: 9.15
+            });
+          });
         }
-      );
-    } else {
-      // Stage 3 & 4 (High / 100% Branching):
-      // Double rows across Z along the transition slope and chaise dip (8 columns)
-      const rShaft = 0.34;
-      const rCap = 0.85;
-      const zOffset = 0.95;
-      const xSteps = [
-        { x: 2.6, ceilMinY: 9.0, ceilMaxY: 9.8, targetFloor: 6.5, floorMinY: 6.2, floorMaxY: 7.0 },
-        { x: 4.0, ceilMinY: 8.4, ceilMaxY: 9.4, targetFloor: 5.7, floorMinY: 5.4, floorMaxY: 6.2 },
-        { x: 5.5, ceilMinY: 6.8, ceilMaxY: 7.8, targetFloor: 4.3, floorMinY: 3.9, floorMaxY: 4.8 },
-        { x: 7.0, ceilMinY: 6.0, ceilMaxY: 7.2, targetFloor: 3.0, floorMinY: 2.8, floorMaxY: 3.5 }
-      ];
-      xSteps.forEach(step => {
-        midCols.push(
-          {
-            x: step.x, z: centerZ + zOffset, xMin: step.x - 0.65, xMax: step.x + 0.65,
-            ceilMinY: step.ceilMinY, ceilMaxY: step.ceilMaxY, targetFloor: step.targetFloor,
-            floorMinY: step.floorMinY, floorMaxY: step.floorMaxY, rShaft, rCap
-          },
-          {
-            x: step.x, z: centerZ - zOffset, xMin: step.x - 0.65, xMax: step.x + 0.65,
-            ceilMinY: step.ceilMinY, ceilMaxY: step.ceilMaxY, targetFloor: step.targetFloor,
-            floorMinY: step.floorMinY, floorMaxY: step.floorMaxY, rShaft, rCap
-          }
-        );
-      });
-    }
+      }
 
-    // ─── 3. GRAND ATRIUM & VERTICAL VOID (X in [8.0, 14.5]) ───
-    // Fills the entire right half of the building at high branching!
-    if (B >= 0.50) {
-      const zOffset = 0.90;
-      // Atrium threshold columns
-      midCols.push(
-        {
-          x: 8.6, z: centerZ + zOffset, xMin: 8.0, xMax: 9.4,
-          ceilMinY: 5.4, ceilMaxY: 6.4, targetFloor: 2.05,
-          floorMinY: 1.8, floorMaxY: 2.5, rShaft: 0.35, rCap: 0.85
-        },
-        {
-          x: 8.6, z: centerZ - zOffset, xMin: 8.0, xMax: 9.4,
-          ceilMinY: 5.4, ceilMaxY: 6.4, targetFloor: 2.05,
-          floorMinY: 1.8, floorMaxY: 2.5, rShaft: 0.35, rCap: 0.85
-        }
-      );
-
+      // B. Transverse horizontal cross-ties bridging between front and rear columns across Z
       if (B >= 0.65) {
-        // Deep atrium colonnade spanning through the grand vertical void
-        const deepSteps = [
-          { x: 10.0, ceilMinY: 5.5, ceilMaxY: 6.8, targetFloor: 2.05, floorMinY: 1.8, floorMaxY: 2.5, rShaft: 0.36, rCap: 0.88 },
-          { x: 11.4, ceilMinY: 6.4, ceilMaxY: 7.8, targetFloor: 2.05, floorMinY: 1.8, floorMaxY: 2.5, rShaft: 0.36, rCap: 0.88 },
-          { x: 12.8, ceilMinY: 7.6, ceilMaxY: 9.2, targetFloor: 2.05, floorMinY: 1.8, floorMaxY: 2.5, rShaft: 0.38, rCap: 0.92 },
-          { x: 14.2, ceilMinY: 11.0, ceilMaxY: 13.0, targetFloor: 2.05, floorMinY: 1.8, floorMaxY: 2.5, rShaft: 0.38, rCap: 0.95 }
-        ];
-        deepSteps.forEach(ds => {
-          midCols.push(
-            {
-              x: ds.x, z: centerZ + zOffset, xMin: ds.x - 0.70, xMax: ds.x + 0.70,
-              ceilMinY: ds.ceilMinY, ceilMaxY: ds.ceilMaxY, targetFloor: ds.targetFloor,
-              floorMinY: ds.floorMinY, floorMaxY: ds.floorMaxY, rShaft: ds.rShaft, rCap: ds.rCap
-            },
-            {
-              x: ds.x, z: centerZ - zOffset, xMin: ds.x - 0.70, xMax: ds.x + 0.70,
-              ceilMinY: ds.ceilMinY, ceilMaxY: ds.ceilMaxY, targetFloor: ds.targetFloor,
-              floorMinY: ds.floorMinY, floorMaxY: ds.floorMaxY, rShaft: ds.rShaft, rCap: ds.rCap
-            }
-          );
+        gBays.forEach(bx => {
+          members.push({
+            type: 'HORIZONTAL',
+            p1: [bx, 8.8, zRear], p2: [bx, 8.8, zFront],
+            rShaft: 0.30, rCap: 0.80,
+            xMin: bx - 0.65, xMax: bx + 0.65,
+            ceilMinY: 9.3, ceilMaxY: 10.8, targetY: 8.75
+          });
         });
       }
     }
 
-    const reach = Math.min(1.0, B * 1.35);
+    // DIAGONAL MEMBERS (Raking Struts & Flared Knee Braces)
+    if (orientationMode === 'ALL' || orientationMode === 'DIAGONAL') {
+      if (B >= 0.35) {
+        gBays.forEach(bx => {
+          const zRows = (B >= 0.65) ? [zFront, zRear] : [centerZ];
+          zRows.forEach(zPos => {
+            // Rightward diagonal branch springing at 45°
+            members.push({
+              type: 'DIAGONAL',
+              p1: [bx, 8.2, zPos], p2: [bx + 0.70, 10.3, zPos],
+              rShaft: 0.26, rCap: 0.72,
+              xMin: bx - 0.1, xMax: bx + 0.85,
+              ceilMinY: 9.2, ceilMaxY: 10.8
+            });
+            // Leftward diagonal branch springing at 45°
+            members.push({
+              type: 'DIAGONAL',
+              p1: [bx, 8.2, zPos], p2: [bx - 0.70, 10.3, zPos],
+              rShaft: 0.26, rCap: 0.72,
+              xMin: bx - 0.85, xMax: bx + 0.1,
+              ceilMinY: 9.2, ceilMaxY: 10.8
+            });
+          });
+        });
+      }
+    }
 
+    // ─── 2. TRANSITION RAMP & CHAISE DIP (X in [2.0, 8.0]) ───
+    // DIAGONAL RAKING STRUTS (Dominant in the sloped transition zone!)
+    if (orientationMode === 'ALL' || orientationMode === 'DIAGONAL') {
+      const rPairs = [
+        { x1: 2.6, y1: 9.2, x2: 4.2, y2: 6.2 },
+        { x1: 4.0, y1: 8.6, x2: 5.6, y2: 4.6 },
+        { x1: 5.5, y1: 7.0, x2: 7.0, y2: 3.4 }
+      ];
+      rPairs.forEach(rp => {
+        const zRows = (B >= 0.65) ? [zFront, zRear] : [centerZ];
+        zRows.forEach(zPos => {
+          // Forward raking diagonal strut
+          members.push({
+            type: 'DIAGONAL',
+            p1: [rp.x1, rp.y1, zPos], p2: [rp.x2, rp.y2, zPos],
+            rShaft: 0.32, rCap: 0.82,
+            xMin: rp.x1 - 0.3, xMax: rp.x2 + 0.3,
+            ceilMinY: 6.2, ceilMaxY: 9.8
+          });
+          if (B >= 0.50) {
+            // Opposing counter-diagonal forming triangulated truss
+            members.push({
+              type: 'DIAGONAL',
+              p1: [rp.x2, rp.y1, zPos], p2: [rp.x1, rp.y2, zPos],
+              rShaft: 0.28, rCap: 0.78,
+              xMin: rp.x1 - 0.3, xMax: rp.x2 + 0.3,
+              ceilMinY: 6.2, ceilMaxY: 9.8
+            });
+          }
+        });
+      });
+    }
+
+    // VERTICAL COLUMNS ALONG RAMP
+    if (orientationMode === 'ALL' || orientationMode === 'VERTICAL') {
+      const rampSteps = B < 0.35 ? [{ x: 6.0, ceilMinY: 6.5, ceilMaxY: 7.8, targetFloor: 4.0, floorMinY: 3.6, floorMaxY: 4.4 }] :
+        (B < 0.65 ? [
+          { x: 3.8, ceilMinY: 8.4, ceilMaxY: 9.4, targetFloor: 5.8, floorMinY: 5.4, floorMaxY: 6.2 },
+          { x: 5.6, ceilMinY: 6.8, ceilMaxY: 7.8, targetFloor: 4.4, floorMinY: 3.9, floorMaxY: 4.8 },
+          { x: 7.2, ceilMinY: 6.0, ceilMaxY: 7.2, targetFloor: 3.1, floorMinY: 2.8, floorMaxY: 3.5 }
+        ] : [
+          { x: 2.6, ceilMinY: 9.0, ceilMaxY: 9.8, targetFloor: 6.5, floorMinY: 6.2, floorMaxY: 7.0 },
+          { x: 4.0, ceilMinY: 8.4, ceilMaxY: 9.4, targetFloor: 5.7, floorMinY: 5.4, floorMaxY: 6.2 },
+          { x: 5.5, ceilMinY: 6.8, ceilMaxY: 7.8, targetFloor: 4.3, floorMinY: 3.9, floorMaxY: 4.8 },
+          { x: 7.0, ceilMinY: 6.0, ceilMaxY: 7.2, targetFloor: 3.0, floorMinY: 2.8, floorMaxY: 3.5 }
+        ]);
+
+      rampSteps.forEach(rs => {
+        const zRows = (B >= 0.65) ? [zFront, zRear] : [centerZ];
+        zRows.forEach(zPos => {
+          members.push({
+            type: 'VERTICAL',
+            p1: [rs.x, rs.ceilMaxY, zPos], p2: [rs.x, rs.targetFloor, zPos],
+            rShaft: 0.32, rCap: 0.80,
+            xMin: rs.x - 0.65, xMax: rs.x + 0.65,
+            ceilMinY: rs.ceilMinY, ceilMaxY: rs.ceilMaxY,
+            targetFloor: rs.targetFloor, floorMinY: rs.floorMinY, floorMaxY: rs.floorMaxY
+          });
+        });
+      });
+    }
+
+    // HORIZONTAL TIES ACROSS RAMP
+    if (B >= 0.50 && (orientationMode === 'ALL' || orientationMode === 'HORIZONTAL')) {
+      [3.5, 5.5, 7.0].forEach(hx => {
+        members.push({
+          type: 'HORIZONTAL',
+          p1: [hx, 5.2, zRear], p2: [hx, 5.2, zFront],
+          rShaft: 0.30, rCap: 0.80,
+          xMin: hx - 0.6, xMax: hx + 0.6,
+          ceilMinY: 6.2, ceilMaxY: 8.5, targetY: 5.2
+        });
+      });
+    }
+
+    // ─── 3. GRAND ATRIUM & VERTICAL VOID (X in [8.0, 15.0]) ───
+    // VERTICAL COLUMNS ALONG ATRIUM PERIMETER
+    if (orientationMode === 'ALL' || orientationMode === 'VERTICAL') {
+      const atriumSteps = B < 0.65 ? [
+        { x: 8.6, ceilMinY: 5.4, ceilMaxY: 6.4, targetFloor: 2.05, floorMinY: 1.8, floorMaxY: 2.5 }
+      ] : [
+        { x: 8.6, ceilMinY: 5.4, ceilMaxY: 6.4, targetFloor: 2.05, floorMinY: 1.8, floorMaxY: 2.5 },
+        { x: 10.4, ceilMinY: 6.2, ceilMaxY: 7.4, targetFloor: 2.05, floorMinY: 1.8, floorMaxY: 2.5 },
+        { x: 12.6, ceilMinY: 7.6, ceilMaxY: 9.2, targetFloor: 2.05, floorMinY: 1.8, floorMaxY: 2.5 },
+        { x: 14.2, ceilMinY: 11.0, ceilMaxY: 13.0, targetFloor: 2.05, floorMinY: 1.8, floorMaxY: 2.5 }
+      ];
+      atriumSteps.forEach(as => {
+        [zFront, zRear].forEach(zPos => {
+          members.push({
+            type: 'VERTICAL',
+            p1: [as.x, as.ceilMaxY, zPos], p2: [as.x, as.targetFloor, zPos],
+            rShaft: 0.36, rCap: 0.88,
+            xMin: as.x - 0.70, xMax: as.x + 0.70,
+            ceilMinY: as.ceilMinY, ceilMaxY: as.ceilMaxY,
+            targetFloor: as.targetFloor, floorMinY: as.floorMinY, floorMaxY: as.floorMaxY
+          });
+        });
+      });
+    }
+
+    // DIAGONAL SOARING TREE BUTTRESSES IN ATRIUM:
+    if (B >= 0.50 && (orientationMode === 'ALL' || orientationMode === 'DIAGONAL')) {
+      [zFront, zRear].forEach(zPos => {
+        // Tree branch springing from threshold column toward mid atrium ceiling
+        members.push({
+          type: 'DIAGONAL',
+          p1: [8.6, 3.2, zPos], p2: [11.5, 7.5, zPos],
+          rShaft: 0.32, rCap: 0.85,
+          xMin: 8.2, xMax: 12.0, ceilMinY: 5.2, ceilMaxY: 8.2
+        });
+        if (B >= 0.70) {
+          // High soaring buttress springing from mid-column into high roof vault
+          members.push({
+            type: 'DIAGONAL',
+            p1: [10.4, 3.5, zPos], p2: [14.0, 12.5, zPos],
+            rShaft: 0.34, rCap: 0.88,
+            xMin: 10.0, xMax: 14.8, ceilMinY: 6.8, ceilMaxY: 13.5
+          });
+        }
+      });
+    }
+
+    // HORIZONTAL GALLERY TIES IN ATRIUM:
+    if (B >= 0.65 && (orientationMode === 'ALL' || orientationMode === 'HORIZONTAL')) {
+      [zFront, zRear].forEach(zPos => {
+        members.push({
+          type: 'HORIZONTAL',
+          p1: [8.6, 5.6, zPos], p2: [12.6, 5.6, zPos],
+          rShaft: 0.28, rCap: 0.75,
+          xMin: 8.4, xMax: 12.8, ceilMinY: 6.0, ceilMaxY: 8.5, targetY: 5.6
+        });
+      });
+    }
+
+    // Expose member statistics globally for UI feedback
+    const vCount = members.filter(m => m.type === 'VERTICAL').length;
+    const hCount = members.filter(m => m.type === 'HORIZONTAL').length;
+    const dCount = members.filter(m => m.type === 'DIAGONAL').length;
+    const totCount = members.length;
+    const divCount = hCount + dCount;
+
+    window.branchingMemberCounts = {
+      vertical: vCount,
+      horizontal: hCount,
+      diagonal: dCount,
+      total: totCount,
+      divisions: divCount,
+      orientationMode: orientationMode
+    };
+
+    // Execute Non-Additive Union Deformation on Mesh Vertices
     for (let i = 0; i < out.length; i += 3) {
       let x = out[i], y = out[i+1], z = out[i+2];
       let dx = x - centerX, dy = y - centerY, dz = z - centerZ;
@@ -1652,46 +1760,100 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
       let uY = Math.min(1, Math.max(0, (y - minY) / spanY));
       let normZ = (z - centerZ) / (spanZ * 0.5 + 0.001);
 
-      // ─── 1. SLENDER COLUMN-LIKE STRUCTURAL BRANCHES IN THE MIDDLE OF SPACES ───
-      for (let c = 0; c < midCols.length; c++) {
-        let col = midCols[c];
-        if (x < col.xMin || x > col.xMax) continue;
+      let maxDropY = 0;
+      let maxPedestalY = 0;
+      let bestDispX = 0, bestDispZ = 0;
+      let maxWeight = 0;
 
-        let cdx = x - col.x;
-        let cdz = z - col.z;
-        let dist = Math.sqrt(cdx * cdx + cdz * cdz);
+      for (let m = 0; m < members.length; m++) {
+        const mem = members[m];
+        if (x < mem.xMin || x > mem.xMax) continue;
 
-        if (dist < col.rCap) {
-          let w;
-          if (dist <= col.rShaft) {
-            w = 1.0; // Flat cylindrical core shaft
-          } else {
-            let t = (dist - col.rShaft) / (col.rCap - col.rShaft);
-            w = 0.5 * (1.0 + Math.cos(t * Math.PI)); // Flared capital fillet
+        if (mem.type === 'VERTICAL') {
+          const cdx = x - mem.p1[0], cdz = z - mem.p1[2];
+          const dist = Math.sqrt(cdx * cdx + cdz * cdz);
+          if (dist < mem.rCap) {
+            let w = dist <= mem.rShaft ? 1.0 : 0.5 * (1.0 + Math.cos(((dist - mem.rShaft) / (mem.rCap - mem.rShaft)) * Math.PI));
+            if (y >= mem.ceilMinY && y <= mem.ceilMaxY) {
+              const drop = (y - mem.targetFloor) * reach * w;
+              if (drop > maxDropY) maxDropY = drop;
+            } else if (y >= mem.floorMinY && y <= mem.floorMaxY) {
+              const lift = reach * 0.22 * w;
+              if (lift > maxPedestalY) maxPedestalY = lift;
+            }
           }
+        } else if (mem.type === 'HORIZONTAL') {
+          if (y < (mem.ceilMinY ? mem.ceilMinY - 0.6 : 8.0) || y > (mem.ceilMaxY || 14.0)) continue;
+          const p1x = mem.p1[0], p1z = mem.p1[2];
+          const p2x = mem.p2[0], p2z = mem.p2[2];
+          const vx = p2x - p1x, vz = p2z - p1z;
+          const vLenSq = vx * vx + vz * vz || 0.001;
+          const t = Math.max(0, Math.min(1, ((x - p1x) * vx + (z - p1z) * vz) / vLenSq));
+          const projX = p1x + t * vx;
+          const projZ = p1z + t * vz;
+          const dist = Math.hypot(x - projX, z - projZ);
 
-          // Ceiling downward branch extending across the space to the floor
-          if (y >= col.ceilMinY && y <= col.ceilMaxY) {
-            let drop = y - col.targetFloor;
-            let dY = -reach * drop * w;
-            out[i+1] += dY;
+          if (dist < mem.rCap) {
+            let w = dist <= mem.rShaft ? 1.0 : 0.5 * (1.0 + Math.cos(((dist - mem.rShaft) / (mem.rCap - mem.rShaft)) * Math.PI));
+            const archBow = Math.sin(t * Math.PI) * 0.30;
+            const targetY = mem.targetY + archBow;
+            const drop = (y - targetY) * reach * w * 0.85;
+            if (drop > maxDropY) maxDropY = drop;
+
+            if (w > maxWeight) {
+              maxWeight = w;
+              bestDispX = (projX - x) * reach * w * 0.35;
+              bestDispZ = (projZ - z) * reach * w * 0.35;
+            }
           }
-          // Floor plate upward pedestal flaring to meet the descending column
-          else if (y >= col.floorMinY && y <= col.floorMaxY) {
-            let dY = reach * 0.22 * w;
-            out[i+1] += dY;
+        } else if (mem.type === 'DIAGONAL') {
+          const p1 = mem.p1, p2 = mem.p2;
+          const vx = p2[0] - p1[0], vz = p2[2] - p1[2];
+          const vLenSq = vx * vx + vz * vz || 0.0001;
+          const t = Math.max(0, Math.min(1, ((x - p1[0]) * vx + (z - p1[2]) * vz) / vLenSq));
+          const projX = p1[0] + t * vx;
+          const projZ = p1[2] + t * vz;
+          const dist2D = Math.hypot(x - projX, z - projZ);
+
+          if (dist2D < mem.rCap) {
+            let w = dist2D <= mem.rShaft ? 1.0 : 0.5 * (1.0 + Math.cos(((dist2D - mem.rShaft) / (mem.rCap - mem.rShaft)) * Math.PI));
+            const targetY = p1[1] + t * (p2[1] - p1[1]);
+
+            // If ceiling vertex is above the diagonal target height, pull down to form the strut
+            if (y > targetY && y <= (mem.ceilMaxY || 14.5)) {
+              const drop = (y - targetY) * reach * w * 0.88;
+              if (drop > maxDropY) maxDropY = drop;
+            }
+            // If floor vertex is below the diagonal target height, lift up to meet the strut
+            else if (y < targetY && y >= (mem.floorMinY || 1.2)) {
+              const lift = Math.min((targetY - y), (targetY - y) * reach * w * 0.45);
+              if (lift > maxPedestalY) maxPedestalY = lift;
+            }
+
+            if (w > maxWeight) {
+              maxWeight = w;
+              bestDispX = (projX - x) * reach * w * 0.40;
+              bestDispZ = (projZ - z) * reach * w * 0.40;
+            }
           }
         }
       }
 
-      // ─── 2. DOMAIN A TYPOLOGY GRAMMAR MODULATION ───
+      // Apply union displacements cleanly without spikes
+      if (maxDropY > 0) out[i+1] -= maxDropY;
+      else if (maxPedestalY > 0) out[i+1] += maxPedestalY;
+
+      if (maxWeight > 0) {
+        out[i] += bestDispX;
+        out[i+2] += bestDispZ;
+      }
+
+      // ─── DOMAIN A TYPOLOGY GRAMMAR MODULATION ───
       // Subtle organic continuity modulation per active typology
       if (grammar.branchingConstraint === 'CHOKE_PORTALS') {
-        // Compressed Sequential: Columns frame monumental portal at transition threshold negative space
         let atChoke = Math.exp(-Math.pow((uX - 0.38) * 8.0, 2));
         out[i+2] += normZ * B * 0.14 * spanZ * atChoke;
       } else if (grammar.branchingConstraint === 'PERIMETER_BUTTRESS' || grammar.branchingConstraint === 'PERIMETER_ALCOVES') {
-        // Open Hall: Columns act as perimeter buttresses, breaking flanks into intimate alcove spaces
         let flankDist = Math.abs(normZ);
         if (flankDist > 0.35) {
           let buttressW = smoothstep(0.35, 0.85, flankDist);
@@ -1699,15 +1861,12 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
           out[i+1] += B * 0.10 * spanY * buttressW * Math.sin(Math.PI * uX);
         }
       } else if (grammar.branchingConstraint === 'TERRACE_CANTILEVERS' || grammar.branchingConstraint === 'GROUND_DIVIDE') {
-        // Terraced Stepped: Branches step down through the vertical negative spaces between terrace plates
         let tierU = (uX * 3.0) % 1.0;
         out[i+1] -= B * 0.15 * spanY * tierU * smoothstep(0.1, 0.45, uY);
       } else if (grammar.branchingConstraint === 'SECONDARY_AXIAL') {
-        // Linear Gallery: Columns form rhythmic enfilade colonnade along longitudinal axis
         let enfiladeBay = Math.sin(4.0 * Math.PI * uX);
         out[i+2] += normZ * B * 0.16 * spanZ * Math.max(0, enfiladeBay);
       } else if (grammar.branchingConstraint === 'CREST_NOOKS') {
-        // Folded Undulating: Columns follow diagonal valley folds
         let foldDiag = Math.sin(3.0 * Math.PI * (uX + normZ * 0.5));
         out[i+1] -= B * 0.14 * spanY * Math.max(0, -foldDiag) * smoothstep(0.2, 0.5, uY);
       }

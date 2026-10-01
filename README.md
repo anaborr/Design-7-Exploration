@@ -1,4 +1,4 @@
-# Design-7-Exploration
+# nouvogen
 
 **Architectural Design Reasoning & Form-Finding System** is a browser-based computational design platform developed for architecture students to explore spatial typology seeds, descriptor design intentions, design reasoning strategies, base spatial topologies, and Art Nouveau-inspired section form-finding.
 

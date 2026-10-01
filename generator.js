@@ -461,11 +461,32 @@ function updateDnaUIAndViewport() {
     }
   }
 
+  const bCounts = (window.branchingMemberCounts && b >= 0.01) ? window.branchingMemberCounts : {
+    vertical: 0,
+    horizontal: 0,
+    diagonal: 0,
+    total: 0,
+    divisions: 0,
+    orientationMode: window.branchingOrientationMode || 'ALL'
+  };
+
   const mBCnt = document.getElementById('metric-b-count');
-  if (mBCnt) mBCnt.textContent = b < 0.05 ? '0' : (b < 0.3 ? '2' : (b < 0.65 ? '3' : '4'));
+  if (mBCnt) mBCnt.textContent = bCounts.total;
 
   const mBDiv = document.getElementById('metric-b-divisions');
-  if (mBDiv) mBDiv.textContent = b < 0.05 ? '0' : (b < 0.3 ? '1' : (b < 0.65 ? '4' : '8'));
+  if (mBDiv) mBDiv.textContent = bCounts.divisions;
+
+  const mBH = document.getElementById('metric-b-h');
+  if (mBH) mBH.textContent = bCounts.horizontal;
+
+  const mBV = document.getElementById('metric-b-v');
+  if (mBV) mBV.textContent = bCounts.vertical;
+
+  const mBD = document.getElementById('metric-b-d');
+  if (mBD) mBD.textContent = bCounts.diagonal;
+
+  const mBOrient = document.getElementById('metric-b-orientations');
+  if (mBOrient) mBOrient.textContent = bCounts.orientationMode || 'ALL';
 
   const bStatus = document.getElementById('domain-b-influence-status');
   if (bStatus) {
@@ -2190,10 +2211,10 @@ const TYPOLOGY_DOMAIN_B_RULES = {
       tip: 'Slider: low = gentle vertical rise; high = dramatic soaring curves flanking the open center.'
     },
     B: {
-      title: 'VOID PERIMETER BRANCHING (B)',
-      qualitative: 'Structural rib branches hug perimeter walls; central void stays strictly clear.',
-      quantitative: 'Radial filter: 0 branches inside inner core (r < 0.28); outer ribs fan into ceiling arches.',
-      tip: 'Slider: low = simple perimeter piers; high = dense flying ribs vaulting across upper levels.'
+      title: 'MULTI-DIRECTIONAL VOID BRANCHING (B)',
+      qualitative: 'Grows horizontal gallery spandrel rings, vertical perimeter colonnades, and soaring diagonal tree buttresses vaulting into the high canopy while preserving the central open void.',
+      quantitative: 'Horizontal perimeter ties + Vertical perimeter shafts + Diagonal canopy buttresses. Inner void core strictly unobstructed.',
+      tip: 'Slider: low = perimeter shafts; high = dense interconnected network of horizontal spandrels, vertical columns, and diagonal soaring struts.'
     }
   },
   COMPRESSED_EXPANDED: {
@@ -2210,10 +2231,10 @@ const TYPOLOGY_DOMAIN_B_RULES = {
       tip: 'Slider: low = subtle narrowing; high = extreme compression followed by vast volumetric release.'
     },
     B: {
-      title: 'PORTAL FRAME BRANCHING (B)',
-      qualitative: 'Branches form structural portal arches framing the choke thresholds.',
-      quantitative: 'Branching nodes concentrated at passage throat thresholds (uX = 0.33, 0.67).',
-      tip: 'Slider: low = simple gateway; high = layered nested compression gateways.'
+      title: 'PORTAL FRAME & TRUSS BRANCHING (B)',
+      qualitative: 'Branches horizontally into arched doorway lintels, vertically into compression jamb piers, and diagonally into raking knee trusses guiding the choke-to-expansion threshold.',
+      quantitative: 'Horizontal arch lintels + Vertical throat columns + Diagonal knee trusses concentrated at circulation choke points.',
+      tip: 'Slider: low = simple portal gateway; high = layered nested horizontal lintels and diagonal raking trusses.'
     }
   },
   OPEN_HALL: {
@@ -2230,10 +2251,10 @@ const TYPOLOGY_DOMAIN_B_RULES = {
       tip: 'Slider: low = shallow curvature; high = sweeping expansive shell vaults.'
     },
     B: {
-      title: 'PERIMETER BUTTRESS BRANCHING (B)',
-      qualitative: 'Branches lean outward as structural flying buttresses — central hall stays column-free.',
-      quantitative: 'Interior columns = 0; branches pushed exclusively to outer perimeter (rNorm >= 0.35).',
-      tip: 'Slider: low = perimeter buttress piers; high = multi-tiered exterior flying arches.'
+      title: 'PERIMETER BUTTRESS & SPANDREL BRANCHING (B)',
+      qualitative: 'Branches vertically as perimeter buttress colonnades, horizontally as perimeter eaves spandrels, and diagonally as exterior flying buttress struts — keeping the central hall free of columns.',
+      quantitative: 'Horizontal roof spandrel ties + Vertical outer buttresses + Diagonal flying struts. 0 interior columns inside the central open span.',
+      tip: 'Slider: low = boundary columns; high = multi-tiered horizontal eaves rings and diagonal flying buttress struts.'
     }
   },
   TERRACED_STEPPED: {
@@ -2250,10 +2271,10 @@ const TYPOLOGY_DOMAIN_B_RULES = {
       tip: 'Slider: low = flat orthogonal steps; high = dramatically curved cascading risers.'
     },
     B: {
-      title: 'CANTILEVER BRANCHING (B)',
-      qualitative: 'Cantilevered lookout platforms project forward from each terrace tier.',
-      quantitative: 'Forward-projecting cantilever branches at each stepped level.',
-      tip: 'Slider: low = simple terrace edge; high = dramatic cantilevered lookout platforms.'
+      title: 'CASCADING STEP & TRUSS BRANCHING (B)',
+      qualitative: 'Branches vertically beneath terrace steps, horizontally along tier perimeter fascias, and diagonally as raking A-frame trusses bracing cantilevered platforms along the slope.',
+      quantitative: 'Horizontal tier fascia ties + Vertical step support columns + Diagonal incline trusses following the cascading section.',
+      tip: 'Slider: low = step column piers; high = dramatic cantilevered platforms braced by diagonal raking trusses and horizontal cross-ties.'
     }
   },
   LINEAR_DIRECTIONAL: {
@@ -2270,10 +2291,10 @@ const TYPOLOGY_DOMAIN_B_RULES = {
       tip: 'Slider: low = gentle wave; high = dramatic portal rhythm with soaring arches.'
     },
     B: {
-      title: 'SIDE ALCOVE BRANCHING (B)',
-      qualitative: 'Branches project laterally from the axial gallery, forming enfilade side alcoves.',
-      quantitative: 'Lateral branches at bay nodes; concentrated at points of maximum portal curvature.',
-      tip: 'Slider: low = narrow gallery; high = wide lateral alcoves flanking the axis.'
+      title: 'AXIAL COLONNADE & ENFILADE BRANCHING (B)',
+      qualitative: 'Branches vertically into gallery colonnades along the primary axis, horizontally into longitudinal lintels and transverse cross-ties, and diagonally into 45° knee braces.',
+      quantitative: 'Horizontal longitudinal lintels & transverse ties + Vertical colonnade shafts + Diagonal 45° knee braces at beam-column junctions.',
+      tip: 'Slider: low = single axial pier line; high = complete 3D enfilade network of horizontal beams, columns, and diagonal knee braces.'
     }
   },
   FOLDED_UNDULATING: {
@@ -2290,10 +2311,10 @@ const TYPOLOGY_DOMAIN_B_RULES = {
       tip: 'Slider: low = gentle undulation; high = dramatic deep folds with sharp crests.'
     },
     B: {
-      title: 'CREST NOOK BRANCHING (B)',
-      qualitative: 'Branches tuck into fold crests and crease nooks — creating intimate pockets within the folded surface.',
-      quantitative: 'Branching concentrated at fold crest lines where curvature is maximum.',
-      tip: 'Slider: low = smooth crest; high = rich branching detail at all fold edges.'
+      title: 'CREASE, RIDGE & GUSSET BRANCHING (B)',
+      qualitative: 'Branches vertically into fold crest ribs, horizontally along origami ridge chords, and diagonally as transverse gusset struts bracing pleated accordion valleys.',
+      quantitative: 'Horizontal ridge beams + Vertical crease ribs + Diagonal facet gussets tucking into undulating valley recesses.',
+      tip: 'Slider: low = subtle fold ribs; high = rich multi-directional network of ridge chords and diagonal facet struts.'
     }
   }
 };
@@ -3546,6 +3567,17 @@ window.revertToOriginalRhinoSeed = revertToOriginalRhinoSeed;
 if (!window.restoreOriginalImportedGeometry) {
   window.restoreOriginalImportedGeometry = revertToOriginalRhinoSeed;
 }
+
+function onBranchOrientationChange() {
+  const sel = document.getElementById('branch-ctrl-orientation');
+  if (sel) {
+    window.branchingOrientationMode = sel.value;
+  }
+  if (typeof updateDnaUIAndViewport === 'function') {
+    updateDnaUIAndViewport();
+  }
+}
+window.onBranchOrientationChange = onBranchOrientationChange;
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════

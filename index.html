@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Design 7 Exploration</title>
+  <title>NOUVOGEN</title>
 
   <!-- Google Fonts: Michroma (Fallback for Magistral) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,39 +17,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20261001_v5">
   <style>
-    /* Consistent Architectural Aesthetic: Pure Black with Muted White Outlines & Text */
-    .domain-a-tab {
-      margin-bottom: 6px;
-      border: 1px solid #333333 !important;
-      border-radius: 4px;
-      background: #000000 !important;
-      overflow: hidden;
-    }
-    .domain-a-tab summary {
-      padding: 6px 8px;
-      font-size: 8.5px;
-      font-weight: 500;
-      color: #cccccc !important;
-      cursor: pointer;
-      outline: none;
-      user-select: none;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #0d0d0d !important;
-      border-bottom: 1px solid #222222;
-      transition: all 0.15s ease;
-    }
-    .domain-a-tab summary:hover {
-      color: #ffffff !important;
-      background: #141414 !important;
-    }
-    .domain-a-tab summary::-webkit-details-marker {
-      display: inline-block;
-      margin-right: 4px;
-    }
     .domain-a-pill {
       width: 100%;
       display: flex;
@@ -221,7 +190,7 @@
   <!-- TOP NAVIGATION HEADER BAR -->
   <header class="app-top-header">
     <div class="brand-title-group">
-      <h1 class="brand-main-title">DESIGN 7 EXPLORATION</h1>
+      <h1 class="brand-main-title">NOUVOGEN</h1>
       <p class="brand-subtitle">DESCRIPTOR-DRIVEN ARCHITECTURAL EVOLUTION SYSTEM</p>
     </div>
 
@@ -272,68 +241,72 @@
           <div class="sidebar-card-body">
 
             <!-- DOMAIN A: BASE SPATIAL TYPOLOGIES (6 TYPOLOGIES) -->
-            <div style="margin-bottom: 12px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                <span style="font-weight:600; color:#cccccc; font-size:9px; letter-spacing:0.8px;">DOMAIN A — 6 BASE TYPOLOGIES</span>
-                <span id="domain-a-category-tag" style="font-size:7px; padding:1px 5px; background:#141414; color:#cccccc; border:1px solid #333333; border-radius:2px; font-weight:500;">6 TYPES</span>
-              </div>
+            <details open id="domain-a-tab-container" style="margin-bottom: 12px; border: 1px solid #333333; padding: 10px; background: #000000; border-radius: 4px; cursor: pointer;">
+              <summary style="font-weight: 500; opacity: 0.95; outline: none; color:#cccccc; font-size:8.5px; user-select: none;">DOMAIN A — 6 BASE TYPOLOGIES</summary>
+              <div style="margin-top: 8px; cursor: default;">
 
-              <input type="hidden" id="select-base-typology" value="VERTICAL_VOID">
-
-              <div style="display:flex; flex-direction:column; gap:3px;">
-                <!-- 1. VERTICAL VOID -->
-                <button type="button" class="domain-a-pill active" data-key="VERTICAL_VOID" onclick="selectDomainATypology('VERTICAL_VOID')">
-                  <span class="p-title">1. VERTICAL VOID</span>
-                  <span class="p-sub">Create a tall opening through multiple levels</span>
-                </button>
-
-                <!-- 2. COMPRESSED → EXPANDED -->
-                <button type="button" class="domain-a-pill" data-key="COMPRESSED_EXPANDED" onclick="selectDomainATypology('COMPRESSED_EXPANDED')">
-                  <span class="p-title">2. COMPRESSED → EXPANDED</span>
-                  <span class="p-sub">Narrow space opening into larger volume</span>
-                </button>
-
-                <!-- 3. OPEN HALL -->
-                <button type="button" class="domain-a-pill" data-key="OPEN_HALL" onclick="selectDomainATypology('OPEN_HALL')">
-                  <span class="p-title">3. OPEN HALL</span>
-                  <span class="p-sub">One large uninterrupted volume</span>
-                </button>
-
-                <!-- 4. TERRACED / STEPPED -->
-                <button type="button" class="domain-a-pill" data-key="TERRACED_STEPPED" onclick="selectDomainATypology('TERRACED_STEPPED')">
-                  <span class="p-title">4. TERRACED / STEPPED</span>
-                  <span class="p-sub">Stepped or offset floor plates</span>
-                </button>
-
-                <!-- 5. LINEAR / DIRECTIONAL -->
-                <button type="button" class="domain-a-pill" data-key="LINEAR_DIRECTIONAL" onclick="selectDomainATypology('LINEAR_DIRECTIONAL')">
-                  <span class="p-title">5. LINEAR / DIRECTIONAL</span>
-                  <span class="p-sub">Stretch geometry along one dominant axis</span>
-                </button>
-
-                <!-- 6. FOLDED / UNDULATING -->
-                <button type="button" class="domain-a-pill" data-key="FOLDED_UNDULATING" onclick="selectDomainATypology('FOLDED_UNDULATING')">
-                  <span class="p-title">6. FOLDED / UNDULATING</span>
-                  <span class="p-sub">Continuous flowing surface</span>
-                </button>
-              </div>
-
-              <!-- ACTIVE SEED MINI RULE PREVIEW -->
-              <div style="margin-top:6px; background:#080808; border:1px solid #282828; border-radius:3px; padding:6px 8px; font-size:7.5px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
-                  <span style="color:#777777;">ACTIVE TYPOLOGY:</span>
-                  <span id="domain-a-selected-title" style="color:#ffffff; font-weight:600;">VERTICAL VOID</span>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                  <span style="font-weight:600; color:#888888; font-size:7.5px; letter-spacing:0.5px;">SELECT SPATIAL SEED</span>
+                  <span id="domain-a-category-tag" style="font-size:7px; padding:1px 5px; background:#141414; color:#cccccc; border:1px solid #333333; border-radius:2px; font-weight:500;">6 TYPES</span>
                 </div>
-                <div id="domain-a-desc-text" style="color:#888888; font-size:7px; line-height:1.3; margin-bottom:4px;">
-                  Create a tall opening through multiple levels. Extend the void vertically · Connect multiple floors visually · Organize surrounding geometry toward the void.
+
+                <input type="hidden" id="select-base-typology" value="VERTICAL_VOID">
+
+                <div style="display:flex; flex-direction:column; gap:3px;">
+                  <!-- 1. VERTICAL VOID -->
+                  <button type="button" class="domain-a-pill active" data-key="VERTICAL_VOID" onclick="selectDomainATypology('VERTICAL_VOID')">
+                    <span class="p-title">1. VERTICAL VOID</span>
+                    <span class="p-sub">Create a tall opening through multiple levels</span>
+                  </button>
+
+                  <!-- 2. COMPRESSED → EXPANDED -->
+                  <button type="button" class="domain-a-pill" data-key="COMPRESSED_EXPANDED" onclick="selectDomainATypology('COMPRESSED_EXPANDED')">
+                    <span class="p-title">2. COMPRESSED → EXPANDED</span>
+                    <span class="p-sub">Narrow space opening into larger volume</span>
+                  </button>
+
+                  <!-- 3. OPEN HALL -->
+                  <button type="button" class="domain-a-pill" data-key="OPEN_HALL" onclick="selectDomainATypology('OPEN_HALL')">
+                    <span class="p-title">3. OPEN HALL</span>
+                    <span class="p-sub">One large uninterrupted volume</span>
+                  </button>
+
+                  <!-- 4. TERRACED / STEPPED -->
+                  <button type="button" class="domain-a-pill" data-key="TERRACED_STEPPED" onclick="selectDomainATypology('TERRACED_STEPPED')">
+                    <span class="p-title">4. TERRACED / STEPPED</span>
+                    <span class="p-sub">Stepped or offset floor plates</span>
+                  </button>
+
+                  <!-- 5. LINEAR / DIRECTIONAL -->
+                  <button type="button" class="domain-a-pill" data-key="LINEAR_DIRECTIONAL" onclick="selectDomainATypology('LINEAR_DIRECTIONAL')">
+                    <span class="p-title">5. LINEAR / DIRECTIONAL</span>
+                    <span class="p-sub">Stretch geometry along one dominant axis</span>
+                  </button>
+
+                  <!-- 6. FOLDED / UNDULATING -->
+                  <button type="button" class="domain-a-pill" data-key="FOLDED_UNDULATING" onclick="selectDomainATypology('FOLDED_UNDULATING')">
+                    <span class="p-title">6. FOLDED / UNDULATING</span>
+                    <span class="p-sub">Continuous flowing surface</span>
+                  </button>
                 </div>
-                <div style="display:flex; justify-content:space-between; font-size:7px; color:#cccccc; border-top:1px solid #1f1f1f; padding-top:3px;">
-                  <span>Rule: <b id="domain-a-spatial-rule" style="color:#ffffff; font-weight:500;">EXTEND VOID · CONNECT FLOORS · ORGANIZE TOWARD VOID</b></span>
-                  <span>DNA: <b id="domain-a-principles-badge" style="color:#cccccc; font-weight:500;">W + V + C + B</b></span>
+
+                <!-- ACTIVE SEED MINI RULE PREVIEW -->
+                <div style="margin-top:6px; background:#080808; border:1px solid #282828; border-radius:3px; padding:6px 8px; font-size:7.5px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+                    <span style="color:#777777;">ACTIVE TYPOLOGY:</span>
+                    <span id="domain-a-selected-title" style="color:#ffffff; font-weight:600;">VERTICAL VOID</span>
+                  </div>
+                  <div id="domain-a-desc-text" style="color:#888888; font-size:7px; line-height:1.3; margin-bottom:4px;">
+                    Create a tall opening through multiple levels. Extend the void vertically · Connect multiple floors visually · Organize surrounding geometry toward the void.
+                  </div>
+                  <div style="display:flex; justify-content:space-between; font-size:7px; color:#cccccc; border-top:1px solid #1f1f1f; padding-top:3px;">
+                    <span>Rule: <b id="domain-a-spatial-rule" style="color:#ffffff; font-weight:500;">EXTEND VOID · CONNECT FLOORS · ORGANIZE TOWARD VOID</b></span>
+                    <span>DNA: <b id="domain-a-principles-badge" style="color:#cccccc; font-weight:500;">W + V + C + B</b></span>
+                  </div>
+                  <span id="domain-a-geom-action" style="display:none;">Vertical Void Shaft & Upward Ribs</span>
                 </div>
-                <span id="domain-a-geom-action" style="display:none;">Vertical Void Shaft & Upward Ribs</span>
               </div>
-            </div>
+            </details>
 
             <!-- DESIGNER REFINEMENT MODE STATUS BANNER -->
             <div id="designer-refinement-banner" style="display:none; margin-bottom:10px; background:#111111; padding: 8px; border: 1px solid #333333;">
@@ -464,14 +437,22 @@
                   <details style="margin-top:4px;" open>
                     <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Definition</summary>
                     <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
-                      <b style="color:#ccc;">Qualitative:</b> <span id="def-dna-b-qual">A primary form grows and divides into smaller interconnected forms.</span><br><br>
-                      <b style="color:#ccc;">Quantitative:</b> <span id="def-dna-b-quant">Number of branches + number of divisions from each branch.</span><br><br>
-                      <i id="def-dna-b-tip">Slider: low = fewer branches, minimal division; high = more branches with deeper subdivision.</i>
+                      <b style="color:#ccc;">Qualitative:</b> <span id="def-dna-b-qual">A primary form grows and divides into horizontal, vertical, and diagonal structural members calibrated to the space.</span><br><br>
+                      <b style="color:#ccc;">Quantitative:</b> <span id="def-dna-b-quant">Total active structural members + subdivision depth across spatial orientations.</span><br><br>
+                      <i id="def-dna-b-tip">Slider: low = primary colonnade; high = dense interconnected horizontal lintels, vertical shafts, and diagonal braces.</i>
                     </div>
                   </details>
-                  <div style="display:flex; gap:8px; margin-top:4px; font-size:7px; color:#888;">
-                    <div>Branches: <span id="metric-b-count" class="val-white">0</span></div>
-                    <div>Divisions: <span id="metric-b-divisions" class="val-white">0</span></div>
+                  <div style="display:flex; flex-direction:column; gap:2px; margin-top:4px; font-size:7px; color:#888; background:rgba(255,255,255,0.02); padding:4px; border-radius:2px; border:1px solid #222;">
+                    <div style="display:flex; justify-content:space-between;">
+                      <div>Members: <span id="metric-b-count" class="val-white" style="font-weight:bold;">0</span></div>
+                      <div>Divisions: <span id="metric-b-divisions" class="val-white">0</span></div>
+                      <div>Mode: <span id="metric-b-orientations" style="color:#e5c07b; font-weight:bold;">ALL</span></div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; color:#777; font-family:'Space Mono', monospace; font-size:6.5px; border-top:1px solid rgba(255,255,255,0.06); padding-top:2px; margin-top:1px;">
+                      <span>H: <b id="metric-b-h" style="color:#00ffff;">0</b> beams</span>
+                      <span>V: <b id="metric-b-v" style="color:#00ffff;">0</b> cols</span>
+                      <span>D: <b id="metric-b-d" style="color:#00ffff;">0</b> struts</span>
+                    </div>
                   </div>
 
                   <!-- EXPANDABLE ARCHITECTURAL BRANCHING CONTROLS -->
@@ -481,6 +462,19 @@
                       <span id="branching-val-status" class="val-pass" style="font-size:7px; padding:1px 4px; border-radius:2px;">VALID (100%)</span>
                     </summary>
                     <div style="font-size:7.5px; color:#ccc; padding:6px; line-height:1.35; background:rgba(20,20,20,0.85); border:1px solid #444; border-radius:3px; margin-top:3px;">
+                      <!-- Spatial Orientation Filter -->
+                      <div style="margin-bottom:5px;">
+                        <div style="color:#aaa; font-size:7px; margin-bottom:1px; display:flex; justify-content:space-between;">
+                          <span>BRANCH MEMBER ORIENTATIONS:</span>
+                          <span style="color:#e5c07b; font-size:6.5px;">H / V / D GEOMETRY</span>
+                        </div>
+                        <select id="branch-ctrl-orientation" style="width:100%; background:#111; color:#00ffff; border:1px solid #555; font-size:7.5px; padding:2.5px; border-radius:2px; font-family:'Space Mono', monospace;" onchange="onBranchOrientationChange()">
+                          <option value="ALL" selected>ALL ORIENTATIONS (H + V + D Interconnected)</option>
+                          <option value="HORIZONTAL">HORIZONTAL ONLY (Lintels, Cross-Ties, Gallery Rings)</option>
+                          <option value="VERTICAL">VERTICAL ONLY (Colonnades, Drops, Pedestal Flares)</option>
+                          <option value="DIAGONAL">DIAGONAL ONLY (Ramp Trusses, Knee Braces, Atrium Buttresses)</option>
+                        </select>
+                      </div>
                       <!-- SubD Growth Origin & Spatial Purpose -->
                       <div style="display:flex; gap:6px; margin-bottom:5px;">
                         <div style="flex:1;">
@@ -800,9 +794,7 @@
             <span class="vp-group-label">COMPARISON</span>
             <div class="btn-group-segmented">
               <button id="btn-comp-seed" class="btn-vp-pill" onclick="switchVisualComparisonMode('SEED')">SEED</button>
-              <button id="btn-comp-parent" class="btn-vp-pill" onclick="switchVisualComparisonMode('PARENT')">PARENT</button>
               <button id="btn-comp-iter" class="btn-vp-pill active" onclick="switchVisualComparisonMode('ITERATION')">ITERATION</button>
-              <button id="btn-comp-overlay" class="btn-vp-pill" onclick="switchVisualComparisonMode('OVERLAY')">OVERLAY</button>
             </div>
           </div>
           <div class="vp-toolbar-group" style="margin-top: 6px;">
@@ -1296,8 +1288,8 @@
     </div>
   </footer>
 
-  <script src="branchingEngine.js?v=20261001_v2"></script>
-  <script src="generator.js?v=20261001_v2"></script>
-  <script src="app.js?v=20261001_v2"></script>
+  <script src="branchingEngine.js?v=20261001_v5"></script>
+  <script src="generator.js?v=20261001_v5"></script>
+  <script src="app.js?v=20261001_v5"></script>
 </body>
 </html>
