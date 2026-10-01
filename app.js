@@ -1602,158 +1602,129 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
   // RULE 3: WHIPLASH (W)
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   else if (upperRule === 'WHIPLASH' || upperRule === 'W') {
+    const W = Math.max(0, Math.min(1.0, strength));
+    if (W < 0.001) return out;
+
     for (let i = 0; i < out.length; i += 3) {
       let x = out[i], y = out[i+1], z = out[i+2];
       let dx = x - centerX, dy = y - centerY, dz = z - centerZ;
-      let rXZ = Math.sqrt(dx * dx + dz * dz);
-      let rNorm = rXZ / (transSpan * 0.5);
-      let theta = Math.atan2(dz, dx);
       let uX = Math.min(1, Math.max(0, (x - minX) / spanX));
       let uY = Math.min(1, Math.max(0, (y - minY) / spanY));
       let uZ = Math.min(1, Math.max(0, (z - minZ) / spanZ));
 
+      // Continuous normalized coordinates (-1 to +1, zero at centerline)
+      let normZ = (z - centerZ) / (spanZ * 0.5 + 0.001);
+      let normX = (x - centerX) / (spanX * 0.5 + 0.001);
+
       if (grammar.whiplashStyle === 'UPWARD_CURVATURE') {
-        // Vertical Void Lobby:
-        // Curves surfaces upward (+Y) around vertical void, drawing sightlines up atrium shaft
-        let upwardArc = Math.sin(Math.PI * Math.min(1.0, uY + 0.15)) * (0.6 + 0.8 * Math.min(1.5, rNorm));
-        let dY = strength * spanY * 0.54 * upwardArc;
-        let flare = strength * transSpan * 0.24 * (1.0 - Math.min(1.0, uY * 0.6));
-        let dX = (dx / (rXZ + 0.1)) * flare;
-        let dZ = (dz / (rXZ + 0.1)) * flare;
+        // Vertical Void: Soaring upward Art Nouveau S-curve inflection
+        // Smoothly lifts the tower crest and canopy upward without squishing the base
+        let upwardLift = Math.sin(0.5 * Math.PI * uY) * (0.7 + 0.3 * Math.cos(Math.PI * (uX - 0.5)));
+        let dY = W * spanY * 0.28 * upwardLift;
+
+        // Dynamic horizontal S-curve inflection along length (X) and transverse breath (Z)
+        let sCurveX = Math.sin(2.0 * Math.PI * (uX - 0.20)) * Math.sin(Math.PI * uY);
+        let dX = W * spanX * 0.12 * sCurveX;
+        let dZ = normZ * W * spanZ * 0.14 * Math.sin(Math.PI * uY);
+
         out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
       } else if (grammar.whiplashStyle === 'CHOKE_RELEASE_INFLECTION') {
-        // Compressed Sequential Lobby:
-        // Controls curved transitions between compression (choke) and release (expansion)
-        let sChoke = Math.sin(3.0 * Math.PI * uX - Math.PI * 0.5);
-        if (sChoke < 0) {
-          let cFactor = Math.abs(sChoke);
-          out[i+2] -= (dz >= 0 ? 1 : -1) * spanZ * 0.42 * strength * cFactor;
-          out[i+1] -= spanY * 0.26 * strength * cFactor;
-        } else {
-          let rFactor = sChoke;
-          out[i+2] += (dz >= 0 ? 1 : -1) * spanZ * 0.48 * strength * rFactor;
-          out[i+1] += spanY * 0.52 * strength * rFactor;
-          out[i] += Math.sin(Math.PI * 2 * uX) * spanX * 0.14 * strength;
-        }
-      } else if (grammar.whiplashStyle === 'EXPANSIVE_SHELL') {
-        // Continuous Hall Lobby:
-        // Vast sweeping horizontal vault canopy overarching the entire free plan
-        let domeX = Math.cos(Math.PI * (uX - 0.5));
-        let domeZ = Math.cos(Math.PI * (uZ - 0.5));
-        let shellArch = Math.max(0, domeX * domeZ);
-        let dY = strength * spanY * 0.46 * shellArch;
-        let dX = strength * spanX * 0.30 * Math.sin(Math.PI * (uX - 0.5)) * domeZ;
-        let dZ = strength * spanZ * 0.30 * Math.sin(Math.PI * (uZ - 0.5)) * domeX;
+        // Compressed Sequential: Inflection point transitioning smoothly from compression to release
+        // Contracts smoothly before threshold, expands smoothly into the atrium (zero centerline tears)
+        let sChoke = Math.sin(2.0 * Math.PI * (uX - 0.25));
+        let dZ = normZ * W * spanZ * 0.22 * sChoke;
+        let dY = W * spanY * 0.24 * Math.sin(Math.PI * uX) * sChoke;
+        let dX = W * spanX * 0.10 * Math.sin(3.0 * Math.PI * uX);
+
         out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
-      } else if (grammar.whiplashStyle === 'FLOOR_TOPOGRAPHY') {
-        // Topographic / Ground-Field Lobby:
-        // Floor becomes primary geometry: gradual rises/falls, sloped terraces across ground plane
-        let floorWeight = Math.max(0, Math.min(1.0, 1.3 - uY * 2.0));
-        let wave1 = Math.sin(2.5 * Math.PI * uX) * Math.cos(2.0 * Math.PI * uZ);
-        let wave2 = 0.35 * Math.sin(5.0 * Math.PI * uX);
-        let dY = strength * spanY * 0.52 * floorWeight * (wave1 + wave2);
-        let dX = strength * spanX * 0.20 * floorWeight * Math.cos(2.5 * Math.PI * uX);
-        let dZ = strength * spanZ * 0.20 * floorWeight * Math.sin(2.0 * Math.PI * uZ);
+      } else if (grammar.whiplashStyle === 'EXPANSIVE_SHELL') {
+        // Continuous Hall: Vast sweeping continuous vault canopy overarching the open plan
+        let dY = W * spanY * 0.26 * Math.sin(Math.PI * uX) * Math.cos(Math.PI * (uZ - 0.5));
+        let dX = W * spanX * 0.12 * Math.sin(2.0 * Math.PI * uX) * Math.sin(Math.PI * uZ);
+        let dZ = normZ * W * spanZ * 0.14 * Math.sin(Math.PI * uX);
+
+        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
+      } else if (grammar.whiplashStyle === 'FLOOR_TOPOGRAPHY' || grammar.whiplashStyle === 'STEPPED_RISERS') {
+        // Stepped Terraces: Cascading harmonic terraces with continuous slope (zero staircase tears)
+        let dY = -W * spanY * 0.22 * (uX + 0.15 * Math.sin(4.0 * Math.PI * uX));
+        let dX = W * spanX * 0.12 * Math.cos(4.0 * Math.PI * uX);
+        let dZ = normZ * W * spanZ * 0.10 * Math.sin(2.0 * Math.PI * uX);
+
         out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
       } else if (grammar.whiplashStyle === 'AXIAL_ENFILADE_WAVE') {
-        // Linear Gallery Lobby:
-        // Rhythmic longitudinal section wave along dominant travel axis (X)
-        let bayWave = Math.sin(4.0 * Math.PI * uX);
-        let portalArch = Math.abs(Math.cos(4.0 * Math.PI * uX));
-        let dZ = strength * spanZ * 0.44 * bayWave;
-        let dY = strength * spanY * 0.36 * portalArch;
-        let dX = strength * spanX * 0.15 * Math.sin(2.0 * Math.PI * uX);
-        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
-      } else if (grammar.whiplashStyle === 'HORIZONTAL_UNDULATION') {
-        // Open Hall Workspace:
-        // Gentle horizontal roof undulation maintaining continuous open floor under one roof
-        let wave = Math.sin(3.0 * Math.PI * uX) * 0.6 + Math.cos(3.0 * Math.PI * uZ) * 0.4;
-        let dY = strength * spanY * 0.30 * wave * Math.max(0, uY - 0.2);
-        let dX = strength * spanX * 0.16 * Math.cos(3.0 * Math.PI * uX);
-        let dZ = strength * spanZ * 0.16 * Math.sin(3.0 * Math.PI * uZ);
-        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
-      } else if (grammar.whiplashStyle === 'STEPPED_RISERS') {
-        // Cascaded / Terraced Plates:
-        // Natural stepped contour risers descending across section
-        let stepFrac = (uX * 4.0) % 1.0;
-        let stepLevel = Math.floor(uX * 4.0) / 4.0;
-        let stepRise = (stepFrac < 0.25) ? (stepFrac / 0.25) : 1.0;
-        let dY = -strength * spanY * 0.44 * (stepLevel + 0.25 * stepRise);
-        let dX = strength * spanX * 0.18 * Math.sin(4.0 * Math.PI * uX);
-        let dZ = strength * spanZ * 0.15 * Math.sin(2.0 * Math.PI * uZ);
-        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
-      } else if (grammar.whiplashStyle === 'CORE_RIM_CURVE') {
-        // Flat Deep-Plan Plate:
-        // Level floor plate strictly preserved (dY = 0), curvature acts in-plane around cores and daylight wells
-        let dX = strength * spanX * 0.26 * Math.sin(3.0 * Math.PI * uZ) * (rNorm < 0.6 ? 1 : -0.7);
-        let dZ = strength * spanZ * 0.26 * Math.cos(3.0 * Math.PI * uX) * (rNorm < 0.6 ? 1 : -0.7);
-        out[i] += dX; out[i+2] += dZ;
-      } else if (grammar.whiplashStyle === 'VOID_RIM_SWEEP') {
-        // Void-Edge Workspace:
-        // Sweeps along the perimeter ring of the central void
-        let rimDist = Math.abs(rNorm - 0.5);
-        let rimWeight = Math.exp(-rimDist * rimDist / 0.05);
-        let dY = strength * spanY * 0.38 * rimWeight * Math.sin(3.0 * theta);
-        let dX = strength * spanX * 0.32 * rimWeight * Math.cos(theta + 0.6 * Math.sin(3.0 * theta));
-        let dZ = strength * spanZ * 0.32 * rimWeight * Math.sin(theta + 0.6 * Math.sin(3.0 * theta));
+        // Linear Gallery: Serpentine enfilade S-curve procession guiding sightlines along axis
+        let dZ = W * spanZ * 0.22 * Math.sin(3.0 * Math.PI * uX);
+        let dY = W * spanY * 0.20 * Math.sin(3.0 * Math.PI * uX - Math.PI * 0.25) * Math.sin(Math.PI * uZ);
+        let dX = W * spanX * 0.10 * Math.cos(3.0 * Math.PI * uX);
+
         out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
       } else if (grammar.whiplashStyle === 'ORIGAMI_FOLD') {
-        // Folded / Undulating Work Surface:
-        // Origami accordion pleating and 3D sinusoidal ramps
-        let pleat = Math.sin(5.0 * Math.PI * uX) * Math.cos(2.0 * Math.PI * uZ);
-        let dY = strength * spanY * 0.52 * pleat;
-        let dX = -strength * spanX * 0.20 * pleat * Math.cos(5.0 * Math.PI * uX);
-        let dZ = strength * spanZ * 0.24 * pleat;
+        // Folded / Undulating Surface: Flowing sinusoidal diagonal pleats (smooth continuous wave)
+        let pleat = Math.sin(2.5 * Math.PI * (uX + uZ));
+        let dY = W * spanY * 0.22 * pleat;
+        let dX = W * spanX * 0.10 * Math.cos(2.5 * Math.PI * (uX + uZ));
+        let dZ = normZ * W * spanZ * 0.12 * pleat;
+
         out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
-      } else if (grammar.whiplashStyle === 'ACOUSTIC_BOWL') {
-        // Stepped Amphitheater:
-        // Concave acoustic bowl curvature with seating risers focusing on performance stage
-        let focusX = minX + spanX * 0.25;
-        let focusZ = centerZ;
-        let rF = Math.hypot(x - focusX, z - focusZ) / (transSpan * 0.9);
-        let bowl = Math.pow(Math.min(1.2, rF), 1.6);
-        let dY = strength * spanY * 0.60 * bowl + strength * spanY * 0.10 * Math.sin(10.0 * Math.PI * rF);
-        let dX = -strength * spanX * 0.25 * ((x - focusX) / (rF * transSpan + 0.1)) * bowl;
-        let dZ = -strength * spanZ * 0.25 * ((z - focusZ) / (rF * transSpan + 0.1)) * bowl;
+      } else if (grammar.whiplashStyle === 'HORIZONTAL_UNDULATION') {
+        // Open Hall Workspace: Gentle continuous horizontal roof undulation
+        let wave = Math.sin(3.0 * Math.PI * uX) * 0.6 + Math.cos(3.0 * Math.PI * uZ) * 0.4;
+        let dY = W * spanY * 0.20 * wave * Math.sin(Math.PI * uY);
+        let dX = W * spanX * 0.12 * Math.cos(3.0 * Math.PI * uX);
+        let dZ = normZ * W * spanZ * 0.12 * Math.sin(3.0 * Math.PI * uZ);
+
+        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
+      } else if (grammar.whiplashStyle === 'CORE_RIM_CURVE') {
+        // Flat Deep-Plan Plate: Smooth in-plane harmonic swirl around daylight wells
+        let dX = W * spanX * 0.18 * Math.sin(3.0 * Math.PI * uZ);
+        let dZ = W * spanZ * 0.18 * Math.cos(3.0 * Math.PI * uX);
+
+        out[i] += dX; out[i+2] += dZ;
+      } else if (grammar.whiplashStyle === 'VOID_RIM_SWEEP') {
+        // Void-Edge: Sinuous sweep along the perimeter of the central void
+        let dY = W * spanY * 0.22 * Math.sin(3.0 * Math.PI * uX) * Math.sin(Math.PI * uZ);
+        let dX = W * spanX * 0.16 * Math.cos(2.0 * Math.PI * uX);
+        let dZ = normZ * W * spanZ * 0.16 * Math.sin(2.0 * Math.PI * uX);
+
         out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
       } else if (grammar.whiplashStyle === 'SOARING_VAULT_RIBS') {
-        // Void-Field Gathering:
-        // Slender vertical ribs spring from ground crossroads and fan into vault canopies
-        let hWeight = Math.pow(Math.max(0, uY - 0.15) / 0.85, 1.2);
-        let dY = strength * spanY * 0.66 * hWeight * (1.0 + 0.35 * Math.sin(4.0 * Math.PI * uX));
-        let dX = strength * spanX * 0.25 * hWeight * Math.cos(2.0 * Math.PI * uX);
-        let dZ = strength * spanZ * 0.25 * hWeight * Math.sin(2.0 * Math.PI * uZ);
+        // Void-Field Gathering: Graceful soaring ribs springing into canopies
+        let hWeight = Math.sin(0.5 * Math.PI * uY);
+        let dY = W * spanY * 0.26 * hWeight * (1.0 + 0.3 * Math.sin(4.0 * Math.PI * uX));
+        let dX = W * spanX * 0.14 * hWeight * Math.cos(2.0 * Math.PI * uX);
+        let dZ = normZ * W * spanZ * 0.14 * hWeight * Math.sin(2.0 * Math.PI * uZ);
+
         out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
       } else if (grammar.whiplashStyle === 'MEZZANINE_CRADLE') {
-        // Inserted Horizontal Plate:
-        // Suspends mezzanine platform cradled by organic curved hull ribs
-        let midWeight = Math.exp(-Math.pow((uY - 0.48) / 0.18, 2));
+        // Mezzanine Cradle: Organic continuous hull curving smoothly (zero axis splits)
+        let midWeight = Math.sin(Math.PI * uY);
         let plateRib = Math.cos(Math.PI * (uX - 0.5)) * Math.cos(Math.PI * (uZ - 0.5));
-        let dY = strength * spanY * 0.42 * midWeight * plateRib;
-        let dX = strength * spanX * 0.28 * midWeight * (x >= centerX ? 1 : -1);
-        let dZ = strength * spanZ * 0.28 * midWeight * (z >= centerZ ? 1 : -1);
+        let dY = W * spanY * 0.24 * midWeight * plateRib;
+        let dX = normX * W * spanX * 0.12 * midWeight;
+        let dZ = normZ * W * spanZ * 0.12 * midWeight;
+
         out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
       } else if (grammar.whiplashStyle === 'COCOON_POD') {
-        // Contained Room-Within-Volume:
-        // Bulbous, organic cocoon vessel enclosed inside larger hall
-        let distPod = Math.hypot(x - centerX, (y - centerY) * 1.4, z - centerZ) / (transSpan * 0.45);
-        let podWeight = Math.exp(-distPod * distPod / 0.35);
-        let dY = -strength * (y - centerY) * 0.56 * podWeight;
-        let dX = -strength * (x - centerX) * 0.52 * podWeight;
-        let dZ = -strength * (z - centerZ) * 0.52 * podWeight;
+        // Cocoon Pod: Bulbous organic shell curving smoothly inward
+        let podWeight = Math.sin(Math.PI * uX) * Math.sin(Math.PI * uY) * Math.sin(Math.PI * uZ);
+        let dY = -W * dy * 0.25 * podWeight;
+        let dX = -W * dx * 0.25 * podWeight;
+        let dZ = -W * dz * 0.25 * podWeight;
+
         out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
       } else if (grammar.whiplashStyle === 'BALUSTRADE_RIBBON') {
-        // Linear Edge Gallery:
-        // Serpentine cantilevered ribbon and undulating balustrade along perimeter overlook
-        let edgeDist = Math.max(0, Math.abs(uZ - 0.5) * 2.0 - 0.25);
-        let dY = strength * spanY * 0.34 * edgeDist * Math.sin(3.0 * Math.PI * uX);
-        let dZ = strength * spanZ * 0.50 * edgeDist * Math.sin(2.0 * Math.PI * uX) * (z >= centerZ ? 1 : -1);
-        let dX = strength * spanX * 0.20 * edgeDist * Math.cos(3.0 * Math.PI * uX);
+        // Linear Edge Gallery: Serpentine continuous ribbon along perimeter overlook
+        let dY = W * spanY * 0.20 * Math.sin(3.0 * Math.PI * uX);
+        let dZ = normZ * W * spanZ * 0.22 * Math.sin(2.0 * Math.PI * uX);
+        let dX = W * spanX * 0.12 * Math.cos(3.0 * Math.PI * uX);
+
         out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
       } else {
-        let dY = strength * spanY * 0.35 * Math.sin(Math.PI * uX);
-        let dZ = strength * spanZ * 0.25 * Math.sin(2.0 * Math.PI * uX);
-        out[i+1] += dY; out[i+2] += dZ;
+        let dY = W * spanY * 0.22 * Math.sin(Math.PI * uX);
+        let dZ = normZ * W * spanZ * 0.16 * Math.sin(2.0 * Math.PI * uX);
+        let dX = W * spanX * 0.10 * Math.cos(2.0 * Math.PI * uX);
+
+        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
       }
     }
   }
