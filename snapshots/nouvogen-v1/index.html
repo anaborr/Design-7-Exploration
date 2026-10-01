@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NOUVOGEN</title>
+
+  <!-- Google Fonts: Michroma (Fallback for Magistral) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Michroma&display=swap" rel="stylesheet">
+
+  <!-- Rhino3dm.js for browser .3dm file parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/rhino3dm@8.4.0/rhino3dm.min.js"></script>
+
+  <!-- Three.js & OrbitControls for 3D Viewport -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <link rel="stylesheet" href="style.css?v=20261001_v5">
+  <style>
+    .domain-a-pill {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      text-align: left;
+      background: #070707;
+      border: 1px solid #222222;
+      border-radius: 3px;
+      padding: 5px 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+    .domain-a-pill:hover {
+      background: #141414;
+      border-color: #555555;
+    }
+    .domain-a-pill.active {
+      background: #1a1a1a;
+      border-color: #888888;
+      box-shadow: inset 2px 0 0 #e5e5e5;
+    }
+    .domain-a-pill .p-title {
+      font-size: 8px;
+      font-weight: 500;
+      color: #cccccc;
+      pointer-events: none;
+    }
+    .domain-a-pill.active .p-title {
+      color: #ffffff;
+      font-weight: 600;
+    }
+    .domain-a-pill .p-sub {
+      font-size: 6.8px;
+      color: #777777;
+      line-height: 1.25;
+      margin-top: 1px;
+      pointer-events: none;
+    }
+    .domain-a-pill.active .p-sub {
+      color: #aaaaaa;
+    }
+    .btn-domain-b-generate {
+      width: 100%;
+      padding: 8px 12px;
+      justify-content: center;
+      background: #222222;
+      color: #ffffff;
+      font-weight: 600;
+      border: 1px solid #666666;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+    }
+    .btn-domain-b-generate:hover {
+      background: #333333;
+      border-color: #999999;
+      color: #ffffff;
+    }
+
+    /* Universal Theme Overrides: Black with Muted White Outlines & Text */
+    body, html, .app-main-layout, .app-top-header, .app-sidebar, .workspace-area {
+      background-color: #000000 !important;
+      color: #a0a0a0 !important;
+    }
+    .sidebar-card {
+      background: #000000 !important;
+      border: 1px solid #282828 !important;
+    }
+    .sidebar-card.gold-accent, .sidebar-card.cyan-accent {
+      border-color: #333333 !important;
+    }
+    .sidebar-title, .sidebar-title.cyan, .sidebar-title.gold {
+      color: #e0e0e0 !important;
+    }
+    .sidebar-subtitle {
+      color: #777777 !important;
+    }
+    .readout-box-domain-c, .readout-box-effects-grid {
+      background: #050505 !important;
+      border: 1px solid #222222 !important;
+    }
+    .highlight-cyan, .highlight-gold, .highlight-white, .val-gold, .val-white {
+      color: #e5e5e5 !important;
+    }
+    .val-pass, .val-green {
+      color: #cccccc !important;
+    }
+    .btn-generate {
+      background: #1c1c1c !important;
+      color: #ffffff !important;
+      border: 1px solid #444444 !important;
+      font-weight: 500 !important;
+    }
+    .btn-generate:hover {
+      background: #2a2a2a !important;
+      border-color: #666666 !important;
+    }
+    .btn-segment.active, .btn-vp-pill.active {
+      background: #222222 !important;
+      color: #ffffff !important;
+      border-color: #555555 !important;
+    }
+    .btn-segment, .btn-vp-pill {
+      background: #000000 !important;
+      color: #888888 !important;
+      border: 1px solid #262626 !important;
+    }
+    .btn-segment:hover, .btn-vp-pill:hover {
+      color: #cccccc !important;
+      border-color: #444444 !important;
+    }
+    .vp-tag-box, .vp-pill-btn, .vp-diag-card, .vp-status-bar-pill {
+      background: rgba(0, 0, 0, 0.9) !important;
+      border: 1px solid #333333 !important;
+      color: #b0b0b0 !important;
+    }
+    .slider {
+      accent-color: #888888 !important;
+    }
+    .slider::-webkit-slider-runnable-track {
+      background: #222222 !important;
+    }
+    .slider::-webkit-slider-thumb {
+      background: #aaaaaa !important;
+      border: 1px solid #ffffff !important;
+    }
+    .sidebar-main-tab-btn {
+      color: #777777 !important;
+    }
+    .sidebar-main-tab-btn:hover {
+      color: #cccccc !important;
+    }
+    .sidebar-main-tab-btn.active {
+      background: #0d0d0d !important;
+      color: #ffffff !important;
+      border-color: #444444 !important;
+      border-bottom: 2px solid #888888 !important;
+    }
+    .sidebar-sub-tabbar {
+      background: #000000 !important;
+      border-bottom: 1px solid #222222 !important;
+    }
+    .sub-tab-btn {
+      color: #777777 !important;
+    }
+    .sub-tab-btn.active {
+      background: #1a1a1a !important;
+      color: #ffffff !important;
+    }
+    .workspace-tab-btn {
+      background: #000000 !important;
+      color: #777777 !important;
+      border-color: #222222 !important;
+    }
+    .workspace-tab-btn.active {
+      background: #111111 !important;
+      color: #ffffff !important;
+      border-color: #444444 !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP NAVIGATION HEADER BAR -->
+  <header class="app-top-header">
+    <div class="brand-title-group">
+      <h1 class="brand-main-title">NOUVOGEN</h1>
+      <p class="brand-subtitle">DESCRIPTOR-DRIVEN ARCHITECTURAL EVOLUTION SYSTEM</p>
+    </div>
+
+    <div class="header-action-toolbar">
+      <label for="rhino-file-input" class="btn btn-header-gold">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        IMPORT RHINO .3DM
+        <input type="file" id="rhino-file-input" accept=".3dm" style="display:none;">
+      </label>
+
+
+      <button id="btn-restore-original" class="btn btn-header-cyan" style="border-color:#444444; color:#cccccc;" onclick="restoreOriginalImportedGeometry()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        RESTORE ORIGINAL GEOMETRY
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN APP CONTAINER -->
+  <div class="app-main-layout">
+
+    <!-- LEFT SIDEBAR: DOMAIN B DNA, METRICS & LINEAGE (TABBED) -->
+    <aside id="left-sidebar" class="app-sidebar left-sidebar">
+      
+      <!-- TOP SIDEBAR TAB BAR -->
+      <div class="sidebar-main-tabbar">
+        <button class="sidebar-main-tab-btn active" onclick="switchMainSidebarTab('left', 'dna', this)">
+          DOMAIN A & B
+        </button>
+        <button class="sidebar-main-tab-btn" onclick="switchMainSidebarTab('left', 'metrics', this)">
+          METRICS & RULES
+        </button>
+        <button class="sidebar-main-tab-btn" onclick="switchMainSidebarTab('left', 'lineage', this)">
+          LINEAGE
+        </button>
+      </div>
+
+      <!-- TAB CONTENT: DOMAIN A & B CONSOLIDATED PANEL -->
+      <div id="maintab-left-dna" class="sidebar-main-tab-content active">
+        <div class="sidebar-card">
+          <div class="sidebar-card-header">
+            <div class="card-header-titles">
+              <h2 class="sidebar-title">DOMAIN A & B — EVOLUTION SYSTEM</h2>
+              <p class="sidebar-subtitle">Spatial seed typologies, rules & shape grammar engine.</p>
+            </div>
+          </div>
+
+          <div class="sidebar-card-body">
+
+            <!-- DOMAIN A: BASE SPATIAL TYPOLOGIES (6 TYPOLOGIES) -->
+            <details open id="domain-a-tab-container" style="margin-bottom: 12px; border: 1px solid #333333; padding: 10px; background: #000000; border-radius: 4px; cursor: pointer;">
+              <summary style="font-weight: 500; opacity: 0.95; outline: none; color:#cccccc; font-size:8.5px; user-select: none;">DOMAIN A — 6 BASE TYPOLOGIES</summary>
+              <div style="margin-top: 8px; cursor: default;">
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                  <span style="font-weight:600; color:#888888; font-size:7.5px; letter-spacing:0.5px;">SELECT SPATIAL SEED</span>
+                  <span id="domain-a-category-tag" style="font-size:7px; padding:1px 5px; background:#141414; color:#cccccc; border:1px solid #333333; border-radius:2px; font-weight:500;">6 TYPES</span>
+                </div>
+
+                <input type="hidden" id="select-base-typology" value="VERTICAL_VOID">
+
+                <div style="display:flex; flex-direction:column; gap:3px;">
+                  <!-- 1. VERTICAL VOID -->
+                  <button type="button" class="domain-a-pill active" data-key="VERTICAL_VOID" onclick="selectDomainATypology('VERTICAL_VOID')">
+                    <span class="p-title">1. VERTICAL VOID</span>
+                    <span class="p-sub">Create a tall opening through multiple levels</span>
+                  </button>
+
+                  <!-- 2. COMPRESSED → EXPANDED -->
+                  <button type="button" class="domain-a-pill" data-key="COMPRESSED_EXPANDED" onclick="selectDomainATypology('COMPRESSED_EXPANDED')">
+                    <span class="p-title">2. COMPRESSED → EXPANDED</span>
+                    <span class="p-sub">Narrow space opening into larger volume</span>
+                  </button>
+
+                  <!-- 3. OPEN HALL -->
+                  <button type="button" class="domain-a-pill" data-key="OPEN_HALL" onclick="selectDomainATypology('OPEN_HALL')">
+                    <span class="p-title">3. OPEN HALL</span>
+                    <span class="p-sub">One large uninterrupted volume</span>
+                  </button>
+
+                  <!-- 4. TERRACED / STEPPED -->
+                  <button type="button" class="domain-a-pill" data-key="TERRACED_STEPPED" onclick="selectDomainATypology('TERRACED_STEPPED')">
+                    <span class="p-title">4. TERRACED / STEPPED</span>
+                    <span class="p-sub">Stepped or offset floor plates</span>
+                  </button>
+
+                  <!-- 5. LINEAR / DIRECTIONAL -->
+                  <button type="button" class="domain-a-pill" data-key="LINEAR_DIRECTIONAL" onclick="selectDomainATypology('LINEAR_DIRECTIONAL')">
+                    <span class="p-title">5. LINEAR / DIRECTIONAL</span>
+                    <span class="p-sub">Stretch geometry along one dominant axis</span>
+                  </button>
+
+                  <!-- 6. FOLDED / UNDULATING -->
+                  <button type="button" class="domain-a-pill" data-key="FOLDED_UNDULATING" onclick="selectDomainATypology('FOLDED_UNDULATING')">
+                    <span class="p-title">6. FOLDED / UNDULATING</span>
+                    <span class="p-sub">Continuous flowing surface</span>
+                  </button>
+                </div>
+
+                <!-- ACTIVE SEED MINI RULE PREVIEW -->
+                <div style="margin-top:6px; background:#080808; border:1px solid #282828; border-radius:3px; padding:6px 8px; font-size:7.5px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+                    <span style="color:#777777;">ACTIVE TYPOLOGY:</span>
+                    <span id="domain-a-selected-title" style="color:#ffffff; font-weight:600;">VERTICAL VOID</span>
+                  </div>
+                  <div id="domain-a-desc-text" style="color:#888888; font-size:7px; line-height:1.3; margin-bottom:4px;">
+                    Create a tall opening through multiple levels. Extend the void vertically · Connect multiple floors visually · Organize surrounding geometry toward the void.
+                  </div>
+                  <div style="display:flex; justify-content:space-between; font-size:7px; color:#cccccc; border-top:1px solid #1f1f1f; padding-top:3px;">
+                    <span>Rule: <b id="domain-a-spatial-rule" style="color:#ffffff; font-weight:500;">EXTEND VOID · CONNECT FLOORS · ORGANIZE TOWARD VOID</b></span>
+                    <span>DNA: <b id="domain-a-principles-badge" style="color:#cccccc; font-weight:500;">W + V + C + B</b></span>
+                  </div>
+                  <span id="domain-a-geom-action" style="display:none;">Vertical Void Shaft & Upward Ribs</span>
+                </div>
+              </div>
+            </details>
+
+            <!-- DESIGNER REFINEMENT MODE STATUS BANNER -->
+            <div id="designer-refinement-banner" style="display:none; margin-bottom:10px; background:#111111; padding: 8px; border: 1px solid #333333;">
+              <div style="font-weight:500; color:#b0b0b0; display:flex; justify-content:space-between; align-items:center;">
+                <span>MODE: DESIGNER REFINEMENT</span>
+                <span id="refinement-parent-tag" style="color:#888888;">PARENT: AUTO-02</span>
+              </div>
+              <button id="btn-reset-to-auto" class="btn-header-outline" style="margin-top:6px; padding:3px 6px; width:100%; justify-content:center;" onclick="resetToAutoProposal()">
+                Reset to Auto
+              </button>
+            </div>
+
+            <!-- DOMAIN B: MANUAL SHAPE SLIDERS & ITERATIONS -->
+            <details open id="domain-b-tab-container" style="margin-bottom: 12px; border: 1px solid #333333; padding: 10px; background: #000000; border-radius: 4px; cursor: pointer;">
+              <summary style="font-weight: 500; opacity: 0.95; outline: none; color:#cccccc; font-size:8.5px;">DOMAIN B — MANUAL SHAPE SLIDERS & ITERATIONS</summary>
+              <div style="margin-top: 8px; cursor: default;">
+
+                <!-- DOMAIN B SUBTAB NAVIGATION BAR -->
+                <div class="sidebar-sub-tabbar" style="margin-bottom: 8px; display: flex; gap: 4px; background: #0d0d0d; padding: 3px; border-radius: 3px; border: 1px solid #222222;">
+                  <button type="button" class="sub-tab-btn active" id="tab-btn-domain-b-sliders" style="font-size: 8px; font-weight: 600; padding: 5px 6px;" onclick="switchDomainBTab('sliders', this)">SHAPE SLIDERS</button>
+                  <button type="button" class="sub-tab-btn" id="tab-btn-domain-b-save" style="font-size: 8px; font-weight: 600; padding: 5px 6px; color: #00ffff;" onclick="switchDomainBTab('save', this)">★ SAVE TO LIBRARY</button>
+                </div>
+
+                <!-- SUBTAB 1: SHAPE SLIDERS -->
+                <div id="domain-b-subtab-sliders" class="domain-b-subtab-content active dna-sliders-container">
+                  <!-- DOMAIN A TYPOLOGY GEOMETRIC INFLUENCE BANNER -->
+                <div id="domain-b-influence-banner" style="margin-bottom:10px; background:#080808; padding:8px; border:1px solid #333333; border-radius:3px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+                    <span style="font-size:7px; color:#888888; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;">DOMAIN A SPATIAL INFLUENCE</span>
+                    <span id="domain-b-influence-cat" style="font-size:7px; color:#cccccc; border:1px solid #444444; padding:1px 5px; border-radius:2px; text-transform:uppercase;">TYPOLOGY</span>
+                  </div>
+                  <div id="domain-b-influence-title" style="font-size:8.5px; color:#ffffff; font-weight:600; text-transform:uppercase; letter-spacing:0.3px;">VERTICAL VOID</div>
+                  <div style="font-size:7px; color:#ffffff; margin-top:3px; line-height:1.35;">
+                    <b>Rule:</b> <span id="domain-b-influence-goal" style="color:#e0e0e0;">Create a tall opening through multiple levels.</span>
+                  </div>
+                  <div id="domain-b-influence-rationale" style="font-size:7px; color:#aaaaaa; margin-top:3px; line-height:1.35;">
+                    Extend the void vertically · Connect multiple floors visually · Organize surrounding geometry toward the void.
+                  </div>
+                  <div style="font-size:7px; color:#bbbbbb; margin-top:3px; line-height:1.35;">
+                    <b>Result:</b> <span id="domain-b-influence-result" style="color:#ffffff;">Geometry grows around a tall open center with upward-sweeping forms.</span>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px; padding-top:4px; border-top:1px solid #222222; font-size:7px; color:#777777;">
+                    <span>SPATIAL RULE: <b id="domain-b-influence-rule" style="color:#ffffff; font-weight:500;">EXTEND VOID · CONNECT FLOORS · ORGANIZE TOWARD VOID</b></span>
+                    <span id="domain-b-influence-status" style="color:#cccccc; font-weight:500;">SPATIAL GRAMMAR ACTIVE</span>
+                  </div>
+                  <button id="btn-activate-domain-b" class="btn btn-header-cyan" style="width:100%; margin-top:6px; font-size:7.5px; padding:3px 6px; letter-spacing:0.5px; justify-content:center;" onclick="activateDomainBRules(true)">
+                    APPLY / ACTIVATE TYPOLOGY IN DOMAIN B
+                  </button>
+                </div>
+
+                <!-- HOW THEY WORK TOGETHER -->
+                <details style="margin-bottom: 10px; background: #0a0a0a; padding: 6px; border: 1px solid #282828; border-radius: 3px;">
+                  <summary style="font-size:8.5px; color:#cccccc; cursor:pointer; outline:none; font-weight:500;">HOW THE RULES WORK TOGETHER</summary>
+                  <div style="font-size:7.5px; color:#888888; padding-top:4px; line-height:1.35;">
+                    Each rule transforms the seed geometry in a distinct, measurable way:<br><br>
+                    <b style="color:#ffffff;">Whiplash Curve</b> — bends and redirects lines to create dynamic movement.<br>
+                    <b style="color:#ffffff;">Continuity</b> — extends and connects separate elements into one continuous form.<br>
+                    <b style="color:#ffffff;">Branching</b> — grows and divides a primary form into smaller interconnected forms.<br><br>
+                    <i>The active Domain A space typology bounds and constrains these rules to enforce its architectural definition.</i>
+                  </div>
+                </details>
+
+                <!-- ═══════════════════════════════════════════ -->
+                <!-- CONTINUITY (C) -->
+                <!-- ═══════════════════════════════════════════ -->
+                <div class="slider-group-dna">
+                  <div class="slider-label-dna" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; align-items:baseline; gap:4px;">
+                      <span class="dna-title" id="title-dna-c">CONTINUITY (C)</span>
+                      <span class="val-dna-limit" id="limit-dna-c" style="font-size:7px; color:#888888; font-family:'Space Mono',monospace;">[30–85%]</span>
+                    </div>
+                    <span class="val-dna" id="val-dna-c">0%</span>
+                  </div>
+                  <div style="display:flex; justify-content:flex-end; margin-top:1px; margin-bottom:3px;">
+                    <span class="val-dna-badge" id="badge-dna-c" style="font-size:7px; color:#ffd700; font-family:'Space Mono',monospace; background:rgba(255,215,0,0.1); padding:1px 5px; border-radius:2px; border:1px solid rgba(255,215,0,0.25); letter-spacing:0.5px;">MOSTLY SEPARATE</span>
+                  </div>
+                  <input type="range" id="slider-dna-c" min="0" max="100" value="0" class="slider slider-gold">
+                  <details style="margin-top:4px;" open>
+                    <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Definition</summary>
+                    <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
+                      <b style="color:#ccc;">Qualitative:</b> <span id="def-dna-c-qual">Separate geometric elements connect, overlap, align, or flow into one another to create a unified and uninterrupted spatial form.</span><br><br>
+                      <b style="color:#ccc;">Quantitative:</b> <span id="def-dna-c-quant">Visual sightline alignment (G1/G2), flowing fillets between floor, wall, and canopy, and overlapping spatial layers.</span><br><br>
+                      <b style="color:#ccc;">Axial Planes:</b> <span id="def-dna-c-axes" style="color:#ffd700;">Full 3D Transformation across X, Y, and Z planes.</span><br><br>
+                      <i id="def-dna-c-tip">Slider: low = discrete separate elements; high = unified continuous system guiding smooth visual movement across elements without simply pulling everything closer together.</i>
+                    </div>
+                  </details>
+                  <div style="display:flex; gap:8px; margin-top:4px; font-size:7px; color:#888;">
+                    <div>Disconnected: <span id="metric-c-disconnected" class="val-white">—</span></div>
+                    <div>Connected: <span id="metric-c-connected" class="val-white">—</span></div>
+                    <div>Planes: <span id="metric-c-planes" class="val-white" style="color:#ffd700;">X / Y / Z</span></div>
+                  </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════ -->
+                <!-- WHIPLASH CURVE (W) -->
+                <!-- ═══════════════════════════════════════════ -->
+                <div class="slider-group-dna">
+                  <div class="slider-label-dna">
+                    <span class="dna-title" id="title-dna-w">WHIPLASH CURVE (W)</span>
+                    <span class="val-dna-limit" id="limit-dna-w" style="font-size:7px; color:#888888; font-family:'Space Mono',monospace;">[25–95%]</span>
+                    <span class="val-dna" id="val-dna-w">0%</span>
+                  </div>
+                  <input type="range" id="slider-dna-w" min="0" max="100" value="0" class="slider slider-gold">
+                  <details style="margin-top:4px;" open>
+                    <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Definition</summary>
+                    <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
+                      <b style="color:#ccc;">Qualitative:</b> <span id="def-dna-w-qual">A fluid line that bends and redirects to create dynamic movement.</span><br><br>
+                      <b style="color:#ccc;">Quantitative:</b> <span id="def-dna-w-quant">Number of directional changes + degree of curvature along the path.</span><br><br>
+                      <i id="def-dna-w-tip">Slider: low = few directional changes, gentle curves; high = multiple redirections, strong curvature.</i>
+                    </div>
+                  </details>
+                  <div style="display:flex; gap:8px; margin-top:4px; font-size:7px; color:#888;">
+                    <div>Direction changes: <span id="metric-w-changes" class="val-white">0</span></div>
+                    <div>Curvature°: <span id="metric-w-curvature" class="val-white">0°</span></div>
+                  </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════ -->
+                <!-- BRANCHING (B) -->
+                <!-- ═══════════════════════════════════════════ -->
+                <div class="slider-group-dna">
+                  <div class="slider-label-dna">
+                    <span class="dna-title" id="title-dna-b">BRANCHING (B)</span>
+                    <span class="val-dna-limit" id="limit-dna-b" style="font-size:7px; color:#888888; font-family:'Space Mono',monospace;">[0–35%]</span>
+                    <span class="val-dna" id="val-dna-b">0%</span>
+                  </div>
+                  <input type="range" id="slider-dna-b" min="0" max="100" value="0" class="slider slider-gold">
+                  <details style="margin-top:4px;" open>
+                    <summary style="font-size:8px; color:#888; cursor:pointer; outline:none;">Rule Definition</summary>
+                    <div style="font-size:7.5px; color:#aaa; padding:4px 0 0 6px; line-height:1.3;">
+                      <b style="color:#ccc;">Qualitative:</b> <span id="def-dna-b-qual">A primary form grows and divides into horizontal, vertical, and diagonal structural members calibrated to the space.</span><br><br>
+                      <b style="color:#ccc;">Quantitative:</b> <span id="def-dna-b-quant">Total active structural members + subdivision depth across spatial orientations.</span><br><br>
+                      <i id="def-dna-b-tip">Slider: low = primary colonnade; high = dense interconnected horizontal lintels, vertical shafts, and diagonal braces.</i>
+                    </div>
+                  </details>
+                  <div style="display:flex; flex-direction:column; gap:2px; margin-top:4px; font-size:7px; color:#888; background:rgba(255,255,255,0.02); padding:4px; border-radius:2px; border:1px solid #222;">
+                    <div style="display:flex; justify-content:space-between;">
+                      <div>Members: <span id="metric-b-count" class="val-white" style="font-weight:bold;">0</span></div>
+                      <div>Divisions: <span id="metric-b-divisions" class="val-white">0</span></div>
+                      <div>Mode: <span id="metric-b-orientations" style="color:#e5c07b; font-weight:bold;">ALL</span></div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; color:#777; font-family:'Space Mono', monospace; font-size:6.5px; border-top:1px solid rgba(255,255,255,0.06); padding-top:2px; margin-top:1px;">
+                      <span>H: <b id="metric-b-h" style="color:#00ffff;">0</b> beams</span>
+                      <span>V: <b id="metric-b-v" style="color:#00ffff;">0</b> cols</span>
+                      <span>D: <b id="metric-b-d" style="color:#00ffff;">0</b> struts</span>
+                    </div>
+                  </div>
+
+                  <!-- EXPANDABLE ARCHITECTURAL BRANCHING CONTROLS -->
+                  <details style="margin-top:4px;">
+                    <summary style="font-size:8px; color:#cccccc; cursor:pointer; outline:none; font-weight:500; display:flex; justify-content:space-between; align-items:center;">
+                      <span>ARCHITECTURAL BRANCHING CONTROLS</span>
+                      <span id="branching-val-status" class="val-pass" style="font-size:7px; padding:1px 4px; border-radius:2px;">VALID (100%)</span>
+                    </summary>
+                    <div style="font-size:7.5px; color:#ccc; padding:6px; line-height:1.35; background:rgba(20,20,20,0.85); border:1px solid #444; border-radius:3px; margin-top:3px;">
+                      <!-- Spatial Orientation Filter -->
+                      <div style="margin-bottom:5px;">
+                        <div style="color:#aaa; font-size:7px; margin-bottom:1px; display:flex; justify-content:space-between;">
+                          <span>BRANCH MEMBER ORIENTATIONS:</span>
+                          <span style="color:#e5c07b; font-size:6.5px;">H / V / D GEOMETRY</span>
+                        </div>
+                        <select id="branch-ctrl-orientation" style="width:100%; background:#111; color:#00ffff; border:1px solid #555; font-size:7.5px; padding:2.5px; border-radius:2px; font-family:'Space Mono', monospace;" onchange="onBranchOrientationChange()">
+                          <option value="ALL" selected>ALL ORIENTATIONS (H + V + D Interconnected)</option>
+                          <option value="HORIZONTAL">HORIZONTAL ONLY (Lintels, Cross-Ties, Gallery Rings)</option>
+                          <option value="VERTICAL">VERTICAL ONLY (Colonnades, Drops, Pedestal Flares)</option>
+                          <option value="DIAGONAL">DIAGONAL ONLY (Ramp Trusses, Knee Braces, Atrium Buttresses)</option>
+                        </select>
+                      </div>
+                      <!-- SubD Growth Origin & Spatial Purpose -->
+                      <div style="display:flex; gap:6px; margin-bottom:5px;">
+                        <div style="flex:1;">
+                          <div style="color:#aaa; font-size:7px; margin-bottom:1px;">PARENT EDGE SOURCE:</div>
+                          <select id="branch-ctrl-anchor" style="width:100%; background:#111; color:#fff; border:1px solid #555; font-size:7.5px; padding:2px; border-radius:2px;" onchange="onBranchControlChange()">
+                            <option value="TERRACE" selected>Mid-Terrace Edge (x=3.5, y=6.1)</option>
+                            <option value="SHOULDER">Upper Shoulder Edge (x=7.5, y=8.1)</option>
+                            <option value="CANTILEVER">Cantilever Plate Edge (x=-9.9, y=11.4)</option>
+                            <option value="FOOT">Lower Ground Rim (x=6.8, y=1.3)</option>
+                          </select>
+                        </div>
+                        <div style="flex:1;">
+                          <div style="color:#aaa; font-size:7px; margin-bottom:1px;">SPATIAL PURPOSE:</div>
+                          <select id="branch-ctrl-purpose" style="width:100%; background:#111; color:#fff; border:1px solid #555; font-size:7.5px; padding:2px; border-radius:2px;" onchange="onBranchControlChange()">
+                            <option value="Meeting" selected>Meeting Zone</option>
+                            <option value="Workspace">Workspace</option>
+                            <option value="Gathering">Gathering Hall</option>
+                            <option value="Circulation">Circulation Guide</option>
+                            <option value="Enclosure">Partial Enclosure</option>
+                            <option value="Support">Vertical Support</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <!-- Branch Type & Spatial Purpose Zone Outline -->
+                      <div style="display:flex; gap:6px; margin-bottom:5px; align-items:center;">
+                        <div style="flex:1;">
+                          <div style="color:#aaa; font-size:7px; margin-bottom:1px;">BRANCH TYPE:</div>
+                          <select id="branch-ctrl-type" style="width:100%; background:#111; color:#fff; border:1px solid #555; font-size:7.5px; padding:2px; border-radius:2px;" onchange="onBranchControlChange()">
+                            <option value="WALL_TO_WALL" selected>Wall → Wall</option>
+                            <option value="WALL_TO_SUPPORT">Wall → Support</option>
+                            <option value="SUPPORT_TO_SUPPORTS">Support → Supports</option>
+                          </select>
+                        </div>
+                        <div style="flex:1; padding-top:8px;">
+                          <label style="display:flex; align-items:center; gap:4px; font-size:7.5px; color:#cccccc; cursor:pointer;">
+                            <input type="checkbox" id="branch-ctrl-show-enclosure" onchange="onBranchControlChange()" checked style="cursor:pointer;">
+                            <span>Show Spatial Zone</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <!-- Primary Wall Controls -->
+                      <div style="background:rgba(255,255,255,0.03); border:1px solid #333; padding:4px; border-radius:2px; margin-bottom:4px;">
+                        <strong style="color:#cccccc; font-size:7.5px;">PRIMARY WALL (Volume)</strong>
+                        <div style="margin-top:2px;">
+                          <div style="display:flex; justify-content:space-between;"><span>Wall Height (8–14 ft):</span><span id="lbl-branch-height" class="val-white">12.0 ft</span></div>
+                          <input type="range" id="branch-ctrl-height" min="8" max="14" step="0.5" value="12" style="width:100%; height:3px;" oninput="onBranchControlChange()">
+                        </div>
+                        <div style="margin-top:2px;">
+                          <div style="display:flex; justify-content:space-between;"><span>Wall Thickness (6–12 in):</span><span id="lbl-branch-thick" class="val-white">8.0 in</span></div>
+                          <input type="range" id="branch-ctrl-thick" min="6" max="12" step="0.5" value="8" style="width:100%; height:3px;" oninput="onBranchControlChange()">
+                        </div>
+                        <div style="margin-top:2px;">
+                          <div style="display:flex; justify-content:space-between;"><span>Primary Length (10–25 ft):</span><span id="lbl-branch-length" class="val-white">16.0 ft</span></div>
+                          <input type="range" id="branch-ctrl-length" min="10" max="25" step="1" value="16" style="width:100%; height:3px;" oninput="onBranchControlChange()">
+                        </div>
+                      </div>
+
+                      <!-- Secondary Branches Controls -->
+                      <div style="background:rgba(255,255,255,0.03); border:1px solid #333; padding:4px; border-radius:2px; margin-bottom:4px;">
+                        <strong style="color:#cccccc; font-size:7.5px;">SECONDARY BRANCHES (Hierarchy)</strong>
+                        <div style="margin-top:2px;">
+                          <div style="display:flex; justify-content:space-between;"><span>Branch Count (2–4):</span><span id="lbl-branch-count" class="val-white">3</span></div>
+                          <input type="range" id="branch-ctrl-count" min="2" max="4" step="1" value="3" style="width:100%; height:3px;" oninput="onBranchControlChange()">
+                        </div>
+                        <div style="margin-top:2px;">
+                          <div style="display:flex; justify-content:space-between;"><span>Branch Length (30–70%):</span><span id="lbl-branch-ratio" class="val-white">50% (~10-12 ft)</span></div>
+                          <input type="range" id="branch-ctrl-ratio" min="30" max="70" step="5" value="50" style="width:100%; height:3px;" oninput="onBranchControlChange()">
+                        </div>
+                        <div style="margin-top:2px;">
+                          <div style="display:flex; justify-content:space-between;"><span>Branch Angle (20–60°):</span><span id="lbl-branch-angle" class="val-white">38°</span></div>
+                          <input type="range" id="branch-ctrl-angle" min="20" max="60" step="1" value="38" style="width:100%; height:3px;" oninput="onBranchControlChange()">
+                        </div>
+                      </div>
+
+                      <!-- Curvature & Asymmetry -->
+                      <div style="display:flex; gap:6px; margin-bottom:5px;">
+                        <div style="flex:1;">
+                          <div style="color:#aaa; font-size:7px; margin-bottom:1px;">CURVATURE:</div>
+                          <select id="branch-ctrl-curv" style="width:100%; background:#111; color:#fff; border:1px solid #555; font-size:7.5px; padding:2px; border-radius:2px;" onchange="onBranchControlChange()">
+                            <option value="Low">Low</option>
+                            <option value="Medium" selected>Medium</option>
+                            <option value="High">High</option>
+                          </select>
+                        </div>
+                        <div style="flex:1;">
+                          <div style="color:#aaa; font-size:7px; margin-bottom:1px;">ASYMMETRY:</div>
+                          <select id="branch-ctrl-asymm" style="width:100%; background:#111; color:#fff; border:1px solid #555; font-size:7.5px; padding:2px; border-radius:2px;" onchange="onBranchControlChange()">
+                            <option value="Low">Low</option>
+                            <option value="Medium" selected>Medium</option>
+                            <option value="High">High</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <!-- Validation Checks -->
+                      <div style="margin-top:4px;">
+                        <div style="font-size:7px; color:#cccccc; font-weight:bold; margin-bottom:2px;">QUANTITATIVE ARCHITECTURAL AUDIT (10 PRINCIPLES):</div>
+                        <div id="branching-checks-list" style="max-height:105px; overflow-y:auto; padding-right:2px;">
+                        </div>
+                      </div>
+
+                    </div>
+                  </details>
+                </div>
+                </div>
+                <!-- END SUBTAB 1 (SHAPE SLIDERS) -->
+
+                <!-- SUBTAB 2: SAVE MANUAL ITERATION TO LIBRARY -->
+                <div id="domain-b-subtab-save" class="domain-b-subtab-content" style="display:none; padding:4px 0;">
+                  <div style="background:#080808; border:1px solid #333333; border-radius:3px; padding:10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                      <span style="font-size:7px; color:#888888; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;">ITERATION CAPTURE</span>
+                      <span style="font-size:7px; color:#00ffff; border:1px solid rgba(0,255,255,0.4); padding:1px 5px; border-radius:2px; text-transform:uppercase; background:rgba(0,255,255,0.05);">DOMAIN B MANUAL</span>
+                    </div>
+                    <div style="font-size:9px; color:#ffffff; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; margin-bottom:8px;">SAVE MANUAL ITERATION</div>
+
+                    <!-- Current Shape Configuration Preview -->
+                    <div style="background:rgba(255,255,255,0.03); border:1px solid #222222; border-radius:3px; padding:8px; margin-bottom:10px; font-family:'Space Mono', monospace; font-size:7.5px;">
+                      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span style="color:#888;">Active Typology:</span>
+                        <span id="manual-save-typo" style="color:#00ffff; font-weight:bold;">COMPRESSED → EXPANDED</span>
+                      </div>
+                      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span style="color:#888;">Current DNA:</span>
+                        <span id="manual-save-dna" style="color:#ffd700;">C: 0% · W: 0% · B: 100%</span>
+                      </div>
+                      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span style="color:#888;">Branching:</span>
+                        <span id="manual-save-branching" style="color:#ffffff;">100% (28 Structural Columns)</span>
+                      </div>
+                      <div style="display:flex; justify-content:space-between;">
+                        <span style="color:#888;">Dominant Rule:</span>
+                        <span id="manual-save-dominant" style="color:#aaaaaa;">CONTINUITY / BRANCHING</span>
+                      </div>
+                    </div>
+
+                    <!-- Iteration Title Field -->
+                    <div style="margin-bottom:8px;">
+                      <label style="display:block; font-size:7.5px; color:#cccccc; margin-bottom:3px; font-weight:500;">ITERATION TITLE:</label>
+                      <input type="text" id="manual-save-name" placeholder="e.g. Compressed Colonnade Entry" style="width:100%; box-sizing:border-box; background:#111111; border:1px solid #444444; color:#ffffff; font-size:8px; padding:5px 8px; border-radius:3px; outline:none; font-family:'Space Mono', monospace;">
+                    </div>
+
+                    <!-- Design Notes Field -->
+                    <div style="margin-bottom:10px;">
+                      <label style="display:block; font-size:7.5px; color:#cccccc; margin-bottom:3px; font-weight:500;">DESIGN NOTES (OPTIONAL):</label>
+                      <textarea id="manual-save-notes" rows="2" placeholder="Describe specific spatial traits, proportions, or observations..." style="width:100%; box-sizing:border-box; background:#111111; border:1px solid #444444; color:#ffffff; font-size:8px; padding:5px 8px; border-radius:3px; outline:none; font-family:'Space Mono', monospace; resize:vertical;"></textarea>
+                    </div>
+
+                    <!-- Save Action Button -->
+                    <button type="button" id="btn-save-manual-iteration" class="btn btn-header-cyan" style="width:100%; justify-content:center; padding:7px 10px; font-size:8px; font-weight:700; letter-spacing:0.5px; background:#000000; border:1px solid #00ffff; color:#00ffff; cursor:pointer; border-radius:3px; transition:all 0.2s;" onclick="saveCurrentManualIteration()">
+                      💾 SAVE MANUAL ITERATION TO LIBRARY
+                    </button>
+
+                    <!-- Save Confirmation Status Alert -->
+                    <div id="manual-save-alert" style="display:none; margin-top:10px; padding:8px; background:rgba(0,255,255,0.06); border:1px solid rgba(0,255,255,0.3); border-radius:3px; font-size:7.5px; line-height:1.4;">
+                    </div>
+
+                    <!-- Quick Navigation Button -->
+                    <button type="button" class="btn btn-header-outline" style="width:100%; justify-content:center; margin-top:8px; padding:4px 8px; font-size:7.5px; color:#aaaaaa;" onclick="switchWorkspaceTab('library')">
+                      VIEW IN ITERATION LIBRARY →
+                    </button>
+                  </div>
+                </div>
+                <!-- END SUBTAB 2 -->
+
+              </div>
+            </details>
+
+            <!-- FORM DNA VECTOR READOUT -->
+            <div class="form-dna-box">
+              <div class="dna-box-header">FORM DNA VECTOR (C / W / B)</div>
+              <div class="dna-vector-code" id="readout-form-dna">0 / 0 / 0</div>
+              <div class="dna-principles-row">
+                <div>DOMINANT: <span id="readout-dominant-principle" class="val-white">CONTINUITY</span></div>
+                <div>SECONDARY: <span id="readout-secondary-principle" class="val-white">WHIPLASH</span></div>
+              </div>
+            </div>
+
+            <!-- DESIGNER CHANGES DELTA PANEL -->
+            <div id="designer-changes-panel" class="cyan-border-box" style="display:none; margin-top:6px;">
+              <div class="box-title cyan">DESIGNER CHANGES (DELTA)</div>
+              <div id="designer-changes-list" style="font-family:'Space Mono', monospace; font-size:8.5px; color:#b0b0b0; display:flex; flex-direction:column; gap:2px;">
+                <div>No changes made yet.</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB CONTENT 2: GEOMETRIC METRICS & VALIDATION -->
+      <div id="maintab-left-metrics" class="sidebar-main-tab-content">
+        <div class="sidebar-card cyan-accent">
+          <div class="sidebar-card-header">
+            <div class="card-header-titles">
+              <h2 class="sidebar-title cyan">METRICS & RULE VALIDATION</h2>
+              <p class="sidebar-subtitle">Post-transformation spatial readouts & rule checks.</p>
+            </div>
+          </div>
+
+          <!-- SUB TABS INSIDE METRICS -->
+          <div class="sidebar-sub-tabbar">
+            <button class="sub-tab-btn active" onclick="switchSidebarSubTab('left', 'effects', this)">EFFECTS</button>
+            <button class="sub-tab-btn" onclick="switchSidebarSubTab('left', 'measurements', this)">METRICS</button>
+            <button class="sub-tab-btn" onclick="switchSidebarSubTab('left', 'rules', this)">RULES</button>
+          </div>
+
+          <div class="sidebar-card-body">
+            <!-- TAB 1: GEOMETRIC EFFECTS -->
+            <div id="subtab-left-effects" class="subtab-content active">
+              <div class="readout-box-effects-grid" id="domain-b-spatial-effects-readout">
+                <div class="effect-chip">Vertices: <span id="effect-affected-pct">0%</span></div>
+                <div class="effect-chip">Max Disp: <span id="effect-max-disp">0.0 ft</span></div>
+                <div class="effect-chip">Width: <span id="effect-width-change">+0%</span></div>
+                <div class="effect-chip">Height: <span id="effect-height-change">+0%</span></div>
+                <div class="effect-chip">Depth: <span id="effect-depth-change">+0%</span></div>
+              </div>
+            </div>
+
+            <!-- TAB 2: READ-ONLY MEASUREMENTS -->
+            <div id="subtab-left-measurements" class="subtab-content">
+              <div class="measurements-grid" id="readonly-measurements-grid">
+                <div class="meas-item"><span>Continuity Strength:</span> <span id="m-cont-str" class="val-white">0%</span></div>
+                <div class="meas-item"><span>Branch Count:</span> <span id="m-branch-cnt" class="val-white">0</span></div>
+                <div class="meas-item"><span>Hierarchy Depth:</span> <span id="m-branch-depth" class="val-white">1</span></div>
+                <div class="meas-item"><span>Curvature Strength:</span> <span id="m-whip-str" class="val-white">0%</span></div>
+                <div class="meas-item"><span>Inflection Count:</span> <span id="m-whip-inf" class="val-white">0</span></div>
+                <div class="meas-item"><span>Merge Count:</span> <span id="m-merge-cnt" class="val-white">0</span></div>
+                <div class="meas-item"><span>Void Ratio:</span> <span id="m-void-ratio" class="val-white">0%</span></div>
+                <div class="meas-item"><span>Opening Count:</span> <span id="m-open-cnt" class="val-white">0</span></div>
+                <div class="meas-item"><span>Added Elements:</span> <span id="m-growth-cnt" class="val-white">0</span></div>
+              </div>
+            </div>
+
+            <!-- TAB 3: RULE VALIDATION STATUS -->
+            <div id="subtab-left-rules" class="subtab-content">
+              <div class="validation-list" id="rule-validation-list">
+                <div class="val-item"><span class="val-rule">01 CONTINUITY:</span> <span id="val-rule-cont" class="val-pass">✓ CONNECTED FLOW</span></div>
+                <div class="val-item"><span class="val-rule">02 BRANCHING:</span> <span id="val-rule-branch" class="val-pass">✓ PARENT ATTACHED</span></div>
+                <div class="val-item"><span class="val-rule">03 WHIPLASH:</span> <span id="val-rule-whip" class="val-pass">✓ CONTINUOUS INFLECTION</span></div>
+                <div class="val-item"><span class="val-rule">04 MERGING:</span> <span id="val-rule-merge" class="val-pass">✓ PRECONDITION MET</span></div>
+                <div class="val-item"><span class="val-rule">05 POS / NEG:</span> <span id="val-rule-posneg" class="val-pass">✓ VOID INTERLOCK</span></div>
+                <div class="val-item"><span class="val-rule">06 GROWTH:</span> <span id="val-rule-growth" class="val-pass">✓ ADJACENCY MAINTAINED</span></div>
+              </div>
+            </div>
+
+            <!-- VIEW MATHEMATICAL REASONING BUTTON -->
+            <button id="btn-view-reasoning" class="btn btn-header-cyan" style="width:100%; margin-top:6px;">
+              VIEW MATHEMATICAL REASONING
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB CONTENT 3: LINEAGE TREE -->
+      <div id="maintab-left-lineage" class="sidebar-main-tab-content">
+        <div class="sidebar-card">
+          <div class="sidebar-card-header">
+            <div class="card-header-titles">
+              <h2 class="sidebar-title">GENERATION HISTORY</h2>
+              <p class="sidebar-subtitle">Multi-generation lineage tree descending from seed.</p>
+            </div>
+          </div>
+          <div class="sidebar-card-body">
+            <div id="lineage-history-tree" class="lineage-tree">
+              <div class="lineage-placeholder-msg">
+                Import a Rhino .3dm file or load a sample seed to establish Generation 0 seed.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- CENTER VIEWPORT & POPULATION TAB WORKSPACE -->
+    <main id="center-viewport-wrapper">
+
+      <!-- WORKSPACE TAB BAR -->
+      <div class="center-workspace-tabbar">
+        <button id="tab-btn-viewport" class="workspace-tab-btn active" onclick="switchWorkspaceTab('viewport')">
+          3D SEED VIEWPORT
+        </button>
+
+        <button id="tab-btn-population" class="workspace-tab-btn" onclick="switchWorkspaceTab('population')">
+          GENERATED POPULATION (<span id="pop-count-badge">0</span>)
+        </button>
+
+        <button id="tab-btn-library" class="workspace-tab-btn" onclick="switchWorkspaceTab('library')">
+          ITERATION LIBRARY (<span id="lib-tab-count-badge">0</span>)
+        </button>
+      </div>
+
+      <!-- TAB 1: 3D SEED VIEWPORT -->
+      <div id="tab-content-viewport" class="workspace-tab-content active">
+        <!-- VIEWPORT TOP-LEFT OVERLAY TAGS -->
+        <div class="vp-overlay top-left">
+          <div class="vp-tag-box" id="vp-gen-tag">GENERATION 0: ORIGINAL RHINO SEED</div>
+          <div class="vp-pill-btn" id="vp-proj-pill">PROJECTION: PERSPECTIVE</div>
+        </div>
+
+        <!-- VIEWPORT TOP-RIGHT OVERLAY PILL TOOLBAR -->
+        <div class="vp-overlay top-right">
+          <div class="vp-toolbar-group">
+            <span class="vp-group-label">PROJECTION</span>
+            <div class="btn-group-segmented">
+              <button class="btn-vp-pill" data-proj="FRONT">FRONT</button>
+              <button class="btn-vp-pill" data-proj="TOP">TOP</button>
+              <button class="btn-vp-pill" data-proj="RIGHT">RIGHT</button>
+              <button class="btn-vp-pill active" data-proj="ISO">3D ISO</button>
+            </div>
+          </div>
+
+          <div class="vp-toolbar-group">
+            <span class="vp-group-label">COMPARISON</span>
+            <div class="btn-group-segmented">
+              <button id="btn-comp-seed" class="btn-vp-pill" onclick="switchVisualComparisonMode('SEED')">SEED</button>
+              <button id="btn-comp-iter" class="btn-vp-pill active" onclick="switchVisualComparisonMode('ITERATION')">ITERATION</button>
+            </div>
+          </div>
+          <div class="vp-toolbar-group" style="margin-top: 6px;">
+            <span class="vp-group-label">CAPTURE</span>
+            <div class="btn-group-segmented">
+              <button id="btn-export-png" class="btn-vp-pill" onclick="exportViewportToPNG()">PNG IMAGE</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEWPORT BOTTOM-LEFT FLOATING DIAGNOSTICS CARD (REMOVED) -->
+        <div class="vp-overlay bottom-left" style="display: none !important;">
+          <div class="vp-diag-card" id="vp-diag-card">
+            <div class="vp-card-title">Seed File: <span id="info-filename">compressed.3dm</span></div>
+            <div class="vp-card-row">FILE READ: <span id="diag-read" class="val-white">OK</span> | EXTRACTED: <span id="diag-ext" class="val-white">OK</span> | RENDERED: <span id="diag-ren" class="val-white">OK</span></div>
+            <div class="vp-card-row">Objects: <span id="info-meshes">161</span> | SubD: <span id="info-subds">4</span> | Rendered: <span id="info-rendered">157</span></div>
+            <div class="vp-card-row">3D Bounds: <span id="info-bounds">X:-10.1 to 118.0 Y:-0.6 to 12.4 Z:-0.3 to 37.7</span></div>
+            <div class="vp-card-row">Rhino Units: <span id="info-units">mm</span> | Projection: <span id="info-proj">PERSPECTIVE</span></div>
+            <div class="vp-card-row status-green">Status: <span id="info-status">IMPORTED: 157/161 OBJECTS VISIBLE</span></div>
+          </div>
+
+          <div class="vp-status-bar-pill">
+            <span class="pulse-dot"></span> SUBD 3D WEBGL IMPORTER DIAGNOSTIC MODE — Active
+          </div>
+        </div>
+
+        <!-- THREE.JS CANVAS CONTAINER -->
+        <div id="webgl-container"></div>
+      </div>
+
+      <!-- TAB 2: GENERATED POPULATION FULL GRID VIEW -->
+      <div id="tab-content-population" class="workspace-tab-content">
+        <div class="population-tab-header">
+          <div class="pop-header-title-group">
+            <h3 id="population-tab-title" class="pop-title">GENERATION 1 — CONTROLLED STUDY</h3>
+            <p id="population-tab-subtitle" class="pop-subtitle">Displaying all generated variations side-by-side without scrolling.</p>
+          </div>
+          <div class="pop-header-actions">
+            <button id="btn-back-to-3d" class="btn btn-header-cyan" onclick="switchWorkspaceTab('viewport')">RETURN TO 3D VIEWPORT</button>
+          </div>
+        </div>
+
+        <!-- FULL WORKSPACE MULTI-COLUMN POPULATION GRID -->
+        <div id="population-cards-full-grid" class="population-full-grid">
+          <div class="pop-empty-state">
+            <p>No iterations generated yet. Configure Domain B parameters & click <strong>GENERATE CONTROLLED ITERATIONS</strong> in the right sidebar to generate design variations.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: ITERATION LIBRARY -->
+      <div id="tab-content-library" class="workspace-tab-content">
+        <div class="population-tab-header">
+          <div class="pop-header-title-group">
+            <h3 class="pop-title">ITERATION LIBRARY — CURATED DESIGN ALTERNATIVES</h3>
+            <p class="pop-subtitle">Your saved and exported design iterations.</p>
+          </div>
+          <div class="pop-header-actions">
+            <button class="btn btn-header-cyan" onclick="switchWorkspaceTab('viewport')">RETURN TO 3D VIEWPORT</button>
+          </div>
+        </div>
+
+        <div class="library-toolbar" style="margin: 0 20px 20px 20px; border: 1px solid #444; background: #111;">
+          <div class="toolbar-group">
+            <span class="ctrl-label">Filter Principle:</span>
+            <select id="lib-filter-principle" class="select-input">
+              <option value="ALL">ALL PRINCIPLES</option>
+              <option value="CONTINUITY">CONTINUITY</option>
+              <option value="BRANCHING">BRANCHING</option>
+              <option value="WHIPLASH">WHIPLASH CURVATURE</option>
+              <option value="MERGING">MERGING SURFACES</option>
+              <option value="POSITIVE_NEGATIVE">POSITIVE / NEGATIVE</option>
+              <option value="GROWTH">GROWTH / AGGREGATION</option>
+            </select>
+          </div>
+
+          <div class="toolbar-group">
+            <span class="ctrl-label">Filter Gen:</span>
+            <select id="lib-filter-gen" class="select-input">
+              <option value="ALL">ALL GENERATIONS</option>
+            </select>
+          </div>
+
+          <div class="toolbar-group">
+            <span class="ctrl-label">Sort By:</span>
+            <select id="lib-sort-by" class="select-input">
+              <option value="NEWEST">Newest</option>
+              <option value="HIGHEST_IDENTITY">Highest Identity</option>
+              <option value="HIGHEST_DIFFERENCE">Highest Difference</option>
+              <option value="PRINCIPLE">Principle</option>
+              <option value="GENERATION">Generation</option>
+            </select>
+          </div>
+
+          <button id="btn-toggle-favorites" class="btn btn-fav-toggle">FAVORITES ONLY</button>
+
+          <div class="toolbar-actions">
+            <button id="btn-export-library" class="btn btn-export">EXPORT LIBRARY</button>
+            <label class="btn btn-import-json">
+              IMPORT LIBRARY
+              <input type="file" id="import-json-input" accept=".json" style="display:none;">
+            </label>
+          </div>
+        </div>
+
+        <div id="library-cards-grid" class="library-cards-grid"></div>
+      </div>
+
+    </main>
+
+    <!-- RIGHT SIDEBAR: DOMAIN C & SYSTEM DIAGNOSTICS (TABBED) -->
+    <aside id="right-sidebar" class="app-sidebar right-sidebar">
+
+      <!-- TOP SIDEBAR TAB BAR -->
+      <div class="sidebar-main-tabbar">
+        <button class="sidebar-main-tab-btn active" onclick="switchMainSidebarTab('right', 'generator', this)">
+          ITERATIONS
+        </button>
+        <button class="sidebar-main-tab-btn" onclick="switchMainSidebarTab('right', 'diagnostics', this)">
+          DIAGNOSTICS
+        </button>
+      </div>
+
+      <!-- TAB CONTENT 1: DOMAIN C GENERATOR -->
+      <div id="maintab-right-generator" class="sidebar-main-tab-content active">
+        <div class="sidebar-card cyan-accent">
+          <div class="sidebar-card-header">
+            <div class="card-header-titles">
+              <h2 class="sidebar-title cyan">DOMAIN C — GENERATIVE ITERATIONS</h2>
+              <p class="sidebar-subtitle">Generate & study controlled design alternatives.</p>
+            </div>
+          </div>
+
+          <div class="sidebar-card-body">
+            <!-- READOUT STATUS BLOCK -->
+            <div class="readout-box-domain-c">
+              <div>Typology: <span id="c-readout-typology" class="highlight-cyan">Vertical Void Lobby</span></div>
+              <div>Parent: <span id="c-readout-parent" class="highlight-cyan">Rhino Seed</span></div>
+              <div>Principle: <span id="c-readout-principle" class="highlight-cyan">Whiplash Curvature</span></div>
+              <div>Target: <span id="c-readout-target" class="highlight-white">Zone D (Regional)</span></div>
+              <div>Identity Min: <span id="c-readout-identity" class="highlight-gold">75%</span></div>
+            </div>
+
+            <!-- POPULATION SIZE SELECTOR -->
+            <div class="control-row" style="margin-top:4px;">
+              <span class="ctrl-label">Pop Size:</span>
+              <div class="btn-group-segmented" id="group-pop-size">
+                <button class="btn-segment" data-val="4">4</button>
+                <button class="btn-segment active" data-val="6">6</button>
+                <button class="btn-segment" data-val="8">8</button>
+                <button class="btn-segment" data-val="12">12</button>
+              </div>
+            </div>
+
+            <!-- VARIATION RANGE SELECTOR -->
+            <div class="control-row">
+              <span class="ctrl-label">Variation:</span>
+              <div class="btn-group-segmented" id="group-variation-range">
+                <button class="btn-segment" data-val="LOW">Low</button>
+                <button class="btn-segment active" data-val="MEDIUM">Med</button>
+                <button class="btn-segment" data-val="HIGH">High</button>
+              </div>
+            </div>
+
+
+            <!-- GENERATE BUTTON -->
+            <button id="btn-generate-iterations" class="btn btn-generate" style="margin-top:6px;">
+              GENERATE CONTROLLED ITERATIONS
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB CONTENT 2: SYSTEM DIAGNOSTICS -->
+      <div id="maintab-right-diagnostics" class="sidebar-main-tab-content">
+        <div class="sidebar-card gold-accent">
+          <div class="sidebar-card-header">
+            <div class="card-header-titles">
+              <h2 class="sidebar-title gold">SYSTEM DIAGNOSTICS</h2>
+              <p class="sidebar-subtitle">Rhino file, WebGL renderer & automated tests.</p>
+            </div>
+          </div>
+
+          <!-- CARD SUB-TABS -->
+          <div class="sidebar-sub-tabbar">
+            <button class="sub-tab-btn active" onclick="switchSidebarSubTab('right', 'file', this)">RHINO FILE</button>
+            <button class="sub-tab-btn" onclick="switchSidebarSubTab('right', 'render', this)">RENDER PIPELINE</button>
+            <button class="sub-tab-btn" onclick="switchSidebarSubTab('right', 'tests', this)">15-PARAM TESTS</button>
+          </div>
+
+          <div class="sidebar-card-body">
+            <!-- TAB 1: RHINO FILE DIAGNOSTICS -->
+            <div id="subtab-right-file" class="subtab-content active">
+              <div class="diag-table-box">
+                <div class="diag-table-row"><span>1 FILE SIZE:</span><span id="d-filesize" class="val-gold">740736 bytes</span></div>
+                <div class="diag-table-row"><span>2 FILE BYTES:</span><span id="d-filebytes" class="val-gold">740736</span></div>
+                <div class="diag-table-row"><span>3 RHINO3DM INITIALIZED:</span><span id="d-init" class="val-green">YES</span></div>
+                <div class="diag-table-row"><span>4 FILE3DM CREATED:</span><span id="d-created" class="val-green">YES</span></div>
+                <div class="diag-table-row"><span>5 OBJECT TABLE FOUND:</span><span id="d-table" class="val-green">YES</span></div>
+                <div class="diag-table-row"><span>6 RAW OBJECT COUNT:</span><span id="d-rawcount" class="val-white">161</span></div>
+                <div class="diag-table-row"><span>7 GEOMETRY RETRIEVED:</span><span id="d-retrieved" class="val-white">161</span></div>
+                <div class="diag-table-row"><span>8 NULL GEOMETRY:</span><span id="d-nullgeom" class="val-white">0</span></div>
+                <div class="diag-table-row"><span>9 ERRORS:</span><span id="d-errors" class="val-green">NONE</span></div>
+              </div>
+              
+              <div class="gold-border-box" style="margin-top:6px;">
+                <div class="box-title gold">RAW IMPORT DETAILS</div>
+                <div class="diag-table-row"><span>FILE NAME:</span><span id="raw-filename" class="val-gold">compressed.3dm</span></div>
+                <div class="diag-table-row"><span>FILE SIZE:</span><span id="raw-filesize" class="val-gold">740736 bytes</span></div>
+                <div class="diag-table-row"><span>DOCUMENT:</span><span id="raw-doc" class="val-green">VALID</span></div>
+                <div class="diag-table-row"><span>OBJECT TABLE:</span><span id="raw-objtable" class="val-green">FOUND</span></div>
+              </div>
+
+              <div class="gold-border-box" style="margin-top:6px;">
+                <div class="box-title gold">SUBD CONVERSION DIAGNOSTICS</div>
+                <div id="subd-diag-rows" style="font-family:'Space Mono', monospace; font-size:8.5px; color:#b0b0b0; line-height:1.6; white-space:pre-line;">
+                  SUBD 1: vertices 0 | faces 0 | rendered NO
+                  SUBD 2: vertices 0 | faces 0 | rendered NO
+                  SUBD 3: vertices 0 | faces 0 | rendered NO
+                  SUBD 4: vertices 0 | faces 0 | rendered NO
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 2: RENDER PIPELINE -->
+            <div id="subtab-right-render" class="subtab-content">
+              <div class="cyan-border-box">
+                <div class="box-title cyan">RENDER PIPELINE (THREE.JS)</div>
+                <div class="diag-table-row"><span>RHINO OBJECTS RECEIVED:</span><span id="p-recv" class="val-white">161</span></div>
+                <div class="diag-table-row"><span>OBJECTS CONVERTED:</span><span id="p-conv" class="val-white">157</span></div>
+                <div class="diag-table-row"><span>ADDED TO THREE.JS:</span><span id="p-added" class="val-white">157</span></div>
+                <div class="diag-table-row"><span>FAILED CONVERSIONS:</span><span id="p-failed" class="val-white">4</span></div>
+                <div class="diag-table-row"><span>THREEJS MODEL CHILDREN:</span><span id="p-children" class="val-white">157</span></div>
+                <div class="diag-table-row"><span>THREEJS BOUNDING BOX:</span><span id="p-bbox" class="val-green">VALID</span></div>
+                <div class="diag-table-row"><span>CAMERA FIT:</span><span id="p-camfit" class="val-green">YES</span></div>
+                <div class="diag-table-row"><span>RENDER STATUS:</span><span id="p-status" class="val-green">SUCCESS</span></div>
+              </div>
+            </div>
+
+            <!-- TAB 3: 15-PARAM TEST SUITE -->
+            <div id="subtab-right-tests" class="subtab-content">
+              <div class="gold-border-box" id="diag-tests-panel">
+                <div class="box-title gold" style="display:flex; justify-content:space-between; align-items:center;">
+                  <span>15-PARAMETER DIAGNOSTIC SUITE</span>
+                  <button id="btn-run-diagnostics" class="btn-import-compact" style="font-size:8px; padding:2px 6px;" onclick="runDomainBDiagnostics()">RUN TESTS</button>
+                </div>
+                <div id="diag-tests-grid" class="diag-tests-grid">
+                  <div class="diag-test-item"><span class="test-name">Affected Region</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Affected Length</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Branch Count</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Hierarchy Depth</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Continuity (G0/G1/G2)</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Lateral Disp</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Inflection Count</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Merge Count</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Merge Radius</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Opening Count</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Opening Scale</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Enclosure Ratio</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Repetition Count</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Scale Variation</span><span class="test-status pass">PASS</span></div>
+                  <div class="diag-test-item"><span class="test-name">Growth Distance</span><span class="test-status pass">PASS</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </aside>  </div>
+        </div>
+      </div>
+    </aside>
+
+
+  </div>
+
+  <!-- RIGHT DOCKED DESIGN REASONING PANEL -->
+  <div id="design-reasoning-panel" class="reasoning-side-panel" style="display:none;">
+    <div class="reasoning-header">
+      <h2>MATHEMATICAL REASONING</h2>
+      <button id="btn-close-reasoning" class="btn-icon">✕</button>
+    </div>
+
+    <!-- CARD 1: PRINCIPLE & INTENT -->
+    <div class="reasoning-card">
+      <div class="rs-label">ART NOUVEAU PRINCIPLE</div>
+      <div id="rs-principle" class="rs-value highlight-cyan">WHIPLASH CURVATURE</div>
+      <div id="rs-intent" class="rs-value-body" style="margin-top:3px; font-style:italic;">"Controlled curvature acceleration..."</div>
+    </div>
+
+    <!-- CARD 2: FORM DNA & SCORES -->
+    <div class="reasoning-card">
+      <div class="rs-label">FORM DNA & SEED IDENTITY</div>
+      <div id="rs-quantitative-input" class="rs-value-body highlight-cyan" style="font-family:monospace; font-weight:700;">C:0% | B:0% | W:0% | M:0% | V:0% | G:0%</div>
+      <div class="reasoning-grid-2" style="margin-top:4px;">
+        <div class="rs-score-box">
+          <span class="rs-score-title">SEED IDENTITY</span>
+          <span id="rs-identity-score" class="rs-score-val highlight-gold">100%</span>
+        </div>
+        <div class="rs-score-box">
+          <span class="rs-score-title">PARENT SIMILARITY</span>
+          <span id="rs-parent-sim-score" class="rs-score-val highlight-cyan">100%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 3: MEASURED METRICS & EFFECT -->
+    <div class="reasoning-card">
+      <div class="rs-label">MEASURED METRICS & ARCHITECTURAL EFFECT</div>
+      <div id="rs-measured-output" class="rs-value-body highlight-gold">Height: +0% | Width: +0% | Verticality: 1.0</div>
+      <div id="rs-effect" class="rs-value highlight-white" style="margin-top:3px; font-size:9px;">Rule-based Shape Grammar Transformation</div>
+    </div>
+
+    <!-- CARD 4: REASONING RATIONALE -->
+    <div class="reasoning-card">
+      <div class="rs-label">WHY DID THIS FORM CHANGE?</div>
+      <div id="rs-why-reasoning" class="why-log-container">
+        "Transformation executed under Art Nouveau shape grammar rules."
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVE SELECTION FLOATING READOUT BADGE -->
+  <div id="selected-iter-readout" class="active-selection-badge" style="display:none;"></div>
+
+
+
+  <!-- MODAL 3: LIBRARY DETAIL VIEW OVERLAY -->
+  <div id="library-detail-modal-overlay" class="modal-overlay" style="display:none;">
+    <div class="modal-box modal-box-detail">
+      <div class="modal-header">
+        <h2 id="det-title">SAVED ITERATION DESIGN RECIPE & GEOMETRY DETAIL</h2>
+        <button id="btn-close-detail" class="btn-icon">✕</button>
+      </div>
+
+      <div class="detail-split-layout">
+        <!-- LEFT: INTERACTIVE 3D CANVAS -->
+        <div class="detail-3d-wrapper">
+          <div id="detail-3d-container" class="detail-3d-container"></div>
+          <div class="detail-3d-hint">Orbit, Pan, Zoom to inspect 3D geometry</div>
+        </div>
+
+        <!-- RIGHT: METADATA & DESIGN RECIPE -->
+        <div class="detail-info-panel">
+          <div class="reasoning-card">
+            <div class="rs-label">ART NOUVEAU PRINCIPLE</div>
+            <div id="det-principle" class="rs-value highlight-cyan">WHIPLASH CURVATURE</div>
+          </div>
+
+          <div class="reasoning-card">
+            <div class="rs-label">QUALITATIVE INTENT</div>
+            <div id="det-intent" class="rs-value-body">"Create controlled acceleration..."</div>
+          </div>
+
+          <div class="reasoning-grid-2">
+            <div class="rs-score-box">
+              <span class="rs-score-title">SEED IDENTITY</span>
+              <span id="det-seed-id" class="rs-score-val highlight-gold">79%</span>
+            </div>
+            <div class="rs-score-box">
+              <span class="rs-score-title">PARENT SIMILARITY</span>
+              <span id="det-parent-sim" class="rs-score-val highlight-cyan">88%</span>
+            </div>
+          </div>
+
+          <div class="reasoning-card">
+            <div class="rs-label">LINEAGE PATH</div>
+            <div id="det-lineage-path" class="rs-value-body highlight-white">Rhino Seed → G1-03 → G2-01</div>
+          </div>
+
+          <div class="reasoning-card">
+            <div class="rs-label">RULE RECIPE SEQUENCE</div>
+            <div id="det-recipe-seq" class="rs-value-body highlight-cyan">01 CARVE → 02 WRAP → 03 BEND → 04 RISE</div>
+          </div>
+
+          <div class="reasoning-card">
+            <div class="rs-label">MEASURED OUTPUTS</div>
+            <div id="det-measured-out" class="rs-value-body highlight-gold">Height: +19.2% | Width: -7.1% | Verticality: +0.24</div>
+          </div>
+
+          <div class="reasoning-card">
+            <div class="rs-label">WHY DID THIS FORM CHANGE?</div>
+            <div id="det-why-text" class="why-log-container"></div>
+          </div>
+
+          <div class="detail-actions-row">
+            <button id="det-btn-use-parent" class="btn btn-generate">[ USE AS PARENT FOR NEXT GEN ]</button>
+            <button id="det-btn-delete" class="btn btn-reset">[ REMOVE FROM LIBRARY ]</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  <!-- MODAL 4: EXPLAINABLE WHY REASONING MODAL OVERLAY -->
+  <div id="modal-why-reasoning" class="modal-overlay" style="display:none;">
+    <div class="modal-box modal-box-detail" style="max-width:750px;">
+      <div class="modal-header">
+        <h2 id="why-modal-title">🔬 EXPLAINABLE ART NOUVEAU FORM REASONING</h2>
+        <button id="btn-close-why-modal" class="btn-icon" onclick="document.getElementById('modal-why-reasoning').style.display='none'">✕</button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div class="reasoning-card" style="border:1px solid #555555;">
+          <div class="rs-label">PROPOSAL IDENTIFICATION & STRATEGY</div>
+          <div id="why-prop-title" class="rs-value highlight-gold" style="font-size:12px;">AUTO-02 — BRANCHING-LED</div>
+          <div id="why-narrative-summary" class="rs-value-body" style="margin-top:4px; font-size:10px; color:#b0b0b0;">Analyzing seed geometric opportunities...</div>
+        </div>
+
+        <div class="reasoning-card">
+          <div class="rs-label">ART NOUVEAU DNA BREAKDOWN [C / B / W / M / V / G]</div>
+          <div id="why-dna-code" class="rs-value highlight-cyan" style="font-size:13px; letter-spacing:1.5px; font-family:'Space Mono', monospace;">68 / 86 / 32 / 41 / 26 / 58</div>
+          <div id="why-dna-details" class="rs-value-body" style="margin-top:4px; display:grid; grid-template-columns:1fr 1fr; gap:2px 8px; font-size:9px;">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <div class="reasoning-card">
+          <div class="rs-label">RULE LOGIC CHECKLIST</div>
+          <div id="why-rule-checklist" class="validation-list" style="margin-top:4px;">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <div class="reasoning-card">
+          <div class="rs-label">GEOMETRIC EFFECT MEASUREMENTS</div>
+          <div id="why-geom-effects" class="measurements-grid" style="margin-top:4px;">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <div class="reasoning-card">
+          <div class="rs-label">ARCHITECTURAL DESIGN REASONING</div>
+          <div id="why-design-reasoning-text" class="rs-value-body" style="font-size:9.5px; color:#b0b0b0; line-height:1.4;">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:4px;">
+          <button id="why-btn-refine" class="btn btn-generate" style="font-size:10px; padding:6px 12px;" onclick="refineCurrentWhyProposal()">[ ✏️ REFINE THIS OUTCOME ]</button>
+          <button class="btn btn-header-outline" style="font-size:10px; padding:6px 12px;" onclick="document.getElementById('modal-why-reasoning').style.display='none'">CLOSE</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script>
+    function toggleSidebarCard(cardId) {
+      const card = document.getElementById(cardId);
+      const icon = document.getElementById('toggle-' + cardId);
+      if (!card) return;
+      if (card.style.display === 'none') {
+        card.style.display = 'block';
+        if (icon) icon.textContent = '−';
+      } else {
+        card.style.display = 'none';
+        if (icon) icon.textContent = '+';
+      }
+    }
+
+    function switchMainSidebarTab(side, tabName, btnEl) {
+      const parentSidebar = btnEl.closest('.app-sidebar');
+      if (!parentSidebar) return;
+      
+      parentSidebar.querySelectorAll('.sidebar-main-tab-btn').forEach(btn => btn.classList.remove('active'));
+      parentSidebar.querySelectorAll('.sidebar-main-tab-content').forEach(content => content.classList.remove('active'));
+      
+      btnEl.classList.add('active');
+      const target = document.getElementById('maintab-' + side + '-' + tabName);
+      if (target) target.classList.add('active');
+    }
+
+    function switchSidebarSubTab(side, tabName, btnEl) {
+      const parentCard = btnEl.closest('.sidebar-card');
+      if (!parentCard) return;
+      
+      parentCard.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
+      parentCard.querySelectorAll('.subtab-content').forEach(content => content.classList.remove('active'));
+      
+      btnEl.classList.add('active');
+      const target = document.getElementById('subtab-' + side + '-' + tabName);
+      if (target) target.classList.add('active');
+    }
+  </script>
+  <!-- ACADEMIC METADATA FOOTER BAR -->
+  <footer class="app-academic-footer">
+    <div class="footer-line"></div>
+    <div class="footer-content">
+      <span class="footer-node">●</span>
+      <span class="footer-text">FALL 2026 | FAU SOA | ASSIGNMENT_02 | PROFESSOR SMARO KATSANGELOU | ANA BORREGO, TARYN MASCIOLETTI, KARYNA SHKURKO</span>
+    </div>
+  </footer>
+
+  <script src="branchingEngine.js?v=20261001_v5"></script>
+  <script src="generator.js?v=20261001_v5"></script>
+  <script src="app.js?v=20261001_v5"></script>
+</body>
+</html>
