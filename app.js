@@ -1495,12 +1495,12 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
     };
 
     // Column grid layout across length and width:
-    // Bay 1: X = minX + 0.17 * spanX (~ -5.0)
-    // Bay 2: X = minX + 0.35 * spanX (~ 0.5)
+    // Bay 1: X = minX + 0.17 * spanX (~ -4.9)
+    // Bay 2: X = minX + 0.325 * spanX (~ -0.2)
     // Row Front: Z = centerZ + 0.22 * spanZ (~ -2.6)
     // Row Rear:  Z = centerZ - 0.22 * spanZ (~ -7.0)
     const bayX1 = minX + 0.17 * spanX;
-    const bayX2 = minX + 0.35 * spanX;
+    const bayX2 = minX + 0.325 * spanX;
     const rowZ1 = centerZ + 0.22 * spanZ;
     const rowZ2 = centerZ - 0.22 * spanZ;
 
@@ -1520,9 +1520,9 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
       let normZ = (z - centerZ) / (spanZ * 0.5 + 0.001);
 
       // ─── 1. STRUCTURAL COLUMN-LIKE BRANCHES (UNDERSIDE EXTENSION TO FLOOR)
-      // The lower body of the primary form (cantilever undercroft: uX <= 0.48, y <= 8.8)
+      // The lower body of the primary form (cantilever undercroft: x <= 1.8, y <= 8.8)
       // divides into secondary column branches that grow downward to touch the ground plinth.
-      if (uX <= 0.48 && y <= 8.8) {
+      if (x <= 1.8 && y <= 8.8) {
         let maxColW = 0;
         let bestDx = 0, bestDz = 0;
 
@@ -1531,9 +1531,9 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
           let ndx = x - node.x;
           let ndz = z - node.z;
           let dist = Math.sqrt(ndx * ndx + ndz * ndz);
-          let rCol = 2.2;
+          let rCol = 2.1;
           if (dist < rCol) {
-            let tDist = Math.max(0, dist - 0.4) / (rCol - 0.4);
+            let tDist = dist / rCol;
             let w = 0.5 * (1.0 + Math.cos(tDist * Math.PI));
             if (w > maxColW) {
               maxColW = w;
@@ -1544,51 +1544,51 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
         }
 
         if (maxColW > 0.001) {
-          let depthF = smoothstep(8.5, 4.9, y);
+          let depthF = smoothstep(8.5, 4.4, y);
           let targetFloor = minY + 0.04;
           let drop = (y - targetFloor);
 
           // Full ground connection: column firmly meets floor at high B
-          let reach = Math.min(1.0, B * 1.35);
+          let reach = Math.min(1.0, B * 1.50);
           let dY_col = -reach * drop * maxColW * depthF;
           out[i+1] += dY_col;
 
           // Column footing & capital flaring:
           let currY = y + dY_col;
-          let nearFloor = smoothstep(2.5, targetFloor, currY);
+          let nearFloor = smoothstep(2.6, targetFloor, currY);
           out[i] += bestDx * 0.35 * nearFloor * maxColW * B;
           out[i+2] += bestDz * 0.35 * nearFloor * maxColW * B;
         }
 
         // Longitudinal vaulted arches between Bay 1 and Bay 2 (organizing into rooms)
-        if (x > bayX1 && x < bayX2 && y <= 6.5) {
+        if (x > bayX1 && x < bayX2 && y <= 6.8) {
           let tX = (x - bayX1) / (bayX2 - bayX1);
           let archY = Math.sin(Math.PI * tX);
-          let archW = smoothstep(4.8, 6.2, y);
+          let archW = smoothstep(4.5, 6.2, y);
           out[i+1] += B * 1.5 * archY * archW;
         }
 
         // Transverse vaulted arch between front and rear column rows (central gallery aisle)
-        if (z > rowZ2 && z < rowZ1 && y <= 6.5 && uX < 0.45) {
+        if (z > rowZ2 && z < rowZ1 && y <= 6.8 && x < bayX2 + 0.5) {
           let tZ = (z - rowZ2) / (rowZ1 - rowZ2);
           let archZ = Math.sin(Math.PI * tZ);
-          let archW = smoothstep(4.8, 6.2, y);
-          out[i+1] += B * 1.2 * archZ * archW;
+          let archW = smoothstep(4.5, 6.2, y);
+          out[i+1] += B * 1.3 * archZ * archW;
         }
       }
 
       // ─── 2. SLIT CHAMBER DIVISION (UPPER-TO-LOWER STRUCTURAL MULLION BRANCHES)
       // The horizontal slit between upper roof deck and lower floor deck divides into
       // secondary structural mullion piers aligned with the column bays.
-      if (uX <= 0.45 && y >= 8.5 && y <= 11.5) {
+      if (x <= 1.5 && y >= 8.5 && y <= 11.8) {
         for (let c = 0; c < colNodes.length; c++) {
           let node = colNodes[c];
           let ndx = x - node.x;
           let ndz = z - node.z;
           let dist = Math.sqrt(ndx * ndx + ndz * ndz);
-          if (dist < 1.8 && y > 9.8) {
+          if (dist < 1.8 && y > 9.6) {
             let wM = 0.5 * (1.0 + Math.cos((dist / 1.8) * Math.PI));
-            let dY_mull = -B * (y - 9.0) * wM * 0.80;
+            let dY_mull = -B * (y - 9.0) * wM * 0.85;
             out[i+1] += dY_mull;
           }
         }
@@ -1598,42 +1598,49 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
       // Primary roof canopy mass splits into secondary rhythmic ribs.
       if (uY > 0.65) {
         let roofW = smoothstep(0.65, 0.90, uY);
-        let rib = Math.sin(4.0 * Math.PI * uX) * Math.cos(2.0 * Math.PI * uZ);
+        let rib = Math.sin(4.0 * Math.PI * uX) * Math.cos(2.0 * Math.PI * normZ);
         out[i+1] += B * 0.08 * spanY * rib * roofW;
         out[i] += B * 0.04 * spanX * Math.cos(4.0 * Math.PI * uX) * roofW;
       }
 
-      // ─── 4. DOMAIN A TYPOLOGY GRAMMAR MODULATION
-      if (grammar.branchingConstraint === 'VOID_CLEAR') {
-        // Vertical Void: Central atrium void stays soaring and clear; columns frame perimeter galleries
-        if (uX > 0.52 && uX < 0.85 && uY > 0.25) {
-          let voidFrame = Math.sin(Math.PI * (uX - 0.52) / 0.33);
-          out[i+2] += normZ * B * 0.08 * spanZ * voidFrame;
+      // ─── 4. DOMAIN A TYPOLOGY GRAMMAR MODULATION: ALLOW & ENCOURAGE BRANCHING ON NEGATIVE SPACES
+      if (grammar.branchingConstraint === 'VOID_CLEAR' || grammar.branchingConstraint === 'VOID_BRANCH' || typoKey === 'VERTICAL_VOID') {
+        // Vertical Void: Primary form branches into the soaring central atrium void,
+        // extending secondary structural bridges and flying arches across the negative space
+        if (uX > 0.46 && uX < 0.86) {
+          let voidSpan = Math.sin(Math.PI * (uX - 0.46) / 0.40);
+          let tierLevel = Math.sin(3.0 * Math.PI * uY);
+          if (tierLevel > 0 && uY > 0.25 && uY < 0.85) {
+            let bridgeInward = -normZ * B * 0.16 * spanZ * voidSpan * tierLevel;
+            out[i+2] += bridgeInward;
+            out[i+1] += B * 0.10 * spanY * voidSpan * Math.sin(Math.PI * uY);
+          }
         }
       } else if (grammar.branchingConstraint === 'CHOKE_PORTALS') {
-        // Compressed Sequential: Columns frame monumental portal at transition threshold
-        let atChoke = Math.exp(-Math.pow((uX - 0.38) * 9.0, 2));
+        // Compressed Sequential: Columns frame monumental portal at transition threshold negative space
+        let atChoke = Math.exp(-Math.pow((uX - 0.38) * 8.0, 2));
         out[i+1] += B * 0.18 * spanY * atChoke * smoothstep(0.2, 0.6, uY);
-        out[i+2] += normZ * B * 0.12 * spanZ * atChoke;
+        out[i+2] += normZ * B * 0.14 * spanZ * atChoke;
       } else if (grammar.branchingConstraint === 'PERIMETER_BUTTRESS' || grammar.branchingConstraint === 'PERIMETER_ALCOVES') {
-        // Open Hall: Columns act as perimeter buttresses, breaking flanks into intimate alcoves
+        // Open Hall: Columns act as perimeter buttresses, breaking flanks into intimate alcove spaces
         let flankDist = Math.abs(normZ);
-        if (flankDist > 0.4) {
-          let buttressW = smoothstep(0.4, 0.9, flankDist);
-          out[i+2] += normZ * B * 0.14 * spanZ * buttressW * Math.sin(3.0 * Math.PI * uX);
+        if (flankDist > 0.35) {
+          let buttressW = smoothstep(0.35, 0.85, flankDist);
+          out[i+2] += normZ * B * 0.16 * spanZ * buttressW * Math.sin(3.0 * Math.PI * uX);
+          out[i+1] += B * 0.10 * spanY * buttressW * Math.sin(Math.PI * uX);
         }
       } else if (grammar.branchingConstraint === 'TERRACE_CANTILEVERS' || grammar.branchingConstraint === 'GROUND_DIVIDE') {
-        // Terraced Stepped: Columns step progressively with terrace tiers
+        // Terraced Stepped: Branches step down through the vertical negative spaces between terrace plates
         let tierU = (uX * 3.0) % 1.0;
-        out[i+1] -= B * 0.12 * spanY * tierU * smoothstep(0.1, 0.45, uY);
+        out[i+1] -= B * 0.15 * spanY * tierU * smoothstep(0.1, 0.45, uY);
       } else if (grammar.branchingConstraint === 'SECONDARY_AXIAL') {
         // Linear Gallery: Columns form rhythmic enfilade colonnade along longitudinal axis
         let enfiladeBay = Math.sin(4.0 * Math.PI * uX);
-        out[i+2] += normZ * B * 0.14 * spanZ * Math.max(0, enfiladeBay);
+        out[i+2] += normZ * B * 0.16 * spanZ * Math.max(0, enfiladeBay);
       } else if (grammar.branchingConstraint === 'CREST_NOOKS') {
         // Folded Undulating: Columns follow diagonal valley folds
-        let foldDiag = Math.sin(3.0 * Math.PI * (uX + uZ));
-        out[i+1] -= B * 0.12 * spanY * Math.max(0, -foldDiag) * smoothstep(0.2, 0.5, uY);
+        let foldDiag = Math.sin(3.0 * Math.PI * (uX + normZ * 0.5));
+        out[i+1] -= B * 0.14 * spanY * Math.max(0, -foldDiag) * smoothstep(0.2, 0.5, uY);
       }
     }
   }
