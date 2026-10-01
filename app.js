@@ -1889,7 +1889,7 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
     const C = Math.max(0, Math.min(1.0, strength));
     if (C < 0.001) return out;
 
-    // Helper: Smooth Hermite interpolation
+    // Helper: Smooth Hermite interpolation (C1 continuous, zero derivatives at boundaries)
     function smoothstep(min, max, val) {
       let t = Math.max(0, Math.min(1, (val - min) / (max - min)));
       return t * t * (3 - 2 * t);
@@ -1907,155 +1907,146 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
     for (let i = 0; i < out.length; i += 3) {
       let x = out[i], y = out[i+1], z = out[i+2];
       let dx = x - centerX, dy = y - centerY, dz = z - centerZ;
-      let rXZ = Math.sqrt(dx * dx + dz * dz);
-      let theta = Math.atan2(dz, dx);
       let uX = Math.min(1, Math.max(0, (x - minX) / spanX));
       let uY = Math.min(1, Math.max(0, (y - minY) / spanY));
       let uZ = Math.min(1, Math.max(0, (z - minZ) / spanZ));
+
+      // Continuous normalized coordinates (-1 to +1, strictly zero at centerline)
+      let normZ = (z - centerZ) / (spanZ * 0.5 + 0.001);
 
       let dX = 0;
       let dY = 0;
       let dZ = 0;
 
-      // ─── 1. LOW CONTINUITY: SEGMENTED, SEPARATE TECTONIC ELEMENTS ─────────
-      // Elements have distinct, separate boundaries, stepped breaks, and interrupted sightlines
+      // ─── 1. LOW CONTINUITY: SMOOTH ARTICULATION (NO TEARS OR SEAMS) ───────
+      // Subtle harmonic surface rhythms indicating separate tectonic modules
       if (lowFactor > 0.001) {
-        let segWaveX = Math.sin(uX * Math.PI * 4.0);
-        let segWaveZ = Math.sin(uZ * Math.PI * 4.0);
-        dX += lowFactor * 0.05 * spanX * Math.sign(segWaveX) * Math.pow(Math.abs(segWaveX), 0.5);
-        dZ += lowFactor * 0.05 * spanZ * Math.sign(segWaveZ) * Math.pow(Math.abs(segWaveZ), 0.5);
-        dY += lowFactor * 0.9 * Math.sign(y - 9.0) * Math.pow(Math.abs(Math.sin(uX * Math.PI * 3.0)), 0.6);
+        dX += lowFactor * 0.03 * spanX * Math.sin(uX * Math.PI * 4.0);
+        dZ += lowFactor * 0.03 * spanZ * Math.sin(uZ * Math.PI * 4.0);
+        dY += lowFactor * 0.4 * Math.sin((uY - 0.5) * Math.PI * 2.0) * Math.sin(uX * Math.PI * 3.0);
       }
 
-      // ─── 2. ALIGN: SIGHTLINES & CONTOURS GLIDE SMOOTHLY ACROSS ELEMENTS ───
-      // Unifies the visual trajectory: view travels effortlessly from the lower wing,
-      // through the atrium, and up the tower sweep without abrupt breaks or angular kinks
+      // ─── 2. ALIGN: SMOOTH SIGHTLINES & SADDLE FLOW ACROSS LENGTH ───────────
+      // Unifies visual movement: sightlines glide smoothly from left cantilever to tower crest
       if (alignFactor > 0.001) {
         // Continuous harmonic flow curve aligning longitudinal slopes (G1/G2 tangent continuity)
-        // Gentle upward sightline trajectory through the atrium waist (uX ~ 0.20 to 0.70)
-        let wWaist = Math.sin(Math.PI * Math.min(1.0, Math.max(0.0, (uX - 0.20) / 0.50)));
-        let waistLift = Math.max(0.0, 9.5 - y) * 0.22 * wWaist;
-        dY += alignFactor * waistLift;
-
         let sightlineWave = Math.sin(Math.PI * (uX * 1.3 - 0.15));
-        let corridorWeight = Math.sin(Math.PI * Math.min(1.0, Math.max(0.0, uZ)));
-        dY += alignFactor * 1.4 * sightlineWave * corridorWeight;
+        let corridorWeight = Math.sin(Math.PI * uZ);
+        dY += alignFactor * 1.2 * sightlineWave * corridorWeight;
+
+        // Smooth saddle easing: lifts the central waist gently using smoothstep (zero kinks)
+        let wWaist = Math.sin(Math.PI * Math.min(1.0, Math.max(0.0, (uX - 0.20) / 0.50)));
+        let waistLift = smoothstep(0.55, 0.15, uY) * 1.5 * wWaist;
+        dY += alignFactor * waistLift;
 
         // Visual ridge alignment along X: contours align into continuous flowing bands
         let ridgeAlign = Math.sin(2.0 * Math.PI * uX) * Math.cos(Math.PI * (uZ - 0.5));
-        dX += alignFactor * 1.4 * ridgeAlign;
+        dX += alignFactor * 1.1 * ridgeAlign;
       }
 
       // ─── 3. FLOW INTO ONE ANOTHER: FLUID FILLETED TRANSITIONS ─────────────
       // Eliminates sharp joints: vertical tower sweeps into horizontal plinth and canopy
       if (filletFactor > 0.001) {
         // A. Tower Base Fillet: Tower column flares into horizontal plinth and atrium floor
-        if (x > 11.0 && y < 10.0) {
-          let wBaseFillet = smoothstep(10.0, 0.0, y) * smoothstep(11.0, 18.0, x);
-          dX += filletFactor * 2.6 * wBaseFillet;
-          dZ += Math.sign(dz) * filletFactor * 1.6 * wBaseFillet;
-          dY -= filletFactor * 0.9 * wBaseFillet;
+        let wBaseFillet = smoothstep(0.48, 0.02, uY) * smoothstep(0.68, 0.95, uX);
+        if (wBaseFillet > 0.001) {
+          dX += filletFactor * 2.0 * wBaseFillet;
+          dZ += filletFactor * 1.0 * normZ * wBaseFillet;
+          dY -= filletFactor * 0.6 * wBaseFillet;
         }
 
         // B. Tower Crown Fillet: Tower crest sweeps forward and outward into the roof canopy
-        if (x > 10.0 && y > 12.0) {
-          let wCrownFillet = smoothstep(12.0, 20.0, y) * smoothstep(10.0, 18.0, x);
-          dX -= filletFactor * 2.5 * wCrownFillet;
-          dY += filletFactor * 0.9 * Math.sin(Math.PI * uZ) * wCrownFillet;
+        let wCrownFillet = smoothstep(0.60, 0.98, uY) * smoothstep(0.65, 0.92, uX);
+        if (wCrownFillet > 0.001) {
+          dX -= filletFactor * 2.0 * wCrownFillet;
+          dY += filletFactor * 0.7 * Math.sin(Math.PI * uZ) * wCrownFillet;
         }
 
         // C. Cantilever Junction Blend: Cantilever wings flow seamlessly into the central core
-        if (uX >= 0.18 && uX <= 0.45) {
-          let wJunction = Math.sin(Math.PI * (uX - 0.18) / 0.27);
-          let blendTrajectory = Math.sin(Math.PI * uZ) * 0.8;
+        let wJunction = Math.sin(Math.PI * Math.min(1.0, Math.max(0.0, (uX - 0.18) / 0.27)));
+        if (wJunction > 0.001) {
+          let blendTrajectory = Math.sin(Math.PI * uZ) * 0.6;
           dY += filletFactor * blendTrajectory * wJunction;
         }
       }
 
       // ─── 4. OVERLAP: EXTENDING SURFACES ACROSS SPATIAL THRESHOLDS ──────────
-      // Creates layered spatial shelter and continuous depth without squashing space
+      // Creates layered spatial shelter and continuous depth using smooth Hermite weights (no tears)
       if (overlapFactor > 0.001) {
         // Upper cantilever plate extends outward to dramatically overlap the lower deck
-        if (uX < 0.35 && y > 8.5) {
-          let wOverlapUpper = smoothstep(0.35, 0.0, uX) * smoothstep(8.5, 12.0, y);
-          dX -= overlapFactor * 3.6 * wOverlapUpper;
-        }
+        let wOverlapUpper = smoothstep(0.35, 0.0, uX) * smoothstep(0.38, 0.65, uY);
+        dX -= overlapFactor * 2.8 * wOverlapUpper;
+
         // Lower plate forms extended welcoming terrace
-        if (uX < 0.28 && y <= 8.5) {
-          let wOverlapLower = smoothstep(0.28, 0.0, uX) * smoothstep(8.5, 4.0, y);
-          dX -= overlapFactor * 1.6 * wOverlapLower;
-        }
+        let wOverlapLower = smoothstep(0.30, 0.0, uX) * smoothstep(0.45, 0.18, uY);
+        dX -= overlapFactor * 1.4 * wOverlapLower;
+
         // Overhead canopy extends across the atrium void to overlap the vertical tower
-        if (uX > 0.40 && y > 11.0) {
-          let wOverlapCanopy = smoothstep(0.40, 0.85, uX) * smoothstep(11.0, 18.0, y);
-          dX += overlapFactor * 2.6 * wOverlapCanopy;
-        }
+        let wOverlapCanopy = smoothstep(0.40, 0.82, uX) * smoothstep(0.55, 0.88, uY);
+        dX += overlapFactor * 2.0 * wOverlapCanopy;
       }
 
       // ─── 5. CONNECT: UNIFIED ARCHITECTURAL RIBBON & ENVELOPE (NO SQUASHING)
-      // Connects separate elements into a single continuous system
+      // Connects separate elements into a single continuous system smoothly
       if (flowFactor > 0.001) {
         // A. Left Wing Perimeter Ribbon Connection:
-        // Sweeps the outer boundary (X -> -10) into a continuous aerodynamic loop ribbon,
-        // unifying upper and lower plates without compressing internal ceiling loft!
-        if (uX < 0.25) {
-          let wFascia = smoothstep(0.25, 0.0, uX);
-          let fasciaEnvelope = Math.sin(Math.PI * Math.min(1.0, Math.max(0.0, (y - 4.5) / 7.5)));
-          // Outward aerodynamic sweep along X forming continuous perimeter fascia
-          dX -= flowFactor * 3.2 * fasciaEnvelope * wFascia;
+        // Sweeps the outer boundary (uX -> 0) into a continuous aerodynamic loop ribbon,
+        // unifying upper and lower plates smoothly without compressing internal ceiling loft!
+        let wFascia = smoothstep(0.28, 0.0, uX);
+        if (wFascia > 0.001) {
+          let fasciaEnvelope = Math.sin(Math.PI * uY);
+          dX -= flowFactor * 2.2 * fasciaEnvelope * wFascia;
         }
 
         // B. Undercroft Arch Connection:
         // Connects the tower base to the atrium plinth, bridging the open ground void into a continuous vault
-        if (x >= 7.5 && x <= 14.5 && y < 6.0) {
-          let archU = (x - 7.5) / 7.0;
-          let wArch = Math.sin(Math.PI * archU) * smoothstep(6.0, 0.0, y);
-          dY += flowFactor * 1.4 * wArch;
-          dZ += Math.sign(dz) * flowFactor * 0.8 * wArch;
+        let wArch = Math.sin(Math.PI * Math.min(1.0, Math.max(0.0, (uX - 0.55) / 0.28))) * smoothstep(0.30, 0.0, uY);
+        if (wArch > 0.001) {
+          dY += flowFactor * 1.2 * wArch;
+          dZ += flowFactor * 0.6 * normZ * wArch;
         }
 
         // C. Transverse (Z) Curvilinear Envelope Continuity:
         // Curving continuous perimeter wrapping along the transverse edges
-        let zEdgeDist = Math.abs(z - centerZ) / (spanZ * 0.5 + 0.001);
-        if (zEdgeDist > 0.35) {
-          let wZEnvelope = smoothstep(0.35, 1.0, zEdgeDist);
-          // Gently sculpts the outer perimeter into a continuous aerodynamic shell
-          dZ -= Math.sign(z - centerZ) * flowFactor * 0.8 * wZEnvelope;
-          dY += Math.cos(Math.PI * (uX - 0.5)) * flowFactor * 0.6 * wZEnvelope;
+        let zEdgeDist = Math.min(1.0, Math.abs(normZ));
+        if (zEdgeDist > 0.30) {
+          let wZEnvelope = smoothstep(0.30, 1.0, zEdgeDist);
+          dZ -= normZ * flowFactor * 0.5 * wZEnvelope;
+          dY += Math.cos(Math.PI * (uX - 0.5)) * flowFactor * 0.4 * wZEnvelope;
         }
       }
 
-      // ─── 6. DOMAIN A TYPOLOGY MODULATION (ALL 3 AXES: X, Y, Z) ─────────────
+      // ─── 6. DOMAIN A TYPOLOGY MODULATION (ALL 3 AXES: X, Y, Z - ZERO SINGULARITIES)
       if (grammar.continuityMode === 'VERTICAL_CONNECTIONS') {
         // Vertical Void: Continuous upward surface flow drawing sightlines around the open core
-        let rad = Math.cos(3.0 * theta);
+        // Uses smooth cartesian harmonic waves (avoids radial polar singularity at center)
         if (flowFactor > 0.001) {
-          dX += (dx / (rXZ + 0.01)) * flowFactor * 0.12 * spanX * Math.max(0, rad);
+          dX += flowFactor * 0.09 * spanX * Math.sin(2.0 * Math.PI * (uX - 0.5)) * Math.sin(Math.PI * uZ);
           dY += flowFactor * 0.16 * spanY * Math.cos(Math.PI * (uX - 0.5));
-          dZ += (dz / (rXZ + 0.01)) * flowFactor * 0.12 * spanZ * Math.max(0, rad);
+          dZ += normZ * flowFactor * 0.10 * spanZ * Math.sin(Math.PI * uX);
         }
       } else if (grammar.continuityMode === 'ZONE_TRANSITIONS') {
         // Compressed / Expanded: Fluid sectional continuity along sequence, bridging choke threshold
         let atPortal = Math.exp(-Math.pow((uX - 0.40) * 8.0, 2));
         if (lowFactor > 0.001) {
-          dY -= lowFactor * 0.16 * spanY * atPortal;
-          dZ += Math.sign(dz) * lowFactor * 0.15 * spanZ * atPortal;
+          dY -= lowFactor * 0.14 * spanY * atPortal;
+          dZ += normZ * lowFactor * 0.12 * spanZ * atPortal;
         }
         if (flowFactor > 0.001) {
           dX += flowFactor * 0.10 * spanX * atPortal;
           dY += flowFactor * 0.20 * spanY * Math.max(0, uX - 0.33);
-          dZ += Math.sign(centerZ - z) * flowFactor * 0.14 * spanZ * (1.0 - uX);
+          dZ -= normZ * flowFactor * 0.14 * spanZ * (1.0 - uX);
         }
       } else if (grammar.continuityMode === 'CONTINUOUS_SHELL') {
         // Open Hall: Monolithic overarching canopy unifying roof and walls
         if (lowFactor > 0.001) {
           let bayJoint = Math.cos(uX * Math.PI * 4.0);
-          dY -= lowFactor * 0.16 * spanY * Math.pow(Math.max(0, -bayJoint), 2);
+          dY -= lowFactor * 0.14 * spanY * Math.pow(Math.max(0, -bayJoint), 2);
         }
         if (flowFactor > 0.001) {
           dX += flowFactor * 0.08 * spanX * Math.sin(Math.PI * uX);
           dY += flowFactor * 0.22 * spanY * Math.cos(Math.PI * (uX - 0.5));
-          dZ += Math.sign(centerZ - z) * flowFactor * 0.12 * spanZ;
+          dZ -= normZ * flowFactor * 0.12 * spanZ;
         }
       } else if (grammar.continuityMode === 'RISER_CONNECT') {
         // Stepped Terraces: Smooth flowing treads and risers cascading into a continuous landscape
@@ -2070,7 +2061,7 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
         if (flowFactor > 0.001) {
           dX += flowFactor * 0.10 * spanX * Math.cos(uX * Math.PI * 4.0);
           dY += flowFactor * 0.18 * spanY * Math.sin(uX * Math.PI * 4.0);
-          dZ += Math.sign(centerZ - z) * flowFactor * 0.14 * spanZ;
+          dZ -= normZ * flowFactor * 0.14 * spanZ;
         }
       } else if (grammar.continuityMode === 'CREASE_FACETS') {
         // Folded Facets: Welds diagonal crease ridges across X, Y, and Z
@@ -2078,7 +2069,7 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
         if (flowFactor > 0.001) {
           dX += flowFactor * 0.16 * spanX * diag;
           dY += flowFactor * 0.24 * spanY * diag;
-          dZ += Math.sign(centerZ - z) * flowFactor * 0.12 * spanZ * diag;
+          dZ -= normZ * flowFactor * 0.12 * spanZ * diag;
         }
       }
 
