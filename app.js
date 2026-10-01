@@ -1495,74 +1495,129 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
     };
 
     // Columns strictly situated IN THE MIDDLE OF THE SPACES:
-    // Space 1: Gallery / Cantilever interior space (X in [-4.0, 1.8], Z center at centerZ)
-    //          Divided into slender structural column branches
-    // Space 2: Central Atrium / Void space (X in [3.5, 9.0], Z center at centerZ)
-    //          Connecting the swooping canopy down to the plinth floor
+    // Progressive structural colonnade and branching hierarchy filling the interior volumes:
+    // Low B (< 0.35): Singular central columns
+    // Med B (0.35 - 0.70): Secondary structural colonnade
+    // High / 100% B (>= 0.70): Rich multi-bay hypostyle colonnade in gallery & multi-row branching under chaise/atrium
     const midCols = [];
-    if (B < 0.45) {
-      // Stage 1 / Lower B: 1 central slender column in gallery + 1 in atrium
+
+    // ─── 1. GALLERY INTERIOR SPACE (X in [-4.0, 1.5]) ───
+    if (B < 0.35) {
+      // Stage 1: 1 central slender column
       midCols.push({
-        x: -1.5,
-        z: centerZ,
-        xMin: -4.0,
-        xMax: 1.5,
-        ceilMinY: 9.0,
-        ceilMaxY: 11.5,
-        targetFloor: 6.2,
-        floorMinY: 5.5,
-        floorMaxY: 7.6,
-        rShaft: 0.32,
-        rCap: 0.70
+        x: -1.5, z: centerZ, xMin: -4.0, xMax: 1.5,
+        ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 6.2,
+        floorMinY: 6.8, floorMaxY: 7.5, rShaft: 0.35, rCap: 0.80
       });
-    } else {
-      // Stage 2 / Higher B: 2 slender colonnade branches in gallery + 1 in atrium
+    } else if (B < 0.70) {
+      // Stage 2: 2 longitudinal columns along center line
       midCols.push(
         {
-          x: -2.4,
-          z: centerZ,
-          xMin: -4.0,
-          xMax: -1.4,
-          ceilMinY: 9.0,
-          ceilMaxY: 11.5,
-          targetFloor: 6.2,
-          floorMinY: 5.5,
-          floorMaxY: 7.6,
-          rShaft: 0.32,
-          rCap: 0.70
+          x: -2.5, z: centerZ, xMin: -4.0, xMax: -1.3,
+          ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 6.2,
+          floorMinY: 6.8, floorMaxY: 7.5, rShaft: 0.35, rCap: 0.80
         },
         {
-          x: -0.6,
-          z: centerZ,
-          xMin: -1.4,
-          xMax: 1.5,
-          ceilMinY: 9.0,
-          ceilMaxY: 11.5,
-          targetFloor: 6.2,
-          floorMinY: 5.5,
-          floorMaxY: 7.6,
-          rShaft: 0.32,
-          rCap: 0.70
+          x: -0.5, z: centerZ, xMin: -1.3, xMax: 1.5,
+          ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 6.2,
+          floorMinY: 6.8, floorMaxY: 7.5, rShaft: 0.35, rCap: 0.80
+        }
+      );
+    } else {
+      // Stage 3 (High / 100% Branching):
+      // 4 bays along X (-3.3, -2.1, -0.9, 0.3) with double rows across Z (front & rear),
+      // forming an 8-column hypostyle colonnade richly filling the gallery!
+      const zOffset = 1.1;
+      const rShaft = 0.32;
+      const rCap = 0.75;
+      const xBays = [-3.3, -2.1, -0.9, 0.3];
+      xBays.forEach((bx) => {
+        // Front column
+        midCols.push({
+          x: bx, z: centerZ + zOffset,
+          xMin: bx - 0.75, xMax: bx + 0.75,
+          ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 6.2,
+          floorMinY: 6.8, floorMaxY: 7.5, rShaft, rCap
+        });
+        // Rear column
+        midCols.push({
+          x: bx, z: centerZ - zOffset,
+          xMin: bx - 0.75, xMax: bx + 0.75,
+          ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 6.2,
+          floorMinY: 6.8, floorMaxY: 7.5, rShaft, rCap
+        });
+      });
+    }
+
+    // ─── 2. TRANSITION & ATRIUM SPACE (X in [3.0, 11.5]) ───
+    if (B < 0.35) {
+      // Stage 1: 1 central slender column under dip
+      midCols.push({
+        x: 6.0, z: centerZ, xMin: 3.5, xMax: 8.5,
+        ceilMinY: 6.5, ceilMaxY: 7.8, targetFloor: 3.8,
+        floorMinY: 3.5, floorMaxY: 4.5, rShaft: 0.35, rCap: 0.80
+      });
+    } else if (B < 0.70) {
+      // Stage 2: 2 columns (under ramp & under dip)
+      midCols.push(
+        {
+          x: 5.0, z: centerZ, xMin: 3.8, xMax: 6.0,
+          ceilMinY: 7.5, ceilMaxY: 8.8, targetFloor: 4.8,
+          floorMinY: 4.5, floorMaxY: 5.5, rShaft: 0.35, rCap: 0.80
+        },
+        {
+          x: 7.0, z: centerZ, xMin: 6.0, xMax: 8.5,
+          ceilMinY: 6.0, ceilMaxY: 7.2, targetFloor: 2.8,
+          floorMinY: 2.5, floorMaxY: 3.5, rShaft: 0.35, rCap: 0.80
+        }
+      );
+    } else {
+      // Stage 3 (High / 100% Branching):
+      // Slender columns spanning across the transition ramp, under the chaise dip,
+      // and under the chaise base to richly populate the volume!
+      const rShaft = 0.32;
+      const rCap = 0.75;
+      midCols.push(
+        // Transition slope column
+        {
+          x: 4.2, z: centerZ, xMin: 3.4, xMax: 4.9,
+          ceilMinY: 8.4, ceilMaxY: 9.4, targetFloor: 5.5,
+          floorMinY: 5.2, floorMaxY: 6.0, rShaft, rCap
+        },
+        // Chaise dip front column
+        {
+          x: 5.8, z: centerZ + 0.85, xMin: 5.0, xMax: 6.6,
+          ceilMinY: 6.8, ceilMaxY: 7.8, targetFloor: 3.8,
+          floorMinY: 3.5, floorMaxY: 4.3, rShaft, rCap
+        },
+        // Chaise dip rear column
+        {
+          x: 5.8, z: centerZ - 0.85, xMin: 5.0, xMax: 6.6,
+          ceilMinY: 6.8, ceilMaxY: 7.8, targetFloor: 3.8,
+          floorMinY: 3.5, floorMaxY: 4.3, rShaft, rCap
+        },
+        // Chaise base front column
+        {
+          x: 7.2, z: centerZ + 0.85, xMin: 6.5, xMax: 8.0,
+          ceilMinY: 6.0, ceilMaxY: 7.2, targetFloor: 2.8,
+          floorMinY: 2.5, floorMaxY: 3.4, rShaft, rCap
+        },
+        // Chaise base rear column
+        {
+          x: 7.2, z: centerZ - 0.85, xMin: 6.5, xMax: 8.0,
+          ceilMinY: 6.0, ceilMaxY: 7.2, targetFloor: 2.8,
+          floorMinY: 2.5, floorMaxY: 3.4, rShaft, rCap
+        },
+        // Atrium threshold column
+        {
+          x: 8.6, z: centerZ, xMin: 8.0, xMax: 9.6,
+          ceilMinY: 5.4, ceilMaxY: 6.5, targetFloor: 2.0,
+          floorMinY: 1.5, floorMaxY: 2.4, rShaft, rCap
         }
       );
     }
 
-    // Atrium column in the middle of the atrium space
-    midCols.push({
-      x: 6.2,
-      z: centerZ,
-      xMin: 3.5,
-      xMax: 9.0,
-      ceilMinY: 4.8,
-      ceilMaxY: 8.5,
-      targetFloor: 1.15,
-      floorMinY: 0.5,
-      floorMaxY: 2.2,
-      rShaft: 0.32,
-      rCap: 0.75
-    });
-
-    const reach = Math.min(1.0, B * 1.50);
+    const reach = Math.min(1.0, B * 1.35);
 
     for (let i = 0; i < out.length; i += 3) {
       let x = out[i], y = out[i+1], z = out[i+2];
@@ -1595,10 +1650,13 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
             let dY = -reach * drop * w;
             out[i+1] += dY;
           }
-          // Floor plate upward flaring to form organic column base
+          // Floor plate upward pedestal flaring to meet the descending column
           else if (y >= col.floorMinY && y <= col.floorMaxY) {
-            let baseLift = reach * 0.30 * w;
-            out[i+1] += baseLift;
+            let pedestalHeight = Math.min(0.35, (col.ceilMinY - col.targetFloor) * 0.08);
+            let targetPedestal = col.targetFloor + pedestalHeight;
+            let rise = Math.max(0, targetPedestal - y);
+            let dY = reach * rise * w;
+            out[i+1] += dY;
           }
         }
       }
