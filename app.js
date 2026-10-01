@@ -1500,78 +1500,132 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
     // Med B (0.35 - 0.70): Secondary structural colonnade
     // High / 100% B (>= 0.70): Rich multi-bay hypostyle colonnade in gallery & multi-row branching under chaise/atrium
     const midCols = [];
-    const rShaft = 0.30;
-    const rCap = 0.72;
 
-    const addGal = (x, z, bStart) => {
+    // ─── 1. GALLERY INTERIOR SPACE (X in [-4.0, 1.5]) ───
+    if (B < 0.35) {
+      // Stage 1: 1 central slender column
       midCols.push({
-        x, z, xMin: x - 0.7, xMax: x + 0.7,
+        x: -1.5, z: centerZ, xMin: -4.0, xMax: 1.5,
         ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 6.2,
-        floorMinY: 6.8, floorMaxY: 7.5,
-        rShaft, rCap, bStart
+        floorMinY: 6.8, floorMaxY: 7.5, rShaft: 0.35, rCap: 0.80
       });
-    };
+    } else if (B < 0.70) {
+      // Stage 2: 2 longitudinal columns along center line
+      midCols.push(
+        {
+          x: -2.5, z: centerZ, xMin: -4.0, xMax: -1.3,
+          ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 6.2,
+          floorMinY: 6.8, floorMaxY: 7.5, rShaft: 0.35, rCap: 0.80
+        },
+        {
+          x: -0.5, z: centerZ, xMin: -1.3, xMax: 1.5,
+          ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 6.2,
+          floorMinY: 6.8, floorMaxY: 7.5, rShaft: 0.35, rCap: 0.80
+        }
+      );
+    } else {
+      // Stage 3 (High / 100% Branching):
+      // 4 bays along X (-3.3, -2.1, -0.9, 0.3) with double rows across Z (front & rear),
+      // forming an 8-column hypostyle colonnade richly filling the gallery!
+      const zOffset = 1.1;
+      const rShaft = 0.32;
+      const rCap = 0.75;
+      const xBays = [-3.3, -2.1, -0.9, 0.3];
+      xBays.forEach((bx) => {
+        // Front column
+        midCols.push({
+          x: bx, z: centerZ + zOffset,
+          xMin: bx - 0.75, xMax: bx + 0.75,
+          ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 6.2,
+          floorMinY: 6.8, floorMaxY: 7.5, rShaft, rCap
+        });
+        // Rear column
+        midCols.push({
+          x: bx, z: centerZ - zOffset,
+          xMin: bx - 0.75, xMax: bx + 0.75,
+          ceilMinY: 9.6, ceilMaxY: 10.8, targetFloor: 6.2,
+          floorMinY: 6.8, floorMaxY: 7.5, rShaft, rCap
+        });
+      });
+    }
 
-    const addBridge = (x, z, ceilMinY, ceilMaxY, targetFloor, floorMinY, floorMaxY, bStart) => {
+    // ─── 2. ENTIRE MIDDLE SPACE (X in [1.8, 11.0]) ───
+    if (B < 0.35) {
+      // Stage 1: 1 central slender column under dip
       midCols.push({
-        x, z, xMin: x - 0.7, xMax: x + 0.7,
-        ceilMinY, ceilMaxY, targetFloor,
-        floorMinY, floorMaxY,
-        rShaft, rCap, bStart
+        x: 6.0, z: centerZ, xMin: 4.5, xMax: 7.5,
+        ceilMinY: 6.8, ceilMaxY: 7.8, targetFloor: 3.8,
+        floorMinY: 3.5, floorMaxY: 4.5, rShaft: 0.35, rCap: 0.80
       });
-    };
+    } else if (B < 0.70) {
+      // Stage 2: 3 columns along the middle sequence
+      midCols.push(
+        {
+          x: 3.6, z: centerZ, xMin: 2.8, xMax: 4.5,
+          ceilMinY: 8.8, ceilMaxY: 9.8, targetFloor: 6.0,
+          floorMinY: 5.8, floorMaxY: 6.8, rShaft: 0.34, rCap: 0.78
+        },
+        {
+          x: 5.8, z: centerZ, xMin: 4.8, xMax: 6.8,
+          ceilMinY: 6.8, ceilMaxY: 7.8, targetFloor: 3.8,
+          floorMinY: 3.5, floorMaxY: 4.4, rShaft: 0.34, rCap: 0.78
+        },
+        {
+          x: 7.8, z: centerZ, xMin: 6.8, xMax: 9.2,
+          ceilMinY: 5.6, ceilMaxY: 6.8, targetFloor: 2.2,
+          floorMinY: 1.8, floorMaxY: 2.8, rShaft: 0.34, rCap: 0.78
+        }
+      );
+    } else {
+      // Stage 3 (High / 100% Branching):
+      // Populates the ENTIRE middle space (X from 2.0 to 11.5) with a dense, rhythmic hypostyle forest!
+      // 12 bays along X with paired and tripartite rows across Z (over 30 slender columns throughout the middle space)
+      const addBay = (bx, xMin, xMax, ceilMinY, ceilMaxY, targetFloor, floorMinY, floorMaxY, zList, rShaft = 0.28, rCap = 0.78) => {
+        zList.forEach(zVal => {
+          midCols.push({
+            x: bx, z: zVal, xMin, xMax, ceilMinY, ceilMaxY, targetFloor, floorMinY, floorMaxY, rShaft, rCap
+          });
+        });
+      };
 
-    // ─── 1. GALLERY INTERIOR VOID (X in [-4.0, 1.5]) ───
-    // Primary central columns (emerge at low B)
-    addGal(-1.5, centerZ, 0.05);
-    addGal(-2.7, centerZ, 0.20);
-    addGal(-0.3, centerZ, 0.25);
+      // Bay M1: Middle Throat Entry (X = 2.4) - Paired
+      addBay(2.4, 1.8, 2.9, 9.6, 10.6, 6.7, 6.5, 7.4, [centerZ + 1.0, centerZ - 1.0], 0.28, 0.75);
 
-    // Secondary staggered columns (medium B >= 0.40)
-    addGal(-3.6, centerZ + 1.0, 0.40);
-    addGal(-3.6, centerZ - 1.0, 0.40);
-    addGal(-2.1, centerZ + 1.0, 0.45);
-    addGal(-2.1, centerZ - 1.0, 0.45);
-    addGal(-0.9, centerZ + 1.0, 0.50);
-    addGal(-0.9, centerZ - 1.0, 0.50);
-    addGal( 0.4, centerZ + 1.0, 0.55);
-    addGal( 0.4, centerZ - 1.0, 0.55);
+      // Bay M2: Throat Slope (X = 3.2) - Tripartite (Front, Center, Rear)
+      addBay(3.2, 2.8, 3.7, 9.2, 10.2, 6.3, 6.0, 6.8, [centerZ + 1.0, centerZ, centerZ - 1.0], 0.28, 0.75);
 
-    // Full 100% hypostyle colonnade (high B >= 0.70)
-    addGal(-3.2, centerZ, 0.70);
-    addGal(-1.5, centerZ + 1.1, 0.72);
-    addGal(-1.5, centerZ - 1.1, 0.72);
-    addGal(-0.3, centerZ + 1.1, 0.75);
-    addGal(-0.3, centerZ - 1.1, 0.75);
-    addGal( 1.1, centerZ, 0.78);
+      // Bay M3: Upper Ramp (X = 4.0) - Paired
+      addBay(4.0, 3.6, 4.5, 8.6, 9.6, 5.8, 5.4, 6.2, [centerZ + 0.95, centerZ - 0.95], 0.28, 0.75);
 
-    // ─── 2. TRANSITION SLOPE & UNDER-BRIDGE (X in [3.0, 8.5]) ───
-    // Transition ramp columns
-    addBridge(3.6, centerZ, 8.8, 9.6, 6.0, 5.8, 6.5, 0.65);
-    addBridge(4.4, centerZ + 0.8, 8.2, 9.2, 5.2, 4.9, 5.6, 0.35);
-    addBridge(4.4, centerZ - 0.8, 8.2, 9.2, 5.2, 4.9, 5.6, 0.40);
+      // Bay M4: Mid Ramp (X = 4.7) - Tripartite
+      addBay(4.7, 4.3, 5.2, 8.0, 9.0, 5.0, 4.6, 5.5, [centerZ + 0.95, centerZ, centerZ - 0.95], 0.28, 0.75);
 
-    // Under chaise dip columns
-    addBridge(5.4, centerZ, 7.2, 8.0, 4.3, 4.0, 4.6, 0.10);
-    addBridge(6.0, centerZ + 0.85, 6.7, 7.6, 3.8, 3.5, 4.2, 0.30);
-    addBridge(6.0, centerZ - 0.85, 6.7, 7.6, 3.8, 3.5, 4.2, 0.35);
-    addBridge(6.6, centerZ, 6.4, 7.3, 3.3, 3.0, 3.7, 0.60);
+      // Bay M5: Chaise Dip Approach (X = 5.4) - Paired
+      addBay(5.4, 5.0, 5.9, 7.3, 8.3, 4.3, 3.9, 4.8, [centerZ + 1.0, centerZ - 1.0], 0.28, 0.78);
 
-    // Under chaise arch / base
-    addBridge(7.3, centerZ + 0.85, 6.0, 7.0, 2.8, 2.5, 3.3, 0.45);
-    addBridge(7.3, centerZ - 0.85, 6.0, 7.0, 2.8, 2.5, 3.3, 0.50);
-    addBridge(8.0, centerZ, 5.7, 6.7, 2.3, 2.0, 2.8, 0.65);
+      // Bay M6: Chaise Dip Base (X = 6.1) - Tripartite
+      addBay(6.1, 5.7, 6.6, 6.7, 7.7, 3.7, 3.3, 4.2, [centerZ + 1.05, centerZ, centerZ - 1.05], 0.28, 0.80);
 
-    // ─── 3. GRAND ATRIUM VOID COLONNADE (X in [8.5, 12.0]) ───
-    // Lower ceiling spanning from X=8.6 to X=11.6, floor at Y=2.03
-    addBridge(8.8, centerZ + 0.8, 5.4, 6.5, 2.0, 1.6, 2.4, 0.25);
-    addBridge(8.8, centerZ - 0.8, 5.4, 6.5, 2.0, 1.6, 2.4, 0.30);
-    addBridge(9.6, centerZ, 5.4, 6.5, 2.0, 1.6, 2.4, 0.40);
-    addBridge(10.4, centerZ + 0.8, 5.7, 6.8, 2.0, 1.6, 2.4, 0.50);
-    addBridge(10.4, centerZ - 0.8, 5.7, 6.8, 2.0, 1.6, 2.4, 0.55);
-    addBridge(11.2, centerZ, 6.2, 7.4, 2.0, 1.6, 2.4, 0.65);
-    addBridge(11.6, centerZ + 0.7, 6.5, 7.6, 2.0, 1.6, 2.4, 0.75);
-    addBridge(11.6, centerZ - 0.7, 6.5, 7.6, 2.0, 1.6, 2.4, 0.80);
+      // Bay M7: Chaise Transition Rise (X = 6.8) - Paired
+      addBay(6.8, 6.4, 7.3, 6.2, 7.2, 3.1, 2.7, 3.6, [centerZ + 1.0, centerZ - 1.0], 0.28, 0.80);
+
+      // Bay M8: Ramp Terminal / Western Threshold (X = 7.6) - Tripartite
+      addBay(7.6, 7.2, 8.1, 5.7, 6.8, 2.4, 2.0, 2.9, [centerZ + 1.0, centerZ, centerZ - 1.0], 0.30, 0.85);
+
+      // Bay M9: Atrium Threshold (X = 8.4) - 3 columns across Z
+      addBay(8.4, 8.0, 8.9, 5.5, 6.6, 2.1, 1.7, 2.5, [-2.2, -3.5, -4.8], 0.30, 0.95);
+
+      // Bay M10: Atrium Central Plaza (X = 9.2) - 3 columns across Z
+      addBay(9.2, 8.8, 9.7, 5.4, 6.6, 2.0, 1.6, 2.4, [-1.8, -3.0, -4.5], 0.30, 0.95);
+
+      // Bay M11: Grand Atrium Soaring Canopy (X = 10.1) - Paired
+      addBay(10.1, 9.6, 10.6, 5.5, 7.0, 2.0, 1.5, 2.4, [-1.6, -2.6, -3.8], 0.32, 1.0);
+
+      // Bay M12: Grand Atrium Eastern Portal (X = 11.0) - Paired
+      addBay(11.0, 10.5, 11.5, 6.0, 7.5, 2.0, 1.5, 2.4, [-1.5, -2.8, -4.2], 0.32, 1.0);
+    }
+
+    const reach = Math.min(1.0, B * 1.35);
 
     for (let i = 0; i < out.length; i += 3) {
       let x = out[i], y = out[i+1], z = out[i+2];
@@ -1581,12 +1635,12 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
       let normZ = (z - centerZ) / (spanZ * 0.5 + 0.001);
 
       // ─── 1. SLENDER COLUMN-LIKE STRUCTURAL BRANCHES IN THE MIDDLE OF SPACES ───
+      // Non-cumulative maxDrop / maxRise calculation prevents double-displacement spikes
       let maxDrop = 0;
       let maxRise = 0;
 
       for (let c = 0; c < midCols.length; c++) {
         let col = midCols[c];
-        if (B < col.bStart) continue; // Not active yet
         if (x < col.xMin || x > col.xMax) continue;
 
         let cdx = x - col.x;
@@ -1594,7 +1648,6 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
         let dist = Math.sqrt(cdx * cdx + cdz * cdz);
 
         if (dist < col.rCap) {
-          let localProg = Math.min(1.0, (B - col.bStart) / 0.22);
           let w;
           if (dist <= col.rShaft) {
             w = 1.0; // Flat cylindrical core shaft
@@ -1605,62 +1658,46 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
 
           // Ceiling downward branch extending across the space to the floor
           if (y >= col.ceilMinY && y <= col.ceilMaxY) {
-            let drop = (y - col.targetFloor) * localProg * w;
+            let drop = (y - col.targetFloor) * reach * w;
             if (drop > maxDrop) maxDrop = drop;
           }
           // Floor plate upward pedestal flaring to meet the descending column
           else if (y >= col.floorMinY && y <= col.floorMaxY) {
             let pedestalHeight = Math.min(0.35, (col.ceilMinY - col.targetFloor) * 0.08);
             let targetPedestal = col.targetFloor + pedestalHeight;
-            let rise = Math.max(0, targetPedestal - y) * localProg * w;
+            let rise = Math.max(0, targetPedestal - y) * reach * w;
             if (rise > maxRise) maxRise = rise;
           }
         }
       }
 
-      if (maxDrop > 0) out[i+1] -= maxDrop;
-      if (maxRise > 0) out[i+1] += maxRise;
-
+      if (maxDrop > 0) {
+        out[i+1] -= maxDrop;
+      } else if (maxRise > 0) {
+        out[i+1] += maxRise;
+      }
 
       // ─── 2. DOMAIN A TYPOLOGY GRAMMAR MODULATION ───
-      // Subtle organic continuity modulation per active typology
+      // Subtle organic lateral continuity modulation per active typology
       if (grammar.branchingConstraint === 'CHOKE_PORTALS') {
+        // Compressed Sequential: Columns frame monumental portal at transition threshold
         let atChoke = Math.exp(-Math.pow((uX - 0.38) * 8.0, 2));
-        out[i+1] += B * 0.12 * spanY * atChoke * smoothstep(0.2, 0.6, uY);
-      } else if (grammar.branchingConstraint === 'PERIMETER_BUTTRESS') {
-        let flankDist = Math.abs(normZ);
-        if (flankDist > 0.35) {
-          let buttressW = smoothstep(0.35, 0.85, flankDist);
-          out[i+2] += normZ * B * 0.12 * spanZ * buttressW * Math.sin(3.0 * Math.PI * uX);
-        }
-      } else if (grammar.branchingConstraint === 'CHOKE_PORTALS') {
-        // Compressed Sequential: Columns frame monumental portal at transition threshold negative space
-        let atChoke = Math.exp(-Math.pow((uX - 0.38) * 8.0, 2));
-        out[i+1] += B * 0.18 * spanY * atChoke * smoothstep(0.2, 0.6, uY);
-        out[i+2] += normZ * B * 0.14 * spanZ * atChoke;
+        out[i+2] += normZ * B * 0.12 * spanZ * atChoke;
       } else if (grammar.branchingConstraint === 'PERIMETER_BUTTRESS' || grammar.branchingConstraint === 'PERIMETER_ALCOVES') {
         // Open Hall: Columns act as perimeter buttresses, breaking flanks into intimate alcove spaces
         let flankDist = Math.abs(normZ);
         if (flankDist > 0.35) {
           let buttressW = smoothstep(0.35, 0.85, flankDist);
-          out[i+2] += normZ * B * 0.16 * spanZ * buttressW * Math.sin(3.0 * Math.PI * uX);
-          out[i+1] += B * 0.10 * spanY * buttressW * Math.sin(Math.PI * uX);
+          out[i+2] += normZ * B * 0.14 * spanZ * buttressW * Math.sin(3.0 * Math.PI * uX);
         }
-      } else if (grammar.branchingConstraint === 'TERRACE_CANTILEVERS' || grammar.branchingConstraint === 'GROUND_DIVIDE') {
-        // Terraced Stepped: Branches step down through the vertical negative spaces between terrace plates
-        let tierU = (uX * 3.0) % 1.0;
-        out[i+1] -= B * 0.15 * spanY * tierU * smoothstep(0.1, 0.45, uY);
       } else if (grammar.branchingConstraint === 'SECONDARY_AXIAL') {
         // Linear Gallery: Columns form rhythmic enfilade colonnade along longitudinal axis
         let enfiladeBay = Math.sin(4.0 * Math.PI * uX);
-        out[i+2] += normZ * B * 0.16 * spanZ * Math.max(0, enfiladeBay);
-      } else if (grammar.branchingConstraint === 'CREST_NOOKS') {
-        // Folded Undulating: Columns follow diagonal valley folds
-        let foldDiag = Math.sin(3.0 * Math.PI * (uX + normZ * 0.5));
-        out[i+1] -= B * 0.14 * spanY * Math.max(0, -foldDiag) * smoothstep(0.2, 0.5, uY);
+        out[i+2] += normZ * B * 0.14 * spanZ * Math.max(0, enfiladeBay);
       }
     }
   }
+
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // RULE 3: WHIPLASH (W)
