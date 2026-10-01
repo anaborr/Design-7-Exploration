@@ -3547,6 +3547,140 @@ if (!window.restoreOriginalImportedGeometry) {
   window.restoreOriginalImportedGeometry = revertToOriginalRhinoSeed;
 }
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DOMAIN B: MANUAL ITERATION SAVE TO LIBRARY
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+var manualIterCounter = 1;
+window.manualIterCounter = 1;
 
+function switchDomainBTab(tabName, btnEl) {
+  const container = document.getElementById('domain-b-tab-container');
+  if (!container) return;
 
+  const btnSliders = document.getElementById('tab-btn-domain-b-sliders');
+  const btnSave = document.getElementById('tab-btn-domain-b-save');
+  const subSliders = document.getElementById('domain-b-subtab-sliders');
+  const subSave = document.getElementById('domain-b-subtab-save');
 
+  if (tabName === 'sliders') {
+    if (btnSliders) btnSliders.classList.add('active');
+    if (btnSave) btnSave.classList.remove('active');
+    if (subSliders) subSliders.style.display = 'block';
+    if (subSave) subSave.style.display = 'none';
+  } else if (tabName === 'save') {
+    if (btnSliders) btnSliders.classList.remove('active');
+    if (btnSave) btnSave.classList.add('active');
+    if (subSliders) subSliders.style.display = 'none';
+    if (subSave) subSave.style.display = 'block';
+    updateManualSavePreview();
+  }
+}
+window.switchDomainBTab = switchDomainBTab;
+
+function updateManualSavePreview() {
+  const activeTypoKey = domainState.selectedTypology || 'VERTICAL_VOID';
+  const typoDef = BASE_TYPOLOGIES[activeTypoKey] || BASE_TYPOLOGIES.VERTICAL_VOID;
+  const dna = domainState.dna || [0, 0, 0, 0, 0, 0];
+  const domSec = getDominantAndSecondary(dna);
+
+  const typoEl = document.getElementById('manual-save-typo');
+  if (typoEl) typoEl.textContent = typoDef.name || activeTypoKey;
+
+  const dnaEl = document.getElementById('manual-save-dna');
+  if (dnaEl) {
+    dnaEl.textContent = `C: ${Math.round((dna[0] || 0) * 100)}% · W: ${Math.round((dna[2] || 0) * 100)}% · B: ${Math.round((dna[1] || 0) * 100)}%`;
+  }
+
+  const branchEl = document.getElementById('manual-save-branching');
+  if (branchEl) {
+    const bVal = Math.round((dna[1] || 0) * 100);
+    const detail = bVal >= 70 ? '28 Columns (Full Space)' : (bVal >= 35 ? '6 Columns (Intermediate)' : (bVal > 0 ? '2 Columns (Singular)' : '0 Columns (Seed)'));
+    branchEl.textContent = `${bVal}% — ${detail}`;
+  }
+
+  const domEl = document.getElementById('manual-save-dominant');
+  if (domEl) domEl.textContent = `${domSec.dominant} / ${domSec.secondary}`;
+
+  const nameInput = document.getElementById('manual-save-name');
+  if (nameInput && (!nameInput.value || nameInput.value.startsWith('Manual:'))) {
+    nameInput.value = `Manual: ${typoDef.name} (B:${Math.round((dna[1] || 0) * 100)}%)`;
+  }
+}
+window.updateManualSavePreview = updateManualSavePreview;
+
+function saveCurrentManualIteration() {
+  const activeTypoKey = domainState.selectedTypology || 'VERTICAL_VOID';
+  const typoDef = BASE_TYPOLOGIES[activeTypoKey] || BASE_TYPOLOGIES.VERTICAL_VOID;
+  const dna = [...(domainState.dna || [0, 0, 0, 0, 0, 0])];
+  const domSec = getDominantAndSecondary(dna);
+
+  // Generate unique manual ID
+  window.manualIterCounter = (window.manualIterCounter || 1);
+  const manualId = `MANUAL-${String(window.manualIterCounter++).padStart(2, '0')}`;
+
+  // Custom or auto title
+  const nameInput = document.getElementById('manual-save-name');
+  const title = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : `Manual: ${typoDef.name} (B:${Math.round((dna[1] || 0) * 100)}%)`;
+
+  const notesInput = document.getElementById('manual-save-notes');
+  const notes = (notesInput && notesInput.value.trim()) ? notesInput.value.trim() : '';
+
+  const dnaStr = `C:${Math.round((dna[0] || 0) * 100)}% W:${Math.round((dna[2] || 0) * 100)}% B:${Math.round((dna[1] || 0) * 100)}%`;
+  const whyText = notes
+    ? `Manual Iteration (${title}): ${notes}. Form DNA: ${dnaStr}. Typology: ${typoDef.name}.`
+    : `Manual Iteration (${title}): Sculpted in Domain B using manual shape sliders. Form DNA: ${dnaStr}. Typology: ${typoDef.name}.`;
+
+  const origPos = window.getOriginalMeshPositions ? window.getOriginalMeshPositions() : null;
+  const bounds = window.getModelBounds ? window.getModelBounds() : null;
+  const stats = window.lastEngineStats || {};
+  const seedIdentityPct = stats.seedIdentityPct || 100;
+
+  const measuredOutput = (origPos && bounds && window.measureGeometryMetrics && window.applyArtNouveauDNA)
+    ? window.measureGeometryMetrics(window.applyArtNouveauDNA(origPos, dna, bounds, domainState.seedIdentityThreshold, true, activeTypoKey), origPos, bounds)
+    : {};
+
+  const iterData = {
+    id: manualId,
+    generation: 'MANUAL',
+    parentId: domainState.selectedParentId || 'RHINO-SEED',
+    seedId: 'RHINO-SEED',
+    title: title,
+    dna: dna,
+    dominantPrinciple: domSec.dominant,
+    secondaryPrinciple: domSec.secondary,
+    studyVariable: 'MANUAL SLIDERS',
+    studyValuePct: Math.round((dna[1] || 0) * 100),
+    seedSimilarity: seedIdentityPct,
+    parentSimilarity: 100,
+    siblingDiff: 0,
+    measuredOutput: measuredOutput,
+    ruleValidation: stats.ruleValidation || {},
+    whyText: whyText,
+    typologyKey: activeTypoKey,
+    isSaved: true,
+    savedAt: Date.now()
+  };
+
+  // Save to database & update UI
+  saveIterationToDB(iterData);
+
+  // Update success alert in the tab
+  const alertEl = document.getElementById('manual-save-alert');
+  if (alertEl) {
+    alertEl.style.display = 'block';
+    alertEl.innerHTML = `
+      <div style="font-weight:700; color:#00ffff; margin-bottom:2px;">✓ SAVED TO ITERATION LIBRARY!</div>
+      <div style="color:#ffffff;">ID: <b>${manualId}</b> — "${title}"</div>
+      <div style="color:#888888; font-size:7px; margin-top:2px;">Stored permanently in your Iteration Library.</div>
+    `;
+  }
+
+  // Update badge counts
+  const tabBadge = document.getElementById('lib-tab-count-badge');
+  if (tabBadge) tabBadge.textContent = domainState.savedLibrary.length;
+
+  return iterData;
+}
+window.saveCurrentManualIteration = saveCurrentManualIteration;

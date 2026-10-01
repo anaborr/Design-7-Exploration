@@ -346,11 +346,20 @@
               </button>
             </div>
 
-            <!-- DOMAIN B: MANUAL SHAPE SLIDERS -->
-            <details open style="margin-bottom: 12px; border: 1px solid #333333; padding: 10px; background: #000000; border-radius: 4px; cursor: pointer;">
-              <summary style="font-weight: 500; opacity: 0.95; outline: none; color:#cccccc; font-size:8.5px;">DOMAIN B — MANUAL SHAPE SLIDERS</summary>
-              <div style="margin-top: 10px; cursor: default;" class="dna-sliders-container">
-                <!-- DOMAIN A TYPOLOGY GEOMETRIC INFLUENCE BANNER -->
+            <!-- DOMAIN B: MANUAL SHAPE SLIDERS & ITERATIONS -->
+            <details open id="domain-b-tab-container" style="margin-bottom: 12px; border: 1px solid #333333; padding: 10px; background: #000000; border-radius: 4px; cursor: pointer;">
+              <summary style="font-weight: 500; opacity: 0.95; outline: none; color:#cccccc; font-size:8.5px;">DOMAIN B — MANUAL SHAPE SLIDERS & ITERATIONS</summary>
+              <div style="margin-top: 8px; cursor: default;">
+
+                <!-- DOMAIN B SUBTAB NAVIGATION BAR -->
+                <div class="sidebar-sub-tabbar" style="margin-bottom: 8px; display: flex; gap: 4px; background: #0d0d0d; padding: 3px; border-radius: 3px; border: 1px solid #222222;">
+                  <button type="button" class="sub-tab-btn active" id="tab-btn-domain-b-sliders" style="font-size: 8px; font-weight: 600; padding: 5px 6px;" onclick="switchDomainBTab('sliders', this)">SHAPE SLIDERS</button>
+                  <button type="button" class="sub-tab-btn" id="tab-btn-domain-b-save" style="font-size: 8px; font-weight: 600; padding: 5px 6px; color: #00ffff;" onclick="switchDomainBTab('save', this)">★ SAVE TO LIBRARY</button>
+                </div>
+
+                <!-- SUBTAB 1: SHAPE SLIDERS -->
+                <div id="domain-b-subtab-sliders" class="domain-b-subtab-content active dna-sliders-container">
+                  <!-- DOMAIN A TYPOLOGY GEOMETRIC INFLUENCE BANNER -->
                 <div id="domain-b-influence-banner" style="margin-bottom:10px; background:#080808; padding:8px; border:1px solid #333333; border-radius:3px;">
                   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
                     <span style="font-size:7px; color:#888888; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;">DOMAIN A SPATIAL INFLUENCE</span>
@@ -578,6 +587,66 @@
                     </div>
                   </details>
                 </div>
+                </div>
+                <!-- END SUBTAB 1 (SHAPE SLIDERS) -->
+
+                <!-- SUBTAB 2: SAVE MANUAL ITERATION TO LIBRARY -->
+                <div id="domain-b-subtab-save" class="domain-b-subtab-content" style="display:none; padding:4px 0;">
+                  <div style="background:#080808; border:1px solid #333333; border-radius:3px; padding:10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                      <span style="font-size:7px; color:#888888; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;">ITERATION CAPTURE</span>
+                      <span style="font-size:7px; color:#00ffff; border:1px solid rgba(0,255,255,0.4); padding:1px 5px; border-radius:2px; text-transform:uppercase; background:rgba(0,255,255,0.05);">DOMAIN B MANUAL</span>
+                    </div>
+                    <div style="font-size:9px; color:#ffffff; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; margin-bottom:8px;">SAVE MANUAL ITERATION</div>
+
+                    <!-- Current Shape Configuration Preview -->
+                    <div style="background:rgba(255,255,255,0.03); border:1px solid #222222; border-radius:3px; padding:8px; margin-bottom:10px; font-family:'Space Mono', monospace; font-size:7.5px;">
+                      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span style="color:#888;">Active Typology:</span>
+                        <span id="manual-save-typo" style="color:#00ffff; font-weight:bold;">COMPRESSED → EXPANDED</span>
+                      </div>
+                      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span style="color:#888;">Current DNA:</span>
+                        <span id="manual-save-dna" style="color:#ffd700;">C: 0% · W: 0% · B: 100%</span>
+                      </div>
+                      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span style="color:#888;">Branching:</span>
+                        <span id="manual-save-branching" style="color:#ffffff;">100% (28 Structural Columns)</span>
+                      </div>
+                      <div style="display:flex; justify-content:space-between;">
+                        <span style="color:#888;">Dominant Rule:</span>
+                        <span id="manual-save-dominant" style="color:#aaaaaa;">CONTINUITY / BRANCHING</span>
+                      </div>
+                    </div>
+
+                    <!-- Iteration Title Field -->
+                    <div style="margin-bottom:8px;">
+                      <label style="display:block; font-size:7.5px; color:#cccccc; margin-bottom:3px; font-weight:500;">ITERATION TITLE:</label>
+                      <input type="text" id="manual-save-name" placeholder="e.g. Compressed Colonnade Entry" style="width:100%; box-sizing:border-box; background:#111111; border:1px solid #444444; color:#ffffff; font-size:8px; padding:5px 8px; border-radius:3px; outline:none; font-family:'Space Mono', monospace;">
+                    </div>
+
+                    <!-- Design Notes Field -->
+                    <div style="margin-bottom:10px;">
+                      <label style="display:block; font-size:7.5px; color:#cccccc; margin-bottom:3px; font-weight:500;">DESIGN NOTES (OPTIONAL):</label>
+                      <textarea id="manual-save-notes" rows="2" placeholder="Describe specific spatial traits, proportions, or observations..." style="width:100%; box-sizing:border-box; background:#111111; border:1px solid #444444; color:#ffffff; font-size:8px; padding:5px 8px; border-radius:3px; outline:none; font-family:'Space Mono', monospace; resize:vertical;"></textarea>
+                    </div>
+
+                    <!-- Save Action Button -->
+                    <button type="button" id="btn-save-manual-iteration" class="btn btn-header-cyan" style="width:100%; justify-content:center; padding:7px 10px; font-size:8px; font-weight:700; letter-spacing:0.5px; background:#000000; border:1px solid #00ffff; color:#00ffff; cursor:pointer; border-radius:3px; transition:all 0.2s;" onclick="saveCurrentManualIteration()">
+                      💾 SAVE MANUAL ITERATION TO LIBRARY
+                    </button>
+
+                    <!-- Save Confirmation Status Alert -->
+                    <div id="manual-save-alert" style="display:none; margin-top:10px; padding:8px; background:rgba(0,255,255,0.06); border:1px solid rgba(0,255,255,0.3); border-radius:3px; font-size:7.5px; line-height:1.4;">
+                    </div>
+
+                    <!-- Quick Navigation Button -->
+                    <button type="button" class="btn btn-header-outline" style="width:100%; justify-content:center; margin-top:8px; padding:4px 8px; font-size:7.5px; color:#aaaaaa;" onclick="switchWorkspaceTab('library')">
+                      VIEW IN ITERATION LIBRARY →
+                    </button>
+                  </div>
+                </div>
+                <!-- END SUBTAB 2 -->
 
               </div>
             </details>
@@ -1227,8 +1296,8 @@
     </div>
   </footer>
 
-  <script src="branchingEngine.js?v=20261001_v1"></script>
-  <script src="generator.js?v=20261001_v1"></script>
-  <script src="app.js?v=20261001_v1"></script>
+  <script src="branchingEngine.js?v=20261001_v2"></script>
+  <script src="generator.js?v=20261001_v2"></script>
+  <script src="app.js?v=20261001_v2"></script>
 </body>
 </html>
