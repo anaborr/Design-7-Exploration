@@ -867,12 +867,9 @@
       flatShading: false
     });
 
-    // Add unified continuous mesh to scene
-    const branchMesh = new THREE.Mesh(archResult.geometry, wallMaterial);
-    branchMesh.name = 'OrganicStructuralBranchingArchitecture';
-    branchMesh.castShadow = true;
-    branchMesh.receiveShadow = true;
-    group.add(branchMesh);
+    // The primary branching form now grows and divides directly on the imported geometry (rhinoSubDMesh),
+    // ensuring complete organic connection without floating spikes or detached pieces.
+    // group.add(branchMesh);
 
     // Synchronize UI Metrics
     const mBCount = document.getElementById('metric-b-count');

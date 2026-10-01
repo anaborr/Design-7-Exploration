@@ -1486,114 +1486,154 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
   // RULE 2: BRANCHING (B)
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   else if (upperRule === 'BRANCHING' || upperRule === 'B') {
+    const B = Math.max(0, Math.min(1.0, strength));
+    if (B < 0.001) return out;
+
+    const smoothstep = (e0, e1, v) => {
+      const t = Math.max(0, Math.min(1, (v - e0) / (e1 - e0)));
+      return t * t * (3 - 2 * t);
+    };
+
+    // Column grid layout across length and width:
+    // Bay 1: X = minX + 0.17 * spanX (~ -5.0)
+    // Bay 2: X = minX + 0.35 * spanX (~ 0.5)
+    // Row Front: Z = centerZ + 0.22 * spanZ (~ -2.6)
+    // Row Rear:  Z = centerZ - 0.22 * spanZ (~ -7.0)
+    const bayX1 = minX + 0.17 * spanX;
+    const bayX2 = minX + 0.35 * spanX;
+    const rowZ1 = centerZ + 0.22 * spanZ;
+    const rowZ2 = centerZ - 0.22 * spanZ;
+
+    const colNodes = [
+      { x: bayX1, z: rowZ1 },
+      { x: bayX1, z: rowZ2 },
+      { x: bayX2, z: rowZ1 },
+      { x: bayX2, z: rowZ2 }
+    ];
+
     for (let i = 0; i < out.length; i += 3) {
       let x = out[i], y = out[i+1], z = out[i+2];
       let dx = x - centerX, dy = y - centerY, dz = z - centerZ;
-      let rXZ = Math.sqrt(dx * dx + dz * dz);
-      let rNorm = rXZ / (transSpan * 0.5);
-      let theta = Math.atan2(dz, dx);
       let uX = Math.min(1, Math.max(0, (x - minX) / spanX));
       let uY = Math.min(1, Math.max(0, (y - minY) / spanY));
       let uZ = Math.min(1, Math.max(0, (z - minZ) / spanZ));
+      let normZ = (z - centerZ) / (spanZ * 0.5 + 0.001);
 
+      // ─── 1. STRUCTURAL COLUMN-LIKE BRANCHES (UNDERSIDE EXTENSION TO FLOOR)
+      // The lower body of the primary form (cantilever undercroft: uX <= 0.48, y <= 8.8)
+      // divides into secondary column branches that grow downward to touch the ground plinth.
+      if (uX <= 0.48 && y <= 8.8) {
+        let maxColW = 0;
+        let bestDx = 0, bestDz = 0;
+
+        for (let c = 0; c < colNodes.length; c++) {
+          let node = colNodes[c];
+          let ndx = x - node.x;
+          let ndz = z - node.z;
+          let dist = Math.sqrt(ndx * ndx + ndz * ndz);
+          let rCol = 2.2;
+          if (dist < rCol) {
+            let tDist = Math.max(0, dist - 0.4) / (rCol - 0.4);
+            let w = 0.5 * (1.0 + Math.cos(tDist * Math.PI));
+            if (w > maxColW) {
+              maxColW = w;
+              bestDx = ndx;
+              bestDz = ndz;
+            }
+          }
+        }
+
+        if (maxColW > 0.001) {
+          let depthF = smoothstep(8.5, 4.9, y);
+          let targetFloor = minY + 0.04;
+          let drop = (y - targetFloor);
+
+          // Full ground connection: column firmly meets floor at high B
+          let reach = Math.min(1.0, B * 1.35);
+          let dY_col = -reach * drop * maxColW * depthF;
+          out[i+1] += dY_col;
+
+          // Column footing & capital flaring:
+          let currY = y + dY_col;
+          let nearFloor = smoothstep(2.5, targetFloor, currY);
+          out[i] += bestDx * 0.35 * nearFloor * maxColW * B;
+          out[i+2] += bestDz * 0.35 * nearFloor * maxColW * B;
+        }
+
+        // Longitudinal vaulted arches between Bay 1 and Bay 2 (organizing into rooms)
+        if (x > bayX1 && x < bayX2 && y <= 6.5) {
+          let tX = (x - bayX1) / (bayX2 - bayX1);
+          let archY = Math.sin(Math.PI * tX);
+          let archW = smoothstep(4.8, 6.2, y);
+          out[i+1] += B * 1.5 * archY * archW;
+        }
+
+        // Transverse vaulted arch between front and rear column rows (central gallery aisle)
+        if (z > rowZ2 && z < rowZ1 && y <= 6.5 && uX < 0.45) {
+          let tZ = (z - rowZ2) / (rowZ1 - rowZ2);
+          let archZ = Math.sin(Math.PI * tZ);
+          let archW = smoothstep(4.8, 6.2, y);
+          out[i+1] += B * 1.2 * archZ * archW;
+        }
+      }
+
+      // ─── 2. SLIT CHAMBER DIVISION (UPPER-TO-LOWER STRUCTURAL MULLION BRANCHES)
+      // The horizontal slit between upper roof deck and lower floor deck divides into
+      // secondary structural mullion piers aligned with the column bays.
+      if (uX <= 0.45 && y >= 8.5 && y <= 11.5) {
+        for (let c = 0; c < colNodes.length; c++) {
+          let node = colNodes[c];
+          let ndx = x - node.x;
+          let ndz = z - node.z;
+          let dist = Math.sqrt(ndx * ndx + ndz * ndz);
+          if (dist < 1.8 && y > 9.8) {
+            let wM = 0.5 * (1.0 + Math.cos((dist / 1.8) * Math.PI));
+            let dY_mull = -B * (y - 9.0) * wM * 0.80;
+            out[i+1] += dY_mull;
+          }
+        }
+      }
+
+      // ─── 3. UPPER CANOPY DIVISION (SECONDARY ARTICULATED RIBS)
+      // Primary roof canopy mass splits into secondary rhythmic ribs.
+      if (uY > 0.65) {
+        let roofW = smoothstep(0.65, 0.90, uY);
+        let rib = Math.sin(4.0 * Math.PI * uX) * Math.cos(2.0 * Math.PI * uZ);
+        out[i+1] += B * 0.08 * spanY * rib * roofW;
+        out[i] += B * 0.04 * spanX * Math.cos(4.0 * Math.PI * uX) * roofW;
+      }
+
+      // ─── 4. DOMAIN A TYPOLOGY GRAMMAR MODULATION
       if (grammar.branchingConstraint === 'VOID_CLEAR') {
-        // Vertical Void: branches organize along outer perimeter walls; central atrium stays clear!
-        if (rNorm >= 0.28) {
-          let bDist = strength * 0.20 * transSpan;
-          let spiral = theta + Math.PI * 0.5;
-          out[i] += Math.cos(spiral) * bDist * 0.40;
-          out[i+2] += Math.sin(spiral) * bDist * 0.40;
-          out[i+1] += strength * spanY * 0.25 * Math.sin(Math.PI * uY);
+        // Vertical Void: Central atrium void stays soaring and clear; columns frame perimeter galleries
+        if (uX > 0.52 && uX < 0.85 && uY > 0.25) {
+          let voidFrame = Math.sin(Math.PI * (uX - 0.52) / 0.33);
+          out[i+2] += normZ * B * 0.08 * spanZ * voidFrame;
         }
       } else if (grammar.branchingConstraint === 'CHOKE_PORTALS') {
-        // Compressed Sequential: branches form portal arch frames at choke thresholds
-        let sChoke = Math.sin(3.0 * Math.PI * uX - Math.PI * 0.5);
-        if (Math.abs(sChoke) > 0.55) {
-          let archW = strength * spanZ * 0.38 * (Math.abs(sChoke) - 0.55);
-          out[i+2] += (dz >= 0 ? 1 : -1) * archW;
-          out[i+1] += strength * spanY * 0.28 * Math.abs(Math.sin(Math.PI * uX));
+        // Compressed Sequential: Columns frame monumental portal at transition threshold
+        let atChoke = Math.exp(-Math.pow((uX - 0.38) * 9.0, 2));
+        out[i+1] += B * 0.18 * spanY * atChoke * smoothstep(0.2, 0.6, uY);
+        out[i+2] += normZ * B * 0.12 * spanZ * atChoke;
+      } else if (grammar.branchingConstraint === 'PERIMETER_BUTTRESS' || grammar.branchingConstraint === 'PERIMETER_ALCOVES') {
+        // Open Hall: Columns act as perimeter buttresses, breaking flanks into intimate alcoves
+        let flankDist = Math.abs(normZ);
+        if (flankDist > 0.4) {
+          let buttressW = smoothstep(0.4, 0.9, flankDist);
+          out[i+2] += normZ * B * 0.14 * spanZ * buttressW * Math.sin(3.0 * Math.PI * uX);
         }
-      } else if (grammar.branchingConstraint === 'PERIMETER_BUTTRESS') {
-        // Continuous Hall: branches lean outward around perimeter as flying buttresses
-        if (rNorm >= 0.35) {
-          let buttress = strength * 0.30 * transSpan;
-          out[i] += (dx / (rXZ + 0.01)) * buttress * 0.50;
-          out[i+2] += (dz / (rXZ + 0.01)) * buttress * 0.50;
-        }
-      } else if (grammar.branchingConstraint === 'GROUND_DIVIDE') {
-        // Topographic Ground: branches form low landscape retaining curbs and dividing paths
-        if (uY < 0.55) {
-          let curb = strength * 0.24 * transSpan * Math.sin(4.0 * Math.PI * uX);
-          out[i+2] += curb;
-          out[i+1] += Math.abs(curb) * 0.45;
-        }
+      } else if (grammar.branchingConstraint === 'TERRACE_CANTILEVERS' || grammar.branchingConstraint === 'GROUND_DIVIDE') {
+        // Terraced Stepped: Columns step progressively with terrace tiers
+        let tierU = (uX * 3.0) % 1.0;
+        out[i+1] -= B * 0.12 * spanY * tierU * smoothstep(0.1, 0.45, uY);
       } else if (grammar.branchingConstraint === 'SECONDARY_AXIAL') {
-        // Linear Gallery: branches project laterally (+/- Z) forming enfilade side alcoves
-        let bayNode = Math.sin(4.0 * Math.PI * uX);
-        if (Math.abs(bayNode) > 0.45) {
-          let latBranch = strength * spanZ * 0.42 * (Math.abs(bayNode) - 0.45);
-          out[i+2] += (dz >= 0 ? 1 : -1) * latBranch;
-        }
-      } else if (grammar.branchingConstraint === 'PERIMETER_ALCOVES') {
-        // Open Hall Workspace: perimeter alcove ribs leaving center work field open
-        if (rNorm >= 0.32) {
-          let alcove = strength * 0.22 * transSpan * Math.sin(6.0 * theta);
-          out[i] += Math.cos(theta) * alcove;
-          out[i+2] += Math.sin(theta) * alcove;
-        }
-      } else if (grammar.branchingConstraint === 'TERRACE_CANTILEVERS') {
-        // Cascaded Terraces: cantilevered lookout balconies projecting forward from tiers
-        let cant = strength * spanX * 0.32 * Math.sin(4.0 * Math.PI * uX);
-        if (cant > 0) {
-          out[i] += cant;
-          out[i+1] += strength * spanY * 0.16;
-        }
-      } else if (grammar.branchingConstraint === 'RADIAL_SPINES') {
-        // Flat Deep-Plan: radial spine ribs branching outward from cores
-        let spine = strength * 0.25 * transSpan * Math.sin(4.0 * theta);
-        out[i] += Math.cos(theta) * spine;
-        out[i+2] += Math.sin(theta) * spine;
-      } else if (grammar.branchingConstraint === 'OUTWARD_BAYS') {
-        // Void-Edge: workstation bays projecting outward away from the void
-        if (rNorm >= 0.40) {
-          let bay = strength * 0.28 * transSpan;
-          out[i] += (dx / (rXZ + 0.01)) * bay;
-          out[i+2] += (dz / (rXZ + 0.01)) * bay;
-        }
+        // Linear Gallery: Columns form rhythmic enfilade colonnade along longitudinal axis
+        let enfiladeBay = Math.sin(4.0 * Math.PI * uX);
+        out[i+2] += normZ * B * 0.14 * spanZ * Math.max(0, enfiladeBay);
       } else if (grammar.branchingConstraint === 'CREST_NOOKS') {
-        // Folded Undulated: work nooks branching along fold crests
-        let nook = strength * 0.24 * transSpan * Math.sin(5.0 * Math.PI * uX);
-        out[i+2] += nook;
-        out[i+1] += Math.abs(nook) * 0.35;
-      } else if (grammar.branchingConstraint === 'RADIAL_AISLES') {
-        // Stepped Amphitheater: radial aisle stairs slicing through seating tiers
-        let aisle = Math.sin(5.0 * theta);
-        if (Math.abs(aisle) < 0.28) {
-          out[i+1] -= strength * spanY * 0.28 * (1.0 - Math.abs(aisle) / 0.28);
-        }
-      } else if (grammar.branchingConstraint === 'MEETING_CLUSTERS') {
-        // Void-Field Gathering: circular meeting pods at path crossroads
-        let cluster = strength * 0.28 * transSpan * Math.cos(3.0 * theta);
-        out[i] += Math.cos(theta) * cluster;
-        out[i+2] += Math.sin(theta) * cluster;
-      } else if (grammar.branchingConstraint === 'PYLON_SUPPORTS') {
-        // Inserted Plate: tripod support pylons and cantilever stairs
-        let pylon = strength * 0.30 * spanY * Math.cos(Math.PI * uY);
-        out[i] += (dx >= 0 ? 1 : -1) * pylon * 0.45;
-        out[i+2] += (dz >= 0 ? 1 : -1) * pylon * 0.45;
-      } else if (grammar.branchingConstraint === 'SCREEN_LOUVERS') {
-        // Contained Room: acoustic louvers and privacy fins wrapped around pod
-        let louver = strength * 0.25 * transSpan * Math.sin(8.0 * theta);
-        out[i] += Math.cos(theta) * louver;
-        out[i+2] += Math.sin(theta) * louver;
-      } else if (grammar.branchingConstraint === 'OUTLOOK_PROWS') {
-        // Linear Edge Gallery: angular viewing spurs projecting over the drop
-        let prow = strength * spanZ * 0.42 * Math.sin(3.0 * Math.PI * uX);
-        out[i+2] += (dz >= 0 ? 1 : -1) * prow;
-      } else {
-        let bDist = strength * 0.18 * transSpan;
-        out[i] += Math.cos(theta) * bDist;
-        out[i+2] += Math.sin(theta) * bDist;
+        // Folded Undulating: Columns follow diagonal valley folds
+        let foldDiag = Math.sin(3.0 * Math.PI * (uX + uZ));
+        out[i+1] -= B * 0.12 * spanY * Math.max(0, -foldDiag) * smoothstep(0.2, 0.5, uY);
       }
     }
   }
