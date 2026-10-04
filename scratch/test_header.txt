@@ -1,0 +1,5 @@
+// RULE 6: CONTINUITY (C)
+// Continuity is the degree to which separate geometric elements connect, overlap, align,
+// or flow into one another to create a unified and uninterrupted spatial form.
+// High continuity shows elements becoming highly connected and reading as one continuous system,
+// guiding the view in space smoothly from one element to the next, WITHOUT simply making everything closer together.

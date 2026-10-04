@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architectural Variation Generator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const SPACES = [
+    { id: 'lobby', name: 'The Lobby', image: 'file:///C:/Users/anabo/.gemini/antigravity-ide/brain/3a1c53cd-2e82-432b-ab27-4348bf6cde9b/lobby_section_1791147094632.jpg' },
+    { id: 'workspace', name: 'The Workspace', image: 'file:///C:/Users/anabo/.gemini/antigravity-ide/brain/3a1c53cd-2e82-432b-ab27-4348bf6cde9b/workspace_section_1791147102965.jpg' },
+    { id: 'gathering', name: 'The Gathering Space', image: 'file:///C:/Users/anabo/.gemini/antigravity-ide/brain/3a1c53cd-2e82-432b-ab27-4348bf6cde9b/gathering_section_1791147111239.jpg' }
+];
+
+function App() {
+    const [activeSpace, setActiveSpace] = useState(SPACES[0]);
+    const [uploadedImage, setUploadedImage] = useState(null);
+    
+    // 6 Architectural Descriptors
+    const [params, setParams] = useState({
+        porosity: 0,
+        rhythm: 0,
+        connectivity: 0,
+        layered: 0,
+        focalization: 0,
+        intimacy: 0
+    });
+
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generatedImageUrl, setGeneratedImageUrl] = useState(null);
+    const fileInputRef = useRef(null);
+
+    useEffect(() => {
+        setGeneratedImageUrl(null);
+    }, [activeSpace, uploadedImage]);
+
+    const handleParamChange = (key, value) => {
+        setParams(prev => ({ ...prev, [key]: parseInt(value) }));
+        setGeneratedImageUrl(null);
+    };
+
+    const handleUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const url = URL.createObjectURL(file);
+            const customSpace = { id: 'custom', name: 'Custom Drawing', image: url };
+            setUploadedImage(customSpace);
+            setActiveSpace(customSpace);
+        }
+    };
+
+    const generateRealisticVariation = () => {
+        setIsGenerating(true);
+        
+        setTimeout(() => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            img.onload = () => {
+                const w = img.width;
+                const h = img.height;
+                canvas.width = w;
+                canvas.height = h;
+
+                // We want black background and white lines. If the uploaded image is standard white paper + black ink, 
+                // we invert it on the canvas.
+                ctx.filter = 'invert(1) grayscale(1) contrast(1.2)';
+                ctx.drawImage(img, 0, 0, w, h);
+                ctx.filter = 'none'; // reset filter for subsequent drawings
+
+                // Apply Layered (Overlapping spatial layers)
+                if (params.layered > 0) {
+                    const layers = Math.floor(params.layered / 20) + 1;
+                    ctx.globalAlpha = (params.layered / 100) * 0.3;
+                    for(let i=1; i<=layers; i++) {
+                        const scale = 1 + (i * 0.05);
+                        const dw = w * scale;
+                        const dh = h * scale;
+                        const dx = (w - dw) / 2 + (Math.random() * 40 - 20);
+                        const dy = (h - dh) / 2 + (Math.random() * 40 - 20);
+                        // We must invert this layer too so it matches the white-on-black aesthetic
+                        ctx.filter = 'invert(1) grayscale(1) contrast(1.2)';
+                        ctx.drawImage(img, dx, dy, dw, dh);
+                        ctx.filter = 'none';
+                    }
+                    ctx.globalAlpha = 1.0;
+                }
+
+                // Apply Intimacy (Enclosure, compression) - draw black to enclose space
+                if (params.intimacy > 0) {
+                    const intensity = params.intimacy / 100;
+                    ctx.fillStyle = `rgba(0,0,0,${intensity * 0.9})`;
+                    // Lower the ceiling
+                    ctx.fillRect(0, 0, w, h * (intensity * 0.3));
+                    // Raise the floor slightly
+                    ctx.fillRect(0, h - (h * intensity * 0.1), w, h * (intensity * 0.1));
+                    // Darken corners for enclosure
+                    const grd = ctx.createRadialGradient(w/2, h/2, h*0.2, w/2, h/2, w);
+                    grd.addColorStop(0, "transparent");
+                    grd.addColorStop(1, `rgba(0,0,0,${intensity * 0.7})`);
+                    ctx.fillStyle = grd;
+                    ctx.fillRect(0,0,w,h);
+                }
+
+                // Apply Rhythm (Repetition/pattern) - draw white columns
+                if (params.rhythm > 0) {
+                    const elements = Math.floor(params.rhythm / 10) + 2;
+                    const spacing = w / elements;
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+                    for(let i = 1; i < elements; i++) {
+                        const x = i * spacing;
+                        // Draw architectural columns/mullions
+                        ctx.fillRect(x - 4, 0, 8, h);
+                    }
+                }
+
+                // Apply Connectivity (Direct connections) - draw white slabs/bridges
+                if (params.connectivity > 0) {
+                    const bridges = Math.floor(params.connectivity / 20) + 1;
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+                    for(let i = 0; i < bridges; i++) {
+                        const y = (h / (bridges + 1)) * (i + 1);
+                        ctx.fillRect(w*0.2, y - 8, w*0.6, 16); 
+                    }
+                }
+
+                // Apply Porosity (Openings / visual passage)
+                if (params.porosity > 0) {
+                    const holes = Math.floor(params.porosity / 5);
+                    // Erase parts of the image to show the black page background through
+                    ctx.globalCompositeOperation = 'destination-out';
+                    for(let i = 0; i < holes; i++) {
+                        const hx = Math.random() * w;
+                        const hy = Math.random() * h;
+                        const hw = 50 + Math.random() * 150;
+                        const hh = 100 + Math.random() * 200;
+                        ctx.fillRect(hx, hy, hw, hh);
+                    }
+                    ctx.globalCompositeOperation = 'source-over';
+                }
+
+                // Apply Focalization (Sightlines converging) - draw white faint lines
+                if (params.focalization > 0) {
+                    const fx = w / 2;
+                    const fy = h / 2;
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${(params.focalization/100) * 0.4})`;
+                    ctx.lineWidth = 1;
+                    const lines = Math.floor(params.focalization / 5);
+                    for(let i = 0; i < lines; i++) {
+                        const angle = (Math.PI * 2 / lines) * i;
+                        const startX = fx + Math.cos(angle) * (w*2);
+                        const startY = fy + Math.sin(angle) * (w*2);
+                        ctx.beginPath();
+                        ctx.moveTo(startX, startY);
+                        ctx.lineTo(fx, fy);
+                        ctx.stroke();
+                    }
+                }
+
+                setGeneratedImageUrl(canvas.toDataURL('image/jpeg', 0.9));
+                setIsGenerating(false);
+            };
+            img.src = activeSpace.image;
+        }, 1500);
+    };
+
+    const displayImage = generatedImageUrl || activeSpace.image;
+
+    return (
+        <div className="main-layout">
+            
+            {/* LEFT PANEL */}
+            <div className="panel">
+                <h2>Base Geometry</h2>
+                
+                <div style={{marginBottom: '24px'}}>
+                    <input 
+                        type="file" 
+                        accept="image/*" 
+                        ref={fileInputRef} 
+                        onChange={handleUpload} 
+                        style={{display: 'none'}} 
+                    />
+                    <div className="upload-btn" onClick={() => fileInputRef.current.click()}>
+                        + INSERT 2D DRAWING
+                    </div>
+                </div>
+
+                <div style={{marginBottom: '32px'}}>
+                    {SPACES.map(space => (
+                        <button 
+                            key={space.id} 
+                            className={`space-btn ${(activeSpace.id === space.id && activeSpace.id !== 'custom') ? 'active' : ''}`}
+                            onClick={() => setActiveSpace(space)}
+                            style={{width: '100%'}}
+                        >
+                            {space.name}
+                        </button>
+                    ))}
+                    {uploadedImage && (
+                        <button 
+                            className={`space-btn ${activeSpace.id === 'custom' ? 'active' : ''}`}
+                            onClick={() => setActiveSpace(uploadedImage)}
+                            style={{width: '100%'}}
+                        >
+                            {uploadedImage.name}
+                        </button>
+                    )}
+                </div>
+
+                <h2>Descriptors</h2>
+                <div className="def-box"><h4>Porosity</h4><p>Visual and physical passage between spaces.</p></div>
+                <div className="def-box"><h4>Rhythm</h4><p>Repetition and pattern of architectural elements.</p></div>
+                <div className="def-box"><h4>Connectivity</h4><p>Physical or visual links into a continuous system.</p></div>
+                <div className="def-box"><h4>Layered</h4><p>Overlapping and interacting spatial zones.</p></div>
+                <div className="def-box"><h4>Focalization</h4><p>Attention toward identifiable focal points.</p></div>
+                <div className="def-box"><h4>Intimacy</h4><p>Enclosure, closeness, and compression.</p></div>
+            </div>
+
+            {/* CENTER STAGE */}
+            <div className="center-stage">
+                <header style={{position: 'absolute', top: 0, left: 0, width: '100%', border: 'none', background: 'transparent'}}>
+                    <h1>ARCHITECTURAL SPATIAL GENERATOR</h1>
+                </header>
+
+                <div className="canvas-container">
+                    <img 
+                        src={displayImage} 
+                        style={{width: '100%', height: '100%', objectFit: 'contain'}} 
+                        className={!generatedImageUrl ? "inverted-drawing" : ""}
+                        alt="Workspace" 
+                    />
+
+                    {/* Loading State */}
+                    <div className={`loading-overlay ${isGenerating ? 'active' : ''}`}>
+                        <div className="spinner"></div>
+                        <div style={{color: 'var(--accent)', letterSpacing: '2px'}}>COMPUTING VARIATIONS...</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* RIGHT PANEL */}
+            <div className="panel">
+                <h2>Parameters</h2>
+                
+                {Object.keys(params).map(key => (
+                    <div className="slider-group" key={key}>
+                        <div className="slider-header">
+                            <span style={{textTransform: 'capitalize'}}>{key}</span>
+                            <span className="value">{params[key]}%</span>
+                        </div>
+                        <input 
+                            type="range" min="0" max="100" value={params[key]}
+                            onChange={(e) => handleParamChange(key, e.target.value)} 
+                        />
+                    </div>
+                ))}
+                
+                <button 
+                    className="btn-generate" 
+                    onClick={generateRealisticVariation}
+                    disabled={isGenerating}
+                >
+                    {isGenerating ? 'Synthesizing...' : 'Generate Iteration'}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+    </script>
+</body>
+</html>

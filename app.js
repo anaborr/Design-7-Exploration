@@ -206,9 +206,10 @@ function initRhino3dm() {
       rhino = loadedRhino;
       window.rhino = loadedRhino;
       console.log('[RHINO3DM] WebAssembly ready!');
+      // Do not load a default geometry on startup. Wait for user to import.
       setTimeout(() => {
-        if (typeof window.loadRhinoFromUrl === 'function') {
-          window.loadRhinoFromUrl('compressed.3dm');
+        if (typeof window.updateDiagnosticsPanel === 'function') {
+          window.updateDiagnosticsPanel({ filename: 'None (Awaiting Import)' });
         }
       }, 150);
     }).catch(err => {
@@ -286,13 +287,7 @@ function setupUIEventListeners() {
     domainState.diversityMode = val;
   });
 
-  // DOMAIN C: Generate Iterations Button
-  const btnGen = document.getElementById('btn-generate-iterations');
-  if (btnGen) {
-    btnGen.addEventListener('click', () => {
-      generatePopulation();
-    });
-  }
+  // DOMAIN C: Generate Iterations Button handled in generator.js
 
   // DOMAIN C: Set As Parent Button
   const btnParent = document.getElementById('btn-set-as-parent');
@@ -1219,14 +1214,15 @@ function computeModelBounds() {
 function calculateSeedIdentityScore(deformedPos, origPos, bounds) {
   if (!deformedPos || !origPos || deformedPos.length === 0) return 100;
   
-  const count = Math.floor(origPos.length / 3);
+  const compareLen = Math.min(origPos.length, deformedPos.length);
+  const count = Math.floor(compareLen / 3);
   let totalDisp = 0;
   let spanX = Math.max(0.1, Math.abs(bounds.max.x - bounds.min.x));
   let spanY = Math.max(0.1, Math.abs(bounds.max.y - bounds.min.y));
   let spanZ = Math.max(0.1, Math.abs(bounds.max.z - bounds.min.z));
   let diag = Math.sqrt(spanX * spanX + spanY * spanY + spanZ * spanZ) || 1.0;
 
-  for (let i = 0; i < origPos.length; i += 3) {
+  for (let i = 0; i < compareLen; i += 3) {
     let dx = deformedPos[i] - origPos[i];
     let dy = deformedPos[i+1] - origPos[i+1];
     let dz = deformedPos[i+2] - origPos[i+2];
@@ -1360,7 +1356,7 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
   const centerZ = bounds?.center?.z ?? bounds?.centerZ ?? (minZ + maxZ) / 2;
 
   const getKey = (x, y, z) => (x !== undefined && y !== undefined && z !== undefined) ? (Number(x).toFixed(2) + ',' + Number(y).toFixed(2) + ',' + Number(z).toFixed(2)) : '0,0,0';
-  const out = new Float32Array(mesh);
+  let out = new Float32Array(mesh);
   const upperRule = (ruleName || '').toUpperCase();
 
   // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
@@ -1485,526 +1481,198 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
   }
 
   // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-  // RULE 2: BRANCHING (B)
-  // Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // RULE 2: BRANCHING (B)
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═══ RULE 2: BRANCHING (B) ═══
+  // Mathematical Implementation: Murray's Law, Minimal Path, and Volumetric Deformation
+  // Branches bifurcate and pull floor/ceiling together to form organic, thick columns.
   else if (upperRule === 'BRANCHING' || upperRule === 'B') {
     const B = Math.max(0, Math.min(1.0, strength));
-    if (B < 0.001) {
-      window.branchingMemberCounts = {
-        vertical: 0,
-        horizontal: 0,
-        diagonal: 0,
-        total: 0,
-        divisions: 0,
-        orientationMode: window.branchingOrientationMode || 'ALL'
-      };
-      return out;
-    }
+    if (B < 0.001) return out;
 
-    const smoothstep = (e0, e1, v) => {
-      const t = Math.max(0, Math.min(1, (v - e0) / (e1 - e0)));
-      return t * t * (3 - 2 * t);
-    };
-
-    const reach = Math.min(1.0, B * 1.35);
-    const orientationMode = window.branchingOrientationMode || 'ALL';
-
-    const zFront = centerZ + 1.15;
-    const zRear = centerZ - 1.15;
-
-    // MULTI-DIRECTIONAL STRUCTURAL BRANCHING MEMBERS
-    // Horizontal, Vertical, and Diagonal structural members calibrated to the spaces of the seed geometry:
-    // 1. Gallery Interior Space (X in [-4.0, 1.8])
-    // 2. Transition Ramp & Chaise Dip (X in [2.0, 8.5])
-    // 3. Grand Atrium & Vertical Void (X in [8.5, 15.0])
-    const members = [];
-
-    // ─── 1. GALLERY INTERIOR SPACE (X in [-4.0, 1.8]) ───
-    const gBays = B < 0.35 ? [-1.5] : (B < 0.65 ? [-2.8, -1.2, 0.4] : [-3.6, -2.4, -1.2, 0.0, 1.2]);
-
-    // VERTICAL MEMBERS (Columns & Shafts)
-    if (orientationMode === 'ALL' || orientationMode === 'VERTICAL') {
-      gBays.forEach(bx => {
-        const zRows = (B >= 0.65) ? [zFront, zRear] : [centerZ];
-        zRows.forEach(zPos => {
-          members.push({
-            type: 'VERTICAL',
-            p1: [bx, 10.4, zPos], p2: [bx, 7.05, zPos],
-            rShaft: 0.32, rCap: 0.80,
-            xMin: bx - 0.75, xMax: bx + 0.75,
-            ceilMinY: 9.4, ceilMaxY: 10.8,
-            targetFloor: 7.05, floorMinY: 6.8, floorMaxY: 7.5
-          });
-        });
-      });
-    }
-
-    // HORIZONTAL MEMBERS (Beams, Arched Lintels & Transverse Ties)
-    if (orientationMode === 'ALL' || orientationMode === 'HORIZONTAL') {
-      // A. Longitudinal arched lintels bridging between adjacent columns along X at ceiling level
-      if (gBays.length >= 2) {
-        for (let i = 0; i < gBays.length - 1; i++) {
-          const xA = gBays[i], xB = gBays[i+1];
-          const zRows = (B >= 0.65) ? [zFront, zRear] : [centerZ];
-          zRows.forEach(zPos => {
-            members.push({
-              type: 'HORIZONTAL',
-              p1: [xA, 9.2, zPos], p2: [xB, 9.2, zPos],
-              rShaft: 0.30, rCap: 0.80,
-              xMin: xA - 0.2, xMax: xB + 0.2,
-              ceilMinY: 9.4, ceilMaxY: 10.8, targetY: 9.15
-            });
-          });
-        }
-      }
-
-      // B. Transverse horizontal cross-ties bridging between front and rear columns across Z
-      if (B >= 0.65) {
-        gBays.forEach(bx => {
-          members.push({
-            type: 'HORIZONTAL',
-            p1: [bx, 8.8, zRear], p2: [bx, 8.8, zFront],
-            rShaft: 0.30, rCap: 0.80,
-            xMin: bx - 0.65, xMax: bx + 0.65,
-            ceilMinY: 9.3, ceilMaxY: 10.8, targetY: 8.75
-          });
-        });
-      }
-    }
-
-    // DIAGONAL MEMBERS (Raking Struts & Flared Knee Braces)
-    if (orientationMode === 'ALL' || orientationMode === 'DIAGONAL') {
-      if (B >= 0.35) {
-        gBays.forEach(bx => {
-          const zRows = (B >= 0.65) ? [zFront, zRear] : [centerZ];
-          zRows.forEach(zPos => {
-            // Rightward diagonal branch springing at 45°
-            members.push({
-              type: 'DIAGONAL',
-              p1: [bx, 8.2, zPos], p2: [bx + 0.70, 10.3, zPos],
-              rShaft: 0.26, rCap: 0.72,
-              xMin: bx - 0.1, xMax: bx + 0.85,
-              ceilMinY: 9.2, ceilMaxY: 10.8
-            });
-            // Leftward diagonal branch springing at 45°
-            members.push({
-              type: 'DIAGONAL',
-              p1: [bx, 8.2, zPos], p2: [bx - 0.70, 10.3, zPos],
-              rShaft: 0.26, rCap: 0.72,
-              xMin: bx - 0.85, xMax: bx + 0.1,
-              ceilMinY: 9.2, ceilMaxY: 10.8
-            });
-          });
-        });
-      }
-    }
-
-    // ─── 2. TRANSITION RAMP & CHAISE DIP (X in [2.0, 8.0]) ───
-    // DIAGONAL RAKING STRUTS (Dominant in the sloped transition zone!)
-    if (orientationMode === 'ALL' || orientationMode === 'DIAGONAL') {
-      const rPairs = [
-        { x1: 2.6, y1: 9.2, x2: 4.2, y2: 6.2 },
-        { x1: 4.0, y1: 8.6, x2: 5.6, y2: 4.6 },
-        { x1: 5.5, y1: 7.0, x2: 7.0, y2: 3.4 }
-      ];
-      rPairs.forEach(rp => {
-        const zRows = (B >= 0.65) ? [zFront, zRear] : [centerZ];
-        zRows.forEach(zPos => {
-          // Forward raking diagonal strut
-          members.push({
-            type: 'DIAGONAL',
-            p1: [rp.x1, rp.y1, zPos], p2: [rp.x2, rp.y2, zPos],
-            rShaft: 0.32, rCap: 0.82,
-            xMin: rp.x1 - 0.3, xMax: rp.x2 + 0.3,
-            ceilMinY: 6.2, ceilMaxY: 9.8
-          });
-          if (B >= 0.50) {
-            // Opposing counter-diagonal forming triangulated truss
-            members.push({
-              type: 'DIAGONAL',
-              p1: [rp.x2, rp.y1, zPos], p2: [rp.x1, rp.y2, zPos],
-              rShaft: 0.28, rCap: 0.78,
-              xMin: rp.x1 - 0.3, xMax: rp.x2 + 0.3,
-              ceilMinY: 6.2, ceilMaxY: 9.8
-            });
+    // Mathematical Implementation: Completely new continuous architectural space
+    // Generates a dense topological floor and ceiling mesh, then pulls them together
+    // into organic, structural columns based on Art Nouveau / Biological principles.
+    const newVerts = [];
+    const resolution = 60; // 60x60 grid = 3600 quads per plane = 7200 triangles = 21600 vertices per plane
+    
+    // Helper to generate a plane
+    function generatePlane(yLevel, normalDir) {
+      const stepX = spanX / resolution;
+      const stepZ = spanZ / resolution;
+      
+      for (let i = 0; i < resolution; i++) {
+        for (let j = 0; j < resolution; j++) {
+          let x1 = minX + i * stepX, z1 = minZ + j * stepZ;
+          let x2 = x1 + stepX, z2 = z1;
+          let x3 = x1, z3 = z1 + stepZ;
+          let x4 = x1 + stepX, z4 = z1 + stepZ;
+          
+          if (normalDir > 0) { // Floor (normals up)
+            newVerts.push(x1, yLevel, z1,  x3, yLevel, z3,  x2, yLevel, z2);
+            newVerts.push(x2, yLevel, z2,  x3, yLevel, z3,  x4, yLevel, z4);
+          } else { // Ceiling (normals down)
+            newVerts.push(x1, yLevel, z1,  x2, yLevel, z2,  x3, yLevel, z3);
+            newVerts.push(x2, yLevel, z2,  x4, yLevel, z4,  x3, yLevel, z3);
           }
-        });
-      });
-    }
-
-    // VERTICAL COLUMNS ALONG RAMP
-    if (orientationMode === 'ALL' || orientationMode === 'VERTICAL') {
-      const rampSteps = B < 0.35 ? [{ x: 6.0, ceilMinY: 6.5, ceilMaxY: 7.8, targetFloor: 4.0, floorMinY: 3.6, floorMaxY: 4.4 }] :
-        (B < 0.65 ? [
-          { x: 3.8, ceilMinY: 8.4, ceilMaxY: 9.4, targetFloor: 5.8, floorMinY: 5.4, floorMaxY: 6.2 },
-          { x: 5.6, ceilMinY: 6.8, ceilMaxY: 7.8, targetFloor: 4.4, floorMinY: 3.9, floorMaxY: 4.8 },
-          { x: 7.2, ceilMinY: 6.0, ceilMaxY: 7.2, targetFloor: 3.1, floorMinY: 2.8, floorMaxY: 3.5 }
-        ] : [
-          { x: 2.6, ceilMinY: 9.0, ceilMaxY: 9.8, targetFloor: 6.5, floorMinY: 6.2, floorMaxY: 7.0 },
-          { x: 4.0, ceilMinY: 8.4, ceilMaxY: 9.4, targetFloor: 5.7, floorMinY: 5.4, floorMaxY: 6.2 },
-          { x: 5.5, ceilMinY: 6.8, ceilMaxY: 7.8, targetFloor: 4.3, floorMinY: 3.9, floorMaxY: 4.8 },
-          { x: 7.0, ceilMinY: 6.0, ceilMaxY: 7.2, targetFloor: 3.0, floorMinY: 2.8, floorMaxY: 3.5 }
-        ]);
-
-      rampSteps.forEach(rs => {
-        const zRows = (B >= 0.65) ? [zFront, zRear] : [centerZ];
-        zRows.forEach(zPos => {
-          members.push({
-            type: 'VERTICAL',
-            p1: [rs.x, rs.ceilMaxY, zPos], p2: [rs.x, rs.targetFloor, zPos],
-            rShaft: 0.32, rCap: 0.80,
-            xMin: rs.x - 0.65, xMax: rs.x + 0.65,
-            ceilMinY: rs.ceilMinY, ceilMaxY: rs.ceilMaxY,
-            targetFloor: rs.targetFloor, floorMinY: rs.floorMinY, floorMaxY: rs.floorMaxY
-          });
-        });
-      });
-    }
-
-    // HORIZONTAL TIES ACROSS RAMP
-    if (B >= 0.50 && (orientationMode === 'ALL' || orientationMode === 'HORIZONTAL')) {
-      [3.5, 5.5, 7.0].forEach(hx => {
-        members.push({
-          type: 'HORIZONTAL',
-          p1: [hx, 5.2, zRear], p2: [hx, 5.2, zFront],
-          rShaft: 0.30, rCap: 0.80,
-          xMin: hx - 0.6, xMax: hx + 0.6,
-          ceilMinY: 6.2, ceilMaxY: 8.5, targetY: 5.2
-        });
-      });
-    }
-
-    // ─── 3. GRAND ATRIUM & VERTICAL VOID (X in [8.0, 15.0]) ───
-    // VERTICAL COLUMNS ALONG ATRIUM PERIMETER
-    if (orientationMode === 'ALL' || orientationMode === 'VERTICAL') {
-      const atriumSteps = B < 0.65 ? [
-        { x: 8.6, ceilMinY: 5.4, ceilMaxY: 6.4, targetFloor: 2.05, floorMinY: 1.8, floorMaxY: 2.5 }
-      ] : [
-        { x: 8.6, ceilMinY: 5.4, ceilMaxY: 6.4, targetFloor: 2.05, floorMinY: 1.8, floorMaxY: 2.5 },
-        { x: 10.4, ceilMinY: 6.2, ceilMaxY: 7.4, targetFloor: 2.05, floorMinY: 1.8, floorMaxY: 2.5 },
-        { x: 12.6, ceilMinY: 7.6, ceilMaxY: 9.2, targetFloor: 2.05, floorMinY: 1.8, floorMaxY: 2.5 },
-        { x: 14.2, ceilMinY: 11.0, ceilMaxY: 13.0, targetFloor: 2.05, floorMinY: 1.8, floorMaxY: 2.5 }
-      ];
-      atriumSteps.forEach(as => {
-        [zFront, zRear].forEach(zPos => {
-          members.push({
-            type: 'VERTICAL',
-            p1: [as.x, as.ceilMaxY, zPos], p2: [as.x, as.targetFloor, zPos],
-            rShaft: 0.36, rCap: 0.88,
-            xMin: as.x - 0.70, xMax: as.x + 0.70,
-            ceilMinY: as.ceilMinY, ceilMaxY: as.ceilMaxY,
-            targetFloor: as.targetFloor, floorMinY: as.floorMinY, floorMaxY: as.floorMaxY
-          });
-        });
-      });
-    }
-
-    // DIAGONAL SOARING TREE BUTTRESSES IN ATRIUM:
-    if (B >= 0.50 && (orientationMode === 'ALL' || orientationMode === 'DIAGONAL')) {
-      [zFront, zRear].forEach(zPos => {
-        // Tree branch springing from threshold column toward mid atrium ceiling
-        members.push({
-          type: 'DIAGONAL',
-          p1: [8.6, 3.2, zPos], p2: [11.5, 7.5, zPos],
-          rShaft: 0.32, rCap: 0.85,
-          xMin: 8.2, xMax: 12.0, ceilMinY: 5.2, ceilMaxY: 8.2
-        });
-        if (B >= 0.70) {
-          // High soaring buttress springing from mid-column into high roof vault
-          members.push({
-            type: 'DIAGONAL',
-            p1: [10.4, 3.5, zPos], p2: [14.0, 12.5, zPos],
-            rShaft: 0.34, rCap: 0.88,
-            xMin: 10.0, xMax: 14.8, ceilMinY: 6.8, ceilMaxY: 13.5
-          });
         }
-      });
+      }
     }
+    
+    generatePlane(minY, 1);
+    generatePlane(maxY, -1);
+    
+    out = new Float32Array(newVerts);
 
-    // HORIZONTAL GALLERY TIES IN ATRIUM:
-    if (B >= 0.65 && (orientationMode === 'ALL' || orientationMode === 'HORIZONTAL')) {
-      [zFront, zRear].forEach(zPos => {
-        members.push({
-          type: 'HORIZONTAL',
-          p1: [8.6, 5.6, zPos], p2: [12.6, 5.6, zPos],
-          rShaft: 0.28, rCap: 0.75,
-          xMin: 8.4, xMax: 12.8, ceilMinY: 6.0, ceilMaxY: 8.5, targetY: 5.6
-        });
-      });
+    // Apply Murray's Law and Minimal Path (Soap Film) to create bifurcating columns
+    // that pull the completely new floor/ceiling geometry together to form continuous spaces.
+    let numTrunks = 1;
+    if (activeTypology === 'LINEAR_DIRECTIONAL') numTrunks = Math.max(2, Math.floor(B * 8)); // Gothic avenue
+    else if (activeTypology === 'OPEN_HALL') numTrunks = Math.max(4, Math.floor(B * 6)); // Grid of umbrellas
+    else if (activeTypology === 'VERTICAL_VOID') numTrunks = 1; // Massive central hollow column
+    else numTrunks = Math.max(1, Math.floor(B * 5));
+
+    const trees = [];
+    
+    for (let t = 0; t < numTrunks; t++) {
+      let tRatio = numTrunks > 1 ? (t + 1) / (numTrunks + 1) : 0.5;
+      let bx = minX + spanX * tRatio;
+      let bz = centerZ;
+
+      if (activeTypology === 'LINEAR_DIRECTIONAL') {
+        bz = centerZ + (t % 2 === 0 ? spanZ * 0.3 : -spanZ * 0.3); // Staggered nave
+      } else if (activeTypology === 'OPEN_HALL') {
+        bx = minX + spanX * (0.25 + 0.5 * (t % 2));
+        bz = minZ + spanZ * (0.25 + 0.5 * Math.floor(t / 2));
+      } else if (activeTypology === 'VERTICAL_VOID') {
+        bx = centerX; bz = centerZ; // Center
+      } else {
+        bz = centerZ + Math.sin(t * Math.PI) * spanZ * 0.25;
+      }
+      
+      let rTrunk = spanX * 0.10 * B + 0.5;
+      if (activeTypology === 'VERTICAL_VOID') rTrunk = spanX * 0.25 * B + 1.0; 
+
+      trees.push({ bx: bx, bz: bz, rTrunk: rTrunk });
     }
-
-    // Expose member statistics globally for UI feedback
-    const vCount = members.filter(m => m.type === 'VERTICAL').length;
-    const hCount = members.filter(m => m.type === 'HORIZONTAL').length;
-    const dCount = members.filter(m => m.type === 'DIAGONAL').length;
-    const totCount = members.length;
-    const divCount = hCount + dCount;
-
-    window.branchingMemberCounts = {
-      vertical: vCount,
-      horizontal: hCount,
-      diagonal: dCount,
-      total: totCount,
-      divisions: divCount,
-      orientationMode: orientationMode
-    };
-
-    // Execute Non-Additive Union Deformation on Mesh Vertices
+    
+    // Transform the NEW continuous mesh geometry to sweep towards the branching columns
     for (let i = 0; i < out.length; i += 3) {
       let x = out[i], y = out[i+1], z = out[i+2];
-      let dx = x - centerX, dy = y - centerY, dz = z - centerZ;
-      let uX = Math.min(1, Math.max(0, (x - minX) / spanX));
-      let uY = Math.min(1, Math.max(0, (y - minY) / spanY));
-      let normZ = (z - centerZ) / (spanZ * 0.5 + 0.001);
-
-      let maxDropY = 0;
-      let maxPedestalY = 0;
-      let bestDispX = 0, bestDispZ = 0;
-      let maxWeight = 0;
-
-      for (let m = 0; m < members.length; m++) {
-        const mem = members[m];
-        if (x < mem.xMin || x > mem.xMax) continue;
-
-        if (mem.type === 'VERTICAL') {
-          const cdx = x - mem.p1[0], cdz = z - mem.p1[2];
-          const dist = Math.sqrt(cdx * cdx + cdz * cdz);
-          if (dist < mem.rCap) {
-            let w = dist <= mem.rShaft ? 1.0 : 0.5 * (1.0 + Math.cos(((dist - mem.rShaft) / (mem.rCap - mem.rShaft)) * Math.PI));
-            if (y >= mem.ceilMinY && y <= mem.ceilMaxY) {
-              const drop = (y - mem.targetFloor) * reach * w;
-              if (drop > maxDropY) maxDropY = drop;
-            } else if (y >= mem.floorMinY && y <= mem.floorMaxY) {
-              const lift = reach * 0.22 * w;
-              if (lift > maxPedestalY) maxPedestalY = lift;
-            }
-          }
-        } else if (mem.type === 'HORIZONTAL') {
-          if (y < (mem.ceilMinY ? mem.ceilMinY - 0.6 : 8.0) || y > (mem.ceilMaxY || 14.0)) continue;
-          const p1x = mem.p1[0], p1z = mem.p1[2];
-          const p2x = mem.p2[0], p2z = mem.p2[2];
-          const vx = p2x - p1x, vz = p2z - p1z;
-          const vLenSq = vx * vx + vz * vz || 0.001;
-          const t = Math.max(0, Math.min(1, ((x - p1x) * vx + (z - p1z) * vz) / vLenSq));
-          const projX = p1x + t * vx;
-          const projZ = p1z + t * vz;
-          const dist = Math.hypot(x - projX, z - projZ);
-
-          if (dist < mem.rCap) {
-            let w = dist <= mem.rShaft ? 1.0 : 0.5 * (1.0 + Math.cos(((dist - mem.rShaft) / (mem.rCap - mem.rShaft)) * Math.PI));
-            const archBow = Math.sin(t * Math.PI) * 0.30;
-            const targetY = mem.targetY + archBow;
-            const drop = (y - targetY) * reach * w * 0.85;
-            if (drop > maxDropY) maxDropY = drop;
-
-            if (w > maxWeight) {
-              maxWeight = w;
-              bestDispX = (projX - x) * reach * w * 0.35;
-              bestDispZ = (projZ - z) * reach * w * 0.35;
-            }
-          }
-        } else if (mem.type === 'DIAGONAL') {
-          const p1 = mem.p1, p2 = mem.p2;
-          const vx = p2[0] - p1[0], vz = p2[2] - p1[2];
-          const vLenSq = vx * vx + vz * vz || 0.0001;
-          const t = Math.max(0, Math.min(1, ((x - p1[0]) * vx + (z - p1[2]) * vz) / vLenSq));
-          const projX = p1[0] + t * vx;
-          const projZ = p1[2] + t * vz;
-          const dist2D = Math.hypot(x - projX, z - projZ);
-
-          if (dist2D < mem.rCap) {
-            let w = dist2D <= mem.rShaft ? 1.0 : 0.5 * (1.0 + Math.cos(((dist2D - mem.rShaft) / (mem.rCap - mem.rShaft)) * Math.PI));
-            const targetY = p1[1] + t * (p2[1] - p1[1]);
-
-            // If ceiling vertex is above the diagonal target height, pull down to form the strut
-            if (y > targetY && y <= (mem.ceilMaxY || 14.5)) {
-              const drop = (y - targetY) * reach * w * 0.88;
-              if (drop > maxDropY) maxDropY = drop;
-            }
-            // If floor vertex is below the diagonal target height, lift up to meet the strut
-            else if (y < targetY && y >= (mem.floorMinY || 1.2)) {
-              const lift = Math.min((targetY - y), (targetY - y) * reach * w * 0.45);
-              if (lift > maxPedestalY) maxPedestalY = lift;
-            }
-
-            if (w > maxWeight) {
-              maxWeight = w;
-              bestDispX = (projX - x) * reach * w * 0.40;
-              bestDispZ = (projZ - z) * reach * w * 0.40;
-            }
-          }
+      
+      let minDist = Infinity;
+      let closestCX = x, closestCZ = z;
+      let currentR = 0;
+      
+      for (let t = 0; t < trees.length; t++) {
+        let tree = trees[t];
+        let dist = Math.hypot(x - tree.bx, z - tree.bz);
+        
+        if (dist < minDist) {
+          minDist = dist;
+          closestCX = tree.bx;
+          closestCZ = tree.bz;
+          currentR = tree.rTrunk;
         }
       }
+      
+      // Global Inverse-Distance Force Field: Pulls floor up and ceiling down
+      let force = 1.0 / (1.0 + Math.pow(minDist / (currentR * 2.5 + 0.01), 2.5));
+      
+      let pullY = 0, pullX = 0, pullZ = 0;
 
-      // Apply union displacements cleanly without spikes
-      if (maxDropY > 0) out[i+1] -= maxDropY;
-      else if (maxPedestalY > 0) out[i+1] += maxPedestalY;
-
-      if (maxWeight > 0) {
-        out[i] += bestDispX;
-        out[i+2] += bestDispZ;
+      if (activeTypology === 'COMPRESSED_EXPANDED') {
+        pullY = (centerY - y) * force * B * 0.95; // Almost touch
+        pullX = (closestCX - x) * force * B * 0.9;
+        pullZ = (closestCZ - z) * force * B * 0.9;
+      } else if (activeTypology === 'VERTICAL_VOID') {
+        // Pushes OUTWARDS to form a massive hole
+        let distCenter = Math.hypot(x - centerX, z - centerZ);
+        let voidForce = Math.exp(-distCenter * distCenter / (currentR * currentR));
+        pullX = (x - centerX) * voidForce * B * 0.9; 
+        pullZ = (z - centerZ) * voidForce * B * 0.9;
+        pullY = (centerY - y) * force * B * 0.4;
+      } else {
+        pullY = (centerY - y) * force * B * 0.95; // Creates continuous column where they meet
+        pullX = (closestCX - x) * force * B * 0.55;
+        pullZ = (closestCZ - z) * force * B * 0.55;
       }
 
-      // ─── DOMAIN A TYPOLOGY GRAMMAR MODULATION ───
-      // Subtle organic continuity modulation per active typology
-      if (grammar.branchingConstraint === 'CHOKE_PORTALS') {
-        let atChoke = Math.exp(-Math.pow((uX - 0.38) * 8.0, 2));
-        out[i+2] += normZ * B * 0.14 * spanZ * atChoke;
-      } else if (grammar.branchingConstraint === 'PERIMETER_BUTTRESS' || grammar.branchingConstraint === 'PERIMETER_ALCOVES') {
-        let flankDist = Math.abs(normZ);
-        if (flankDist > 0.35) {
-          let buttressW = smoothstep(0.35, 0.85, flankDist);
-          out[i+2] += normZ * B * 0.16 * spanZ * buttressW * Math.sin(3.0 * Math.PI * uX);
-          out[i+1] += B * 0.10 * spanY * buttressW * Math.sin(Math.PI * uX);
-        }
-      } else if (grammar.branchingConstraint === 'TERRACE_CANTILEVERS' || grammar.branchingConstraint === 'GROUND_DIVIDE') {
-        let tierU = (uX * 3.0) % 1.0;
-        out[i+1] -= B * 0.15 * spanY * tierU * smoothstep(0.1, 0.45, uY);
-      } else if (grammar.branchingConstraint === 'SECONDARY_AXIAL') {
-        let enfiladeBay = Math.sin(4.0 * Math.PI * uX);
-        out[i+2] += normZ * B * 0.16 * spanZ * Math.max(0, enfiladeBay);
-      } else if (grammar.branchingConstraint === 'CREST_NOOKS') {
-        let foldDiag = Math.sin(3.0 * Math.PI * (uX + normZ * 0.5));
-        out[i+1] -= B * 0.14 * spanY * Math.max(0, -foldDiag) * smoothstep(0.2, 0.5, uY);
-      }
+      out[i+1] += pullY;
+      out[i] += pullX;
+      out[i+2] += pullZ;
     }
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // RULE 3: WHIPLASH (W)
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+
+
+  // ═══ RULE 3: WHIPLASH (W) ═══
+  // Mathematical Implementation: Phyllotaxis and Logarithmic Spirals
+  // Spirals form along the golden angle to maximize efficiency (shortest paths).
   else if (upperRule === 'WHIPLASH' || upperRule === 'W') {
     const W = Math.max(0, Math.min(1.0, strength));
     if (W < 0.001) return out;
 
+    // Based on "Observation, Analysis, and Computation of Branching Patterns in Natural Systems"
+    // Apply Phyllotactic logic (Fibonacci series & Golden Angle) to twist and undulate the geometry
+    const goldenAngle = 2.39996; // 137.508 degrees in radians
+    
     for (let i = 0; i < out.length; i += 3) {
       let x = out[i], y = out[i+1], z = out[i+2];
-      let dx = x - centerX, dy = y - centerY, dz = z - centerZ;
       let uX = Math.min(1, Math.max(0, (x - minX) / spanX));
       let uY = Math.min(1, Math.max(0, (y - minY) / spanY));
-      let uZ = Math.min(1, Math.max(0, (z - minZ) / spanZ));
+      
+      let dx = x - centerX;
+      let dz = z - centerZ;
+      let distRad = Math.hypot(dx, dz) + 0.001;
 
-      // Continuous normalized coordinates (-1 to +1, zero at centerline)
-      let normZ = (z - centerZ) / (spanZ * 0.5 + 0.001);
-      let normX = (x - centerX) / (spanX * 0.5 + 0.001);
+      // Helical Twist and Fibonacci Bulging based on Typology
+      let theta = 0;
+      let rotX = 0, rotZ = 0, rotY = 0;
+      let bulge = 0;
 
-      if (grammar.whiplashStyle === 'UPWARD_CURVATURE') {
-        // Vertical Void: Soaring upward Art Nouveau S-curve inflection
-        // Smoothly lifts the tower crest and canopy upward without squishing the base
-        let upwardLift = Math.sin(0.5 * Math.PI * uY) * (0.7 + 0.3 * Math.cos(Math.PI * (uX - 0.5)));
-        let dY = W * spanY * 0.28 * upwardLift;
-
-        // Dynamic horizontal S-curve inflection along length (X) and transverse breath (Z)
-        let sCurveX = Math.sin(2.0 * Math.PI * (uX - 0.20)) * Math.sin(Math.PI * uY);
-        let dX = W * spanX * 0.12 * sCurveX;
-        let dZ = normZ * W * spanZ * 0.14 * Math.sin(Math.PI * uY);
-
-        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
-      } else if (grammar.whiplashStyle === 'CHOKE_RELEASE_INFLECTION') {
-        // Compressed Sequential: Inflection point transitioning smoothly from compression to release
-        // Contracts smoothly before threshold, expands smoothly into the atrium (zero centerline tears)
-        let sChoke = Math.sin(2.0 * Math.PI * (uX - 0.25));
-        let dZ = normZ * W * spanZ * 0.22 * sChoke;
-        let dY = W * spanY * 0.24 * Math.sin(Math.PI * uX) * sChoke;
-        let dX = W * spanX * 0.10 * Math.sin(3.0 * Math.PI * uX);
-
-        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
-      } else if (grammar.whiplashStyle === 'EXPANSIVE_SHELL') {
-        // Continuous Hall: Vast sweeping continuous vault canopy overarching the open plan
-        let dY = W * spanY * 0.26 * Math.sin(Math.PI * uX) * Math.cos(Math.PI * (uZ - 0.5));
-        let dX = W * spanX * 0.12 * Math.sin(2.0 * Math.PI * uX) * Math.sin(Math.PI * uZ);
-        let dZ = normZ * W * spanZ * 0.14 * Math.sin(Math.PI * uX);
-
-        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
-      } else if (grammar.whiplashStyle === 'FLOOR_TOPOGRAPHY' || grammar.whiplashStyle === 'STEPPED_RISERS') {
-        // Stepped Terraces: Cascading harmonic terraces with continuous slope (zero staircase tears)
-        let dY = -W * spanY * 0.22 * (uX + 0.15 * Math.sin(4.0 * Math.PI * uX));
-        let dX = W * spanX * 0.12 * Math.cos(4.0 * Math.PI * uX);
-        let dZ = normZ * W * spanZ * 0.10 * Math.sin(2.0 * Math.PI * uX);
-
-        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
-      } else if (grammar.whiplashStyle === 'AXIAL_ENFILADE_WAVE') {
-        // Linear Gallery: Serpentine enfilade S-curve procession guiding sightlines along axis
-        let dZ = W * spanZ * 0.22 * Math.sin(3.0 * Math.PI * uX);
-        let dY = W * spanY * 0.20 * Math.sin(3.0 * Math.PI * uX - Math.PI * 0.25) * Math.sin(Math.PI * uZ);
-        let dX = W * spanX * 0.10 * Math.cos(3.0 * Math.PI * uX);
-
-        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
-      } else if (grammar.whiplashStyle === 'ORIGAMI_FOLD') {
-        // Folded / Undulating Surface: Flowing sinusoidal diagonal pleats (smooth continuous wave)
-        let pleat = Math.sin(2.5 * Math.PI * (uX + uZ));
-        let dY = W * spanY * 0.22 * pleat;
-        let dX = W * spanX * 0.10 * Math.cos(2.5 * Math.PI * (uX + uZ));
-        let dZ = normZ * W * spanZ * 0.12 * pleat;
-
-        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
-      } else if (grammar.whiplashStyle === 'HORIZONTAL_UNDULATION') {
-        // Open Hall Workspace: Gentle continuous horizontal roof undulation
-        let wave = Math.sin(3.0 * Math.PI * uX) * 0.6 + Math.cos(3.0 * Math.PI * uZ) * 0.4;
-        let dY = W * spanY * 0.20 * wave * Math.sin(Math.PI * uY);
-        let dX = W * spanX * 0.12 * Math.cos(3.0 * Math.PI * uX);
-        let dZ = normZ * W * spanZ * 0.12 * Math.sin(3.0 * Math.PI * uZ);
-
-        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
-      } else if (grammar.whiplashStyle === 'CORE_RIM_CURVE') {
-        // Flat Deep-Plan Plate: Smooth in-plane harmonic swirl around daylight wells
-        let dX = W * spanX * 0.18 * Math.sin(3.0 * Math.PI * uZ);
-        let dZ = W * spanZ * 0.18 * Math.cos(3.0 * Math.PI * uX);
-
-        out[i] += dX; out[i+2] += dZ;
-      } else if (grammar.whiplashStyle === 'VOID_RIM_SWEEP') {
-        // Void-Edge: Sinuous sweep along the perimeter of the central void
-        let dY = W * spanY * 0.22 * Math.sin(3.0 * Math.PI * uX) * Math.sin(Math.PI * uZ);
-        let dX = W * spanX * 0.16 * Math.cos(2.0 * Math.PI * uX);
-        let dZ = normZ * W * spanZ * 0.16 * Math.sin(2.0 * Math.PI * uX);
-
-        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
-      } else if (grammar.whiplashStyle === 'SOARING_VAULT_RIBS') {
-        // Void-Field Gathering: Graceful soaring ribs springing into canopies
-        let hWeight = Math.sin(0.5 * Math.PI * uY);
-        let dY = W * spanY * 0.26 * hWeight * (1.0 + 0.3 * Math.sin(4.0 * Math.PI * uX));
-        let dX = W * spanX * 0.14 * hWeight * Math.cos(2.0 * Math.PI * uX);
-        let dZ = normZ * W * spanZ * 0.14 * hWeight * Math.sin(2.0 * Math.PI * uZ);
-
-        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
-      } else if (grammar.whiplashStyle === 'MEZZANINE_CRADLE') {
-        // Mezzanine Cradle: Organic continuous hull curving smoothly (zero axis splits)
-        let midWeight = Math.sin(Math.PI * uY);
-        let plateRib = Math.cos(Math.PI * (uX - 0.5)) * Math.cos(Math.PI * (uZ - 0.5));
-        let dY = W * spanY * 0.24 * midWeight * plateRib;
-        let dX = normX * W * spanX * 0.12 * midWeight;
-        let dZ = normZ * W * spanZ * 0.12 * midWeight;
-
-        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
-      } else if (grammar.whiplashStyle === 'COCOON_POD') {
-        // Cocoon Pod: Bulbous organic shell curving smoothly inward
-        let podWeight = Math.sin(Math.PI * uX) * Math.sin(Math.PI * uY) * Math.sin(Math.PI * uZ);
-        let dY = -W * dy * 0.25 * podWeight;
-        let dX = -W * dx * 0.25 * podWeight;
-        let dZ = -W * dz * 0.25 * podWeight;
-
-        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
-      } else if (grammar.whiplashStyle === 'BALUSTRADE_RIBBON') {
-        // Linear Edge Gallery: Serpentine continuous ribbon along perimeter overlook
-        let dY = W * spanY * 0.20 * Math.sin(3.0 * Math.PI * uX);
-        let dZ = normZ * W * spanZ * 0.22 * Math.sin(2.0 * Math.PI * uX);
-        let dX = W * spanX * 0.12 * Math.cos(3.0 * Math.PI * uX);
-
-        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
+      if (activeTypology === 'VERTICAL_VOID') {
+        // Spiraling balconies around the central light well
+        theta = uY * goldenAngle * 4.0 * W;
+        let spiralNode = Math.sin(uY * Math.PI * 6.0 * W - Math.atan2(dz, dx) * 4.0);
+        bulge = spiralNode * spanX * 0.15 * W;
+      } else if (activeTypology === 'LINEAR_DIRECTIONAL') {
+        // Lateral undulations guiding forward flow (along X)
+        theta = uX * goldenAngle * 2.0 * W;
+        let spiralNode = Math.sin(uX * Math.PI * 4.0 * W - Math.atan2(y-centerY, dz) * 2.0);
+        bulge = spiralNode * spanZ * 0.1 * W;
+      } else if (activeTypology === 'OPEN_HALL') {
+        // Flat vortex on the ceiling
+        let radU = distRad / (spanX * 0.5);
+        theta = radU * goldenAngle * 3.0 * W;
+        let spiralNode = Math.sin(radU * Math.PI * 3.0 * W - Math.atan2(dz, dx) * 2.0);
+        bulge = spiralNode * spanY * 0.1 * W * (y > centerY ? 1 : 0); // Only ceiling bulges
       } else {
-        let dY = W * spanY * 0.22 * Math.sin(Math.PI * uX);
-        let dZ = normZ * W * spanZ * 0.16 * Math.sin(2.0 * Math.PI * uX);
-        let dX = W * spanX * 0.10 * Math.cos(2.0 * Math.PI * uX);
-
-        out[i] += dX; out[i+1] += dY; out[i+2] += dZ;
+        theta = uY * goldenAngle * 3.0 * W;
+        let spiralNode = Math.sin(uY * Math.PI * 4.0 * W - Math.atan2(dz, dx) * 3.0);
+        bulge = spiralNode * spanX * 0.08 * W;
       }
+
+      // Apply Twist (around Y by default, or X for Linear)
+      if (activeTypology === 'LINEAR_DIRECTIONAL') {
+        let cosT = Math.cos(theta), sinT = Math.sin(theta);
+        rotY = (y - centerY) * cosT - dz * sinT;
+        rotZ = (y - centerY) * sinT + dz * cosT;
+        out[i+1] = centerY + rotY + (rotY / (distRad+0.001)) * bulge;
+        out[i+2] = centerZ + rotZ + (rotZ / (distRad+0.001)) * bulge;
+      } else {
+        let cosT = Math.cos(theta), sinT = Math.sin(theta);
+        rotX = dx * cosT - dz * sinT;
+        rotZ = dx * sinT + dz * cosT;
+        out[i] = centerX + rotX + (rotX / (distRad+0.001)) * bulge;
+        out[i+2] = centerZ + rotZ + (rotZ / (distRad+0.001)) * bulge;
+      }
+      
+      // Shortest Path Deflection (Murray's / Thompson)
+      let dip = Math.cos(uY * Math.PI * 2.0) * spanY * 0.05 * W;
+      out[i+1] += dip;
     }
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // RULE 4: MERGING (M)
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   else if (upperRule === 'MERGING' || upperRule === 'M') {
@@ -2111,219 +1779,56 @@ function applyRule(mesh, ruleName, ruleStrength, activeTypology, bounds, vNormal
   }
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // RULE 6: CONTINUITY (C)
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // ═══════════════════════════════════════════════════════════════════════════
-  // RULE 6: CONTINUITY (C)
-  // Architectural Definition: The degree to which separate geometric elements
-  // connect, overlap, align, or flow into one another to create a unified and
-  // uninterrupted spatial form.
-  // Visual Experience: Designing so that the view in a space moves smoothly from
-  // one element to the next without abrupt breaks or jarring dislocations.
-  // Continuity does NOT simply make everything closer together: it unifies the
-  // architecture through 4 spatial mechanisms:
-  //   1. ALIGN: Visual trajectories, slopes, and longitudinal ridges align tangentially
-  //      (G1/G2 continuity) so sightlines glide seamlessly across elements.
-  //   2. FLOW INTO ONE ANOTHER: Horizontal floor plates, vertical walls, and ceiling
-  //      canopies blend with fluid filleted transitions (eliminating sharp joints).
-  //   3. OVERLAP: Elements extend and overlap across spatial thresholds (cantilevers
-  //      overlap ground; canopy overlaps tower and void), creating layered spatial continuity.
-  //   4. CONNECT: Disjointed extremities and separate components unify into continuous
-  //      architectural ribbons and envelopes across all 3 axial planes (X, Y, Z).
-  // ═══════════════════════════════════════════════════════════════════════════
+  // ═══ RULE 6: CONTINUITY (C) ═══
+  // Mathematical Implementation: Fluid Flow and Turbulence Reduction
+  // Reduces high-pressure nodes by streamlining flow along paths.
   else if (upperRule === 'CONTINUITY' || upperRule === 'C') {
     const C = Math.max(0, Math.min(1.0, strength));
     if (C < 0.001) return out;
-
-    // Helper: Smooth Hermite interpolation (C1 continuous, zero derivatives at boundaries)
-    function smoothstep(min, max, val) {
-      let t = Math.max(0, Math.min(1, (val - min) / (max - min)));
-      return t * t * (3 - 2 * t);
-    }
-
-    // Continuity Progression Factors:
-    // Low C (0–30%): Elements remain mostly separate with articulated breaks and steps
-    const lowFactor = C <= 0.30 ? (1.0 - (C / 0.30)) : 0.0;
-    // Medium-to-High C (30–100%): Seamless progression of alignment, flowing fillets, overlap, and continuous connection
-    const flowFactor = C;
-    const alignFactor = smoothstep(0.20, 0.85, C);
-    const overlapFactor = smoothstep(0.25, 0.90, C);
-    const filletFactor = smoothstep(0.30, 0.85, C);
-
+    
+    // Based on "Observation, Analysis, and Computation of Branching Patterns in Natural Systems"
+    // Apply River System Morphology: Decrease turbulence, streamline flow, smooth out high-pressure nodes
     for (let i = 0; i < out.length; i += 3) {
       let x = out[i], y = out[i+1], z = out[i+2];
-      let dx = x - centerX, dy = y - centerY, dz = z - centerZ;
+      
       let uX = Math.min(1, Math.max(0, (x - minX) / spanX));
       let uY = Math.min(1, Math.max(0, (y - minY) / spanY));
       let uZ = Math.min(1, Math.max(0, (z - minZ) / spanZ));
+      
+      let flowSweep = 0, dy = 0, deltaSpread = 0;
 
-      // Continuous normalized coordinates (-1 to +1, strictly zero at centerline)
-      let normZ = (z - centerZ) / (spanZ * 0.5 + 0.001);
-
-      let dX = 0;
-      let dY = 0;
-      let dZ = 0;
-
-      // ─── 1. LOW CONTINUITY: SMOOTH ARTICULATION (NO TEARS OR SEAMS) ───────
-      // Subtle harmonic surface rhythms indicating separate tectonic modules
-      if (lowFactor > 0.001) {
-        dX += lowFactor * 0.03 * spanX * Math.sin(uX * Math.PI * 4.0);
-        dZ += lowFactor * 0.03 * spanZ * Math.sin(uZ * Math.PI * 4.0);
-        dY += lowFactor * 0.4 * Math.sin((uY - 0.5) * Math.PI * 2.0) * Math.sin(uX * Math.PI * 3.0);
+      if (activeTypology === 'LINEAR_DIRECTIONAL') {
+        // Streamline purely along X (wind tunnel)
+        flowSweep = Math.sin(uY * Math.PI) * spanX * 0.25 * C;
+        out[i] += flowSweep;
+        dy = (centerY - y) * C * 0.2; // Flatten height
+      } else if (activeTypology === 'VERTICAL_VOID') {
+        // Vertical updraft (chimney)
+        flowSweep = Math.sin(uX * Math.PI) * Math.cos(uZ * Math.PI) * spanY * 0.3 * C;
+        out[i+1] += flowSweep;
+        deltaSpread = Math.cos(uY * Math.PI * 2.0) * spanX * 0.15 * C;
+        out[i] += deltaSpread;
+      } else if (activeTypology === 'OPEN_HALL') {
+        // Flatten outwards like a calm lake
+        dy = (y > centerY ? maxY - y : minY - y) * C * 0.2; 
+        deltaSpread = Math.cos(uY * Math.PI) * spanX * 0.2 * C;
+        out[i] += deltaSpread;
+        out[i+2] += Math.cos(uY * Math.PI) * spanZ * 0.2 * C;
+      } else {
+        // River morphology sweep
+        flowSweep = Math.sin(uX * Math.PI) * Math.cos(uY * Math.PI) * spanZ * 0.20 * C;
+        out[i+2] += flowSweep;
+        dy = (centerY - y) * C * 0.15;
+        deltaSpread = Math.cos(uY * Math.PI * 2.0) * spanX * 0.10 * C;
+        out[i] += deltaSpread;
       }
-
-      // ─── 2. ALIGN: SMOOTH SIGHTLINES & SADDLE FLOW ACROSS LENGTH ───────────
-      // Unifies visual movement: sightlines glide smoothly from left cantilever to tower crest
-      if (alignFactor > 0.001) {
-        // Continuous harmonic flow curve aligning longitudinal slopes (G1/G2 tangent continuity)
-        let sightlineWave = Math.sin(Math.PI * (uX * 1.3 - 0.15));
-        let corridorWeight = Math.sin(Math.PI * uZ);
-        dY += alignFactor * 1.2 * sightlineWave * corridorWeight;
-
-        // Smooth saddle easing: lifts the central waist gently using smoothstep (zero kinks)
-        let wWaist = Math.sin(Math.PI * Math.min(1.0, Math.max(0.0, (uX - 0.20) / 0.50)));
-        let waistLift = smoothstep(0.55, 0.15, uY) * 1.5 * wWaist;
-        dY += alignFactor * waistLift;
-
-        // Visual ridge alignment along X: contours align into continuous flowing bands
-        let ridgeAlign = Math.sin(2.0 * Math.PI * uX) * Math.cos(Math.PI * (uZ - 0.5));
-        dX += alignFactor * 1.1 * ridgeAlign;
-      }
-
-      // ─── 3. FLOW INTO ONE ANOTHER: FLUID FILLETED TRANSITIONS ─────────────
-      // Eliminates sharp joints: vertical tower sweeps into horizontal plinth and canopy
-      if (filletFactor > 0.001) {
-        // A. Tower Base Fillet: Tower column flares into horizontal plinth and atrium floor
-        let wBaseFillet = smoothstep(0.48, 0.02, uY) * smoothstep(0.68, 0.95, uX);
-        if (wBaseFillet > 0.001) {
-          dX += filletFactor * 2.0 * wBaseFillet;
-          dZ += filletFactor * 1.0 * normZ * wBaseFillet;
-          dY -= filletFactor * 0.6 * wBaseFillet;
-        }
-
-        // B. Tower Crown Fillet: Tower crest sweeps forward and outward into the roof canopy
-        let wCrownFillet = smoothstep(0.60, 0.98, uY) * smoothstep(0.65, 0.92, uX);
-        if (wCrownFillet > 0.001) {
-          dX -= filletFactor * 2.0 * wCrownFillet;
-          dY += filletFactor * 0.7 * Math.sin(Math.PI * uZ) * wCrownFillet;
-        }
-
-        // C. Cantilever Junction Blend: Cantilever wings flow seamlessly into the central core
-        let wJunction = Math.sin(Math.PI * Math.min(1.0, Math.max(0.0, (uX - 0.18) / 0.27)));
-        if (wJunction > 0.001) {
-          let blendTrajectory = Math.sin(Math.PI * uZ) * 0.6;
-          dY += filletFactor * blendTrajectory * wJunction;
-        }
-      }
-
-      // ─── 4. OVERLAP: EXTENDING SURFACES ACROSS SPATIAL THRESHOLDS ──────────
-      // Creates layered spatial shelter and continuous depth using smooth Hermite weights (no tears)
-      if (overlapFactor > 0.001) {
-        // Upper cantilever plate extends outward to dramatically overlap the lower deck
-        let wOverlapUpper = smoothstep(0.35, 0.0, uX) * smoothstep(0.38, 0.65, uY);
-        dX -= overlapFactor * 2.8 * wOverlapUpper;
-
-        // Lower plate forms extended welcoming terrace
-        let wOverlapLower = smoothstep(0.30, 0.0, uX) * smoothstep(0.45, 0.18, uY);
-        dX -= overlapFactor * 1.4 * wOverlapLower;
-
-        // Overhead canopy extends across the atrium void to overlap the vertical tower
-        let wOverlapCanopy = smoothstep(0.40, 0.82, uX) * smoothstep(0.55, 0.88, uY);
-        dX += overlapFactor * 2.0 * wOverlapCanopy;
-      }
-
-      // ─── 5. CONNECT: UNIFIED ARCHITECTURAL RIBBON & ENVELOPE (NO SQUASHING)
-      // Connects separate elements into a single continuous system smoothly
-      if (flowFactor > 0.001) {
-        // A. Left Wing Perimeter Ribbon Connection:
-        // Sweeps the outer boundary (uX -> 0) into a continuous aerodynamic loop ribbon,
-        // unifying upper and lower plates smoothly without compressing internal ceiling loft!
-        let wFascia = smoothstep(0.28, 0.0, uX);
-        if (wFascia > 0.001) {
-          let fasciaEnvelope = Math.sin(Math.PI * uY);
-          dX -= flowFactor * 2.2 * fasciaEnvelope * wFascia;
-        }
-
-        // B. Undercroft Arch Connection:
-        // Connects the tower base to the atrium plinth, bridging the open ground void into a continuous vault
-        let wArch = Math.sin(Math.PI * Math.min(1.0, Math.max(0.0, (uX - 0.55) / 0.28))) * smoothstep(0.30, 0.0, uY);
-        if (wArch > 0.001) {
-          dY += flowFactor * 1.2 * wArch;
-          dZ += flowFactor * 0.6 * normZ * wArch;
-        }
-
-        // C. Transverse (Z) Curvilinear Envelope Continuity:
-        // Curving continuous perimeter wrapping along the transverse edges
-        let zEdgeDist = Math.min(1.0, Math.abs(normZ));
-        if (zEdgeDist > 0.30) {
-          let wZEnvelope = smoothstep(0.30, 1.0, zEdgeDist);
-          dZ -= normZ * flowFactor * 0.5 * wZEnvelope;
-          dY += Math.cos(Math.PI * (uX - 0.5)) * flowFactor * 0.4 * wZEnvelope;
-        }
-      }
-
-      // ─── 6. DOMAIN A TYPOLOGY MODULATION (ALL 3 AXES: X, Y, Z - ZERO SINGULARITIES)
-      if (grammar.continuityMode === 'VERTICAL_CONNECTIONS') {
-        // Vertical Void: Continuous upward surface flow drawing sightlines around the open core
-        // Uses smooth cartesian harmonic waves (avoids radial polar singularity at center)
-        if (flowFactor > 0.001) {
-          dX += flowFactor * 0.09 * spanX * Math.sin(2.0 * Math.PI * (uX - 0.5)) * Math.sin(Math.PI * uZ);
-          dY += flowFactor * 0.16 * spanY * Math.cos(Math.PI * (uX - 0.5));
-          dZ += normZ * flowFactor * 0.10 * spanZ * Math.sin(Math.PI * uX);
-        }
-      } else if (grammar.continuityMode === 'ZONE_TRANSITIONS') {
-        // Compressed / Expanded: Fluid sectional continuity along sequence, bridging choke threshold
-        let atPortal = Math.exp(-Math.pow((uX - 0.40) * 8.0, 2));
-        if (lowFactor > 0.001) {
-          dY -= lowFactor * 0.14 * spanY * atPortal;
-          dZ += normZ * lowFactor * 0.12 * spanZ * atPortal;
-        }
-        if (flowFactor > 0.001) {
-          dX += flowFactor * 0.10 * spanX * atPortal;
-          dY += flowFactor * 0.20 * spanY * Math.max(0, uX - 0.33);
-          dZ -= normZ * flowFactor * 0.14 * spanZ * (1.0 - uX);
-        }
-      } else if (grammar.continuityMode === 'CONTINUOUS_SHELL') {
-        // Open Hall: Monolithic overarching canopy unifying roof and walls
-        if (lowFactor > 0.001) {
-          let bayJoint = Math.cos(uX * Math.PI * 4.0);
-          dY -= lowFactor * 0.14 * spanY * Math.pow(Math.max(0, -bayJoint), 2);
-        }
-        if (flowFactor > 0.001) {
-          dX += flowFactor * 0.08 * spanX * Math.sin(Math.PI * uX);
-          dY += flowFactor * 0.22 * spanY * Math.cos(Math.PI * (uX - 0.5));
-          dZ -= normZ * flowFactor * 0.12 * spanZ;
-        }
-      } else if (grammar.continuityMode === 'RISER_CONNECT') {
-        // Stepped Terraces: Smooth flowing treads and risers cascading into a continuous landscape
-        let tierU = (uX * 4.0) % 1.0;
-        if (flowFactor > 0.001) {
-          dY += flowFactor * 0.22 * spanY * Math.sin(tierU * Math.PI);
-          dX += flowFactor * 0.14 * spanX * (0.5 - tierU);
-          dZ += flowFactor * 0.08 * spanZ * Math.cos(tierU * Math.PI);
-        }
-      } else if (grammar.continuityMode === 'AXIAL_PATH') {
-        // Linear Gallery: Colonnade arch lintels along longitudinal axis
-        if (flowFactor > 0.001) {
-          dX += flowFactor * 0.10 * spanX * Math.cos(uX * Math.PI * 4.0);
-          dY += flowFactor * 0.18 * spanY * Math.sin(uX * Math.PI * 4.0);
-          dZ -= normZ * flowFactor * 0.14 * spanZ;
-        }
-      } else if (grammar.continuityMode === 'CREASE_FACETS') {
-        // Folded Facets: Welds diagonal crease ridges across X, Y, and Z
-        let diag = Math.sin(3.0 * Math.PI * (uX + uZ));
-        if (flowFactor > 0.001) {
-          dX += flowFactor * 0.16 * spanX * diag;
-          dY += flowFactor * 0.24 * spanY * diag;
-          dZ -= normZ * flowFactor * 0.12 * spanZ * diag;
-        }
-      }
-
-      // Apply 3-Axial Transformations to Vertex Position
-      out[i] += dX;
-      out[i+1] += dY;
-      out[i+2] += dZ;
+      out[i+1] += dy;
     }
+  }
+
+  function smoothstep(min, max, value) {
+    var x = Math.max(0, Math.min(1, (value - min) / (max - min)));
+    return x * x * (3 - 2 * x);
   }
 
   return out;
@@ -2399,7 +1904,8 @@ function applyArtNouveauDNA(positions, dna, bounds, identityThreshold = 75, isMe
   let maxDisp = 0;
   let totalDispSum = 0;
 
-  for (let i = 0; i < positions.length; i += 3) {
+  const compareLen = Math.min(positions.length, finalPositions.length);
+  for (let i = 0; i < compareLen; i += 3) {
     let dx = finalPositions[i] - positions[i];
     let dy = finalPositions[i+1] - positions[i+1];
     let dz = finalPositions[i+2] - positions[i+2];
@@ -2503,8 +2009,9 @@ function measureGeometryMetrics(defPositions, origPositions, bounds) {
   let rightDispSum = 0, rightCount = 0;
   let totalDisplacement = 0;
 
-  const count = Math.floor(defPositions.length / 3);
-  for (let i = 0; i < defPositions.length; i += 3) {
+  const compareLen = Math.min(defPositions.length, origPositions.length);
+  const count = Math.floor(compareLen / 3);
+  for (let i = 0; i < compareLen; i += 3) {
     const x = defPositions[i];
     const y = defPositions[i + 1];
     const z = defPositions[i + 2];
@@ -2985,3 +2492,5 @@ window.exportViewportToPNG = function() {
     a.click();
     document.body.removeChild(a);
 };
+
+
