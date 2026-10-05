@@ -601,9 +601,7 @@
         <button class="sidebar-main-tab-btn active" onclick="switchMainSidebarTab('right', 'generator', this)">
           ITERATIONS
         </button>
-        <button class="sidebar-main-tab-btn" onclick="switchMainSidebarTab('right', 'diagnostics', this)">
-          DIAGNOSTICS
-        </button>
+
       </div>
 
       <!-- TAB CONTENT 1: DOMAIN C GENERATOR -->
@@ -656,100 +654,7 @@
         </div>
       </div>
 
-      <!-- TAB CONTENT 2: SYSTEM DIAGNOSTICS -->
-      <div id="maintab-right-diagnostics" class="sidebar-main-tab-content">
-        <div class="sidebar-card gold-accent">
-          <div class="sidebar-card-header">
-            <div class="card-header-titles">
-              <h2 class="sidebar-title gold">SYSTEM DIAGNOSTICS</h2>
-              <p class="sidebar-subtitle">Rhino file, WebGL renderer & automated tests.</p>
-            </div>
-          </div>
 
-          <!-- CARD SUB-TABS -->
-          <div class="sidebar-sub-tabbar">
-            <button class="sub-tab-btn active" onclick="switchSidebarSubTab('right', 'file', this)">RHINO FILE</button>
-            <button class="sub-tab-btn" onclick="switchSidebarSubTab('right', 'render', this)">RENDER PIPELINE</button>
-            <button class="sub-tab-btn" onclick="switchSidebarSubTab('right', 'tests', this)">15-PARAM TESTS</button>
-          </div>
-
-          <div class="sidebar-card-body">
-            <!-- TAB 1: RHINO FILE DIAGNOSTICS -->
-            <div id="subtab-right-file" class="subtab-content active">
-              <div class="diag-table-box">
-                <div class="diag-table-row"><span>1 FILE SIZE:</span><span id="d-filesize" class="val-gold">740736 bytes</span></div>
-                <div class="diag-table-row"><span>2 FILE BYTES:</span><span id="d-filebytes" class="val-gold">740736</span></div>
-                <div class="diag-table-row"><span>3 RHINO3DM INITIALIZED:</span><span id="d-init" class="val-green">YES</span></div>
-                <div class="diag-table-row"><span>4 FILE3DM CREATED:</span><span id="d-created" class="val-green">YES</span></div>
-                <div class="diag-table-row"><span>5 OBJECT TABLE FOUND:</span><span id="d-table" class="val-green">YES</span></div>
-                <div class="diag-table-row"><span>6 RAW OBJECT COUNT:</span><span id="d-rawcount" class="val-white">161</span></div>
-                <div class="diag-table-row"><span>7 GEOMETRY RETRIEVED:</span><span id="d-retrieved" class="val-white">161</span></div>
-                <div class="diag-table-row"><span>8 NULL GEOMETRY:</span><span id="d-nullgeom" class="val-white">0</span></div>
-                <div class="diag-table-row"><span>9 ERRORS:</span><span id="d-errors" class="val-green">NONE</span></div>
-              </div>
-              
-              <div class="gold-border-box" style="margin-top:6px;">
-                <div class="box-title gold">RAW IMPORT DETAILS</div>
-                <div class="diag-table-row"><span>FILE NAME:</span><span id="raw-filename" class="val-gold">Awaiting Import</span></div>
-                <div class="diag-table-row"><span>FILE SIZE:</span><span id="raw-filesize" class="val-gold">740736 bytes</span></div>
-                <div class="diag-table-row"><span>DOCUMENT:</span><span id="raw-doc" class="val-green">VALID</span></div>
-                <div class="diag-table-row"><span>OBJECT TABLE:</span><span id="raw-objtable" class="val-green">FOUND</span></div>
-              </div>
-
-              <div class="gold-border-box" style="margin-top:6px;">
-                <div class="box-title gold">SUBD CONVERSION DIAGNOSTICS</div>
-                <div id="subd-diag-rows" style="font-family:'Space Mono', monospace; font-size:8.5px; color:#b0b0b0; line-height:1.6; white-space:pre-line;">
-                  SUBD 1: vertices 0 | faces 0 | rendered NO
-                  SUBD 2: vertices 0 | faces 0 | rendered NO
-                  SUBD 3: vertices 0 | faces 0 | rendered NO
-                  SUBD 4: vertices 0 | faces 0 | rendered NO
-                </div>
-              </div>
-            </div>
-
-            <!-- TAB 2: RENDER PIPELINE -->
-            <div id="subtab-right-render" class="subtab-content">
-              <div class="cyan-border-box">
-                <div class="box-title cyan">RENDER PIPELINE (THREE.JS)</div>
-                <div class="diag-table-row"><span>RHINO OBJECTS RECEIVED:</span><span id="p-recv" class="val-white">161</span></div>
-                <div class="diag-table-row"><span>OBJECTS CONVERTED:</span><span id="p-conv" class="val-white">157</span></div>
-                <div class="diag-table-row"><span>ADDED TO THREE.JS:</span><span id="p-added" class="val-white">157</span></div>
-                <div class="diag-table-row"><span>FAILED CONVERSIONS:</span><span id="p-failed" class="val-white">4</span></div>
-                <div class="diag-table-row"><span>THREEJS MODEL CHILDREN:</span><span id="p-children" class="val-white">157</span></div>
-                <div class="diag-table-row"><span>THREEJS BOUNDING BOX:</span><span id="p-bbox" class="val-green">VALID</span></div>
-                <div class="diag-table-row"><span>CAMERA FIT:</span><span id="p-camfit" class="val-green">YES</span></div>
-                <div class="diag-table-row"><span>RENDER STATUS:</span><span id="p-status" class="val-green">SUCCESS</span></div>
-              </div>
-            </div>
-
-            <!-- TAB 3: 15-PARAM TEST SUITE -->
-            <div id="subtab-right-tests" class="subtab-content">
-              <div class="gold-border-box" id="diag-tests-panel">
-                <div class="box-title gold" style="display:flex; justify-content:space-between; align-items:center;">
-                  <span>15-PARAMETER DIAGNOSTIC SUITE</span>
-                  <button id="btn-run-diagnostics" class="btn-import-compact" style="font-size:8px; padding:2px 6px;" onclick="runDomainBDiagnostics()">RUN TESTS</button>
-                </div>
-                <div id="diag-tests-grid" class="diag-tests-grid">
-                  <div class="diag-test-item"><span class="test-name">Affected Region</span><span class="test-status pass">PASS</span></div>
-                  <div class="diag-test-item"><span class="test-name">Affected Length</span><span class="test-status pass">PASS</span></div>
-                  <div class="diag-test-item"><span class="test-name">Hierarchy Depth</span><span class="test-status pass">PASS</span></div>
-                  <div class="diag-test-item"><span class="test-name">Continuity (G0/G1/G2)</span><span class="test-status pass">PASS</span></div>
-                  <div class="diag-test-item"><span class="test-name">Lateral Disp</span><span class="test-status pass">PASS</span></div>
-                  <div class="diag-test-item"><span class="test-name">Inflection Count</span><span class="test-status pass">PASS</span></div>
-                  <div class="diag-test-item"><span class="test-name">Merge Count</span><span class="test-status pass">PASS</span></div>
-                  <div class="diag-test-item"><span class="test-name">Merge Radius</span><span class="test-status pass">PASS</span></div>
-                  <div class="diag-test-item"><span class="test-name">Opening Count</span><span class="test-status pass">PASS</span></div>
-                  <div class="diag-test-item"><span class="test-name">Opening Scale</span><span class="test-status pass">PASS</span></div>
-                  <div class="diag-test-item"><span class="test-name">Enclosure Ratio</span><span class="test-status pass">PASS</span></div>
-                  <div class="diag-test-item"><span class="test-name">Repetition Count</span><span class="test-status pass">PASS</span></div>
-                  <div class="diag-test-item"><span class="test-name">Scale Variation</span><span class="test-status pass">PASS</span></div>
-                  <div class="diag-test-item"><span class="test-name">Growth Distance</span><span class="test-status pass">PASS</span></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
     </aside>  </div>
         </div>
