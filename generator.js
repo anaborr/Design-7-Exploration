@@ -3714,3 +3714,22 @@ function saveCurrentManualIteration() {
 window.saveCurrentManualIteration = saveCurrentManualIteration;
 
 
+
+
+window.updateDomainBDynamics = function(principle, valStr) {
+  const val = parseFloat(valStr);
+  if (principle === 'C') {
+    domainState.dna[0] = val;
+    document.getElementById('val-dna-c').textContent = Math.round(val * 100) + '%';
+  } else if (principle === 'B') {
+    domainState.dna[1] = val;
+    document.getElementById('val-dna-b').textContent = Math.round(val * 100) + '%';
+  } else if (principle === 'W') {
+    domainState.dna[2] = val;
+    document.getElementById('val-dna-w').textContent = Math.round(val * 100) + '%';
+  }
+  
+  if (window.updateDnaUIAndViewport) {
+    window.updateDnaUIAndViewport();
+  }
+};

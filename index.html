@@ -218,16 +218,19 @@
       <!-- TOP SIDEBAR TAB BAR -->
       <div class="sidebar-main-tabbar">
         <button class="sidebar-main-tab-btn active" onclick="switchMainSidebarTab('left', 'dna', this)" style="flex:1;">
-          DOMAIN A
+          DOMAIN A: TYPOLOGIES
+        </button>
+        <button class="sidebar-main-tab-btn" onclick="switchMainSidebarTab('left', 'domain-b', this)">
+          DOMAIN B: PRINCIPLES
         </button>
       </div>
 
-      <!-- TAB CONTENT: DOMAIN A CONSOLIDATED PANEL -->
-      <div id="maintab-left-dna" class="sidebar-main-tab-content active">
+      <!-- TAB CONTENT: DOMAIN A: TYPOLOGIES CONSOLIDATED PANEL -->
+      <div id="maintab-left-domain-a" class="sidebar-main-tab-content active">
         <div class="sidebar-card">
           <div class="sidebar-card-header">
             <div class="card-header-titles">
-              <h2 class="sidebar-title">DOMAIN A â€” SPATIAL TYPOLOGIES</h2>
+              <h2 class="sidebar-title">DOMAIN A & B â€” EVOLUTION SYSTEM</h2>
               <p class="sidebar-subtitle">Spatial seed typologies, rules & shape grammar engine.</p>
             </div>
           </div>
@@ -252,6 +255,9 @@
                     <span class="p-title">1. VERTICAL VOID</span>
                     <span class="p-sub">Create a tall opening through multiple levels</span>
                   </button>
+        <button class="sidebar-main-tab-btn" onclick="switchMainSidebarTab('left', 'domain-b', this)">
+          DOMAIN B: PRINCIPLES
+        </button>
 
                   <!-- 2. COMPRESSED â†’ EXPANDED -->
                   <button type="button" class="domain-a-pill" data-key="COMPRESSED_EXPANDED" onclick="selectDomainATypology('COMPRESSED_EXPANDED')">
@@ -325,11 +331,41 @@
             </div>
 
           </div>
-        </div>
+                </div>
       </div>
 
+      <!-- TAB CONTENT: DOMAIN B PRINCIPLES PANEL -->
+      <div id="maintab-left-domain-b" class="sidebar-main-tab-content">
+        <div class="sidebar-card">
+          <div class="sidebar-card-header">
+            <div class="card-header-titles">
+              <h2 class="sidebar-title">DOMAIN B — ART NOUVEAU PRINCIPLES</h2>
+              <p class="sidebar-subtitle">Whiplash Curve, Continuity, and Branching.</p>
+            </div>
+          </div>
+          <div class="sidebar-card-body">
+            
+            <div class="control-row">
+              <div class="control-label">WHIPLASH CURVE</div>
+              <input type="range" id="slider-dna-w" class="custom-slider" min="0" max="1" step="0.01" value="0.30" oninput="updateDomainBDynamics('W', this.value)">
+              <div class="slider-val" id="val-dna-w">30%</div>
+            </div>
 
+            <div class="control-row" style="margin-top:15px;">
+              <div class="control-label">CONTINUITY</div>
+              <input type="range" id="slider-dna-c" class="custom-slider" min="0" max="1" step="0.01" value="0.40" oninput="updateDomainBDynamics('C', this.value)">
+              <div class="slider-val" id="val-dna-c">40%</div>
+            </div>
 
+            <div class="control-row" style="margin-top:15px;">
+              <div class="control-label">BRANCHING</div>
+              <input type="range" id="slider-dna-b" class="custom-slider" min="0" max="1" step="0.01" value="0.20" oninput="updateDomainBDynamics('B', this.value)">
+              <div class="slider-val" id="val-dna-b">20%</div>
+            </div>
+
+          </div>
+        </div>
+      </div>
     </aside>
 
     <!-- CENTER VIEWPORT & POPULATION TAB WORKSPACE -->
@@ -617,12 +653,75 @@
                   </div>
                 </div>
           </div>
-        </div>
+                </div>
       </div>
 
+      <!-- TAB CONTENT: DOMAIN B PRINCIPLES PANEL -->
+      <div id="maintab-left-domain-b" class="sidebar-main-tab-content">
+        <div class="sidebar-card">
+          <div class="sidebar-card-header">
+            <div class="card-header-titles">
+              <h2 class="sidebar-title">DOMAIN B — ART NOUVEAU PRINCIPLES</h2>
+              <p class="sidebar-subtitle">Whiplash Curve, Continuity, and Branching.</p>
+            </div>
+          </div>
+          <div class="sidebar-card-body">
+            
+            <div class="control-row">
+              <div class="control-label">WHIPLASH CURVE</div>
+              <input type="range" id="slider-dna-w" class="custom-slider" min="0" max="1" step="0.01" value="0.30" oninput="updateDomainBDynamics('W', this.value)">
+              <div class="slider-val" id="val-dna-w">30%</div>
+            </div>
 
+            <div class="control-row" style="margin-top:15px;">
+              <div class="control-label">CONTINUITY</div>
+              <input type="range" id="slider-dna-c" class="custom-slider" min="0" max="1" step="0.01" value="0.40" oninput="updateDomainBDynamics('C', this.value)">
+              <div class="slider-val" id="val-dna-c">40%</div>
+            </div>
 
+            <div class="control-row" style="margin-top:15px;">
+              <div class="control-label">BRANCHING</div>
+              <input type="range" id="slider-dna-b" class="custom-slider" min="0" max="1" step="0.01" value="0.20" oninput="updateDomainBDynamics('B', this.value)">
+              <div class="slider-val" id="val-dna-b">20%</div>
+            </div>
+
+          </div>
+        </div>
+      </div>
     </aside>  </div>
+                </div>
+      </div>
+
+      <!-- TAB CONTENT: DOMAIN B PRINCIPLES PANEL -->
+      <div id="maintab-left-domain-b" class="sidebar-main-tab-content">
+        <div class="sidebar-card">
+          <div class="sidebar-card-header">
+            <div class="card-header-titles">
+              <h2 class="sidebar-title">DOMAIN B — ART NOUVEAU PRINCIPLES</h2>
+              <p class="sidebar-subtitle">Whiplash Curve, Continuity, and Branching.</p>
+            </div>
+          </div>
+          <div class="sidebar-card-body">
+            
+            <div class="control-row">
+              <div class="control-label">WHIPLASH CURVE</div>
+              <input type="range" id="slider-dna-w" class="custom-slider" min="0" max="1" step="0.01" value="0.30" oninput="updateDomainBDynamics('W', this.value)">
+              <div class="slider-val" id="val-dna-w">30%</div>
+            </div>
+
+            <div class="control-row" style="margin-top:15px;">
+              <div class="control-label">CONTINUITY</div>
+              <input type="range" id="slider-dna-c" class="custom-slider" min="0" max="1" step="0.01" value="0.40" oninput="updateDomainBDynamics('C', this.value)">
+              <div class="slider-val" id="val-dna-c">40%</div>
+            </div>
+
+            <div class="control-row" style="margin-top:15px;">
+              <div class="control-label">BRANCHING</div>
+              <input type="range" id="slider-dna-b" class="custom-slider" min="0" max="1" step="0.01" value="0.20" oninput="updateDomainBDynamics('B', this.value)">
+              <div class="slider-val" id="val-dna-b">20%</div>
+            </div>
+
+          </div>
         </div>
       </div>
     </aside>
@@ -850,4 +949,5 @@
   <script src="app.js?v=20261001_v5"></script>
 </body>
 </html>
+
 
