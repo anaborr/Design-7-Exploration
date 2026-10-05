@@ -43,7 +43,7 @@ const INITIAL_METRICS = {
 };
 
 function App() {
-    const [domainA, setDomainA] = useState({ whiplash: 30, branching: 50, continuity: 40 });
+    const [domainA, setDomainA] = useState({ whiplash: 30, continuity: 40 });
     const [domainB, setDomainB] = useState('type1');
     const [isGenerating, setIsGenerating] = useState(false);
     const [metrics, setMetrics] = useState(INITIAL_METRICS);
@@ -63,10 +63,10 @@ function App() {
             
             // Calculate new metrics based on Domain A sliders
             setMetrics({
-                porosity: Math.min(100, Math.max(10, domainA.branching * 1.2)),
+                porosity: Math.min(100, Math.max(10, domainA.continuity * 1.2)),
                 rhythm: Math.min(100, Math.max(10, domainA.whiplash * 1.1 + 20)),
                 connectivity: Math.min(100, Math.max(10, domainA.continuity * 1.3)),
-                layered: Math.min(100, Math.max(10, domainA.continuity * 0.8 + domainA.branching * 0.5)),
+                layered: Math.min(100, Math.max(10, domainA.continuity * 0.8 + domainA.whiplash * 0.5)),
                 focalization: Math.min(100, Math.max(10, domainA.whiplash * 1.5)),
                 intimacy: Math.min(100, Math.max(10, 100 - domainA.porosity * 0.5)) // Inverse relation example
             });
@@ -130,16 +130,7 @@ function App() {
                         onChange={(e) => setDomainA({...domainA, whiplash: parseInt(e.target.value)})} 
                     />
                 </div>
-                <div className="slider-group">
-                    <div className="slider-header">
-                        <span>Branching</span>
-                        <span className="value">{domainA.branching}%</span>
-                    </div>
-                    <input 
-                        type="range" min="0" max="100" value={domainA.branching}
-                        onChange={(e) => setDomainA({...domainA, branching: parseInt(e.target.value)})} 
-                    />
-                </div>
+
                 <div className="slider-group">
                     <div className="slider-header">
                         <span>Continuity</span>

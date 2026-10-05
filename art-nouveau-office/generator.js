@@ -28,7 +28,7 @@ function transformSegs(raw, profile='balanced'){
   const bb=bounds(raw); if(!bb) return raw;
   const [left,top,right,bottom]=bb, Wd=Math.max(1,right-left), Ht=Math.max(1,bottom-top);
   const P=val('porosity')/100,R=val('rhythm')/100,K=val('connectivity')/100,L=val('layered')/100,F=val('focal')/100,I=val('intimacy')/100;
-  const WH=val('whip')/100,CO=val('cont')/100,BR=val('branch')/100,S=val('seed'),T=typeIndex();
+  const S=val('seed'),T=typeIndex();
   const phase={balanced:0,carve:13,grow:31,interlock:53}[profile]||0;
   const rnd=n=>{let x=Math.sin((n+1)*12.9898+(S+phase)*78.233)*43758.5453;return x-Math.floor(x)};
   const ft=n=>n*pxPerFoot, clamp=(v,a,z)=>Math.max(a,Math.min(z,v));
@@ -155,20 +155,7 @@ function transformSegs(raw, profile='balanced'){
     }
   }
 
-  // ART NOUVEAU RULES are a second layer: they modify valid typology moves instead of inventing unrelated lines.
-  if(BR>.2){ // branch an EXISTING architectural edge into a second occupiable direction
-    let parent=levels[Math.floor(rnd(80)*levels.length)]||base,dir=rnd(81)>.5?1:-1;
-    if(space==='Workspace'&&T===1){terraceFrom(parent,dir,story*(.55+.3*BR),.32+.18*BR);}
-    else if(space==='Lobby'&&T===3){let anchor=dir>0?parent.x1:parent.x0;let span=clamp(typicalSpan*.32,ft(9),ft(18));slabBox(dir>0?anchor:anchor-span,dir>0?anchor+span:anchor,parent.y-story*.35);}
-    else if(BR>.65){let anchor=dir>0?parent.x1:parent.x0;wallBox(anchor-(dir<0?wall:0),parent.y,clear*.75);}
-  }
-  if(CO>.2){ // extend nearby compatible plate edges until systems become continuous
-    let hs=result.concat(added).filter(s=>horiz(s)&&len(s)>ft(6)),made=0,max=ft(4+12*CO);
-    for(let i=0;i<hs.length&&made<1+Math.floor(CO*2);i++){let A=hs[i],a=A[1],best=null,bd=1e9;for(let j=0;j<hs.length;j++){if(i===j)continue;for(let q of hs[j]){let d=Math.hypot(a[0]-q[0],a[1]-q[1]);if(d<bd&&d<max&&Math.abs(a[1]-q[1])<story*.9){best=q;bd=d}}}if(best){let elbow=[best[0],a[1]];addSeg(a,elbow);if(Math.abs(best[1]-elbow[1])>ft(.8))addSeg(elbow,best);made++;}}
-  }
-  if(WH>.2){ // curve only enclosure/transition edges; never primary occupiable horizontal plates
-    let candidates=result.filter(s=>!horiz(s)&&len(s)>ft(7));let n=Math.min(candidates.length,1+Math.floor(WH*3));for(let i=0;i<n;i++)curveReplace(candidates[(i*3+S)%candidates.length],WH);
-  }
+
 
   // Final architectural cleanup: no giant generated walls through several stories; preserve central void typologies.
   let all=result.concat(added);
