@@ -43,8 +43,8 @@ const INITIAL_METRICS = {
 };
 
 function App() {
-    const [domainA, setDomainA] = useState({ whiplash: 30, continuity: 40 });
-    const [domainB, setDomainB] = useState('type1');
+    const [principles, setPrinciples] = useState({ whiplash: 30, continuity: 40, branching: 20 });
+    const [typology, setTypology] = useState('type1');
     const [isGenerating, setIsGenerating] = useState(false);
     const [metrics, setMetrics] = useState(INITIAL_METRICS);
     const [generatedImage, setGeneratedImage] = useState(TYPOLOGIES[0].image);
@@ -58,17 +58,40 @@ function App() {
         setIsGenerating(true);
         // Simulate network processing
         setTimeout(() => {
-            const selectedTypology = TYPOLOGIES.find(t => t.id === domainB);
+            const selectedTypology = TYPOLOGIES.find(t => t.id === typology);
             setGeneratedImage(selectedTypology.image);
             
-            // Calculate new metrics based on Domain A sliders
+            // Calculate new metrics based on Art Nouveau principles depending on Spatial Typology
+            let porosity, rhythm, connectivity, layered, focalization, intimacy;
+
+            if (typology === 'type1') { 
+                // Fluid Shell: Organic continuous surfaces
+                porosity = Math.min(100, Math.max(10, principles.continuity * 1.5 - principles.branching * 0.2));
+                rhythm = Math.min(100, Math.max(10, principles.whiplash * 1.2 + 10));
+                connectivity = Math.min(100, Math.max(10, principles.continuity * 1.3 + principles.branching * 0.5));
+                layered = Math.min(100, Math.max(10, principles.whiplash * 0.8 + 20));
+                focalization = Math.min(100, Math.max(10, principles.whiplash * 1.4));
+                intimacy = Math.min(100, Math.max(10, 100 - principles.branching * 1.1));
+            } else if (typology === 'type2') { 
+                // Skeletal Framework: Branching and hierarchy
+                porosity = Math.min(100, Math.max(10, principles.branching * 1.4 + 20));
+                rhythm = Math.min(100, Math.max(10, principles.branching * 0.8 + principles.whiplash * 0.6));
+                connectivity = Math.min(100, Math.max(10, principles.continuity * 0.9 + principles.branching * 0.8));
+                layered = Math.min(100, Math.max(10, principles.branching * 1.2));
+                focalization = Math.min(100, Math.max(10, principles.whiplash * 0.9 + 30));
+                intimacy = Math.min(100, Math.max(10, 80 - principles.branching * 0.8)); 
+            } else { 
+                // Continuous Layers: Stacking and bending
+                porosity = Math.min(100, Math.max(10, principles.branching * 0.7 + 10));
+                rhythm = Math.min(100, Math.max(10, principles.whiplash * 1.5));
+                connectivity = Math.min(100, Math.max(10, principles.continuity * 1.5));
+                layered = Math.min(100, Math.max(10, principles.continuity * 1.2 + principles.branching * 0.6));
+                focalization = Math.min(100, Math.max(10, principles.continuity * 0.5 + 40));
+                intimacy = Math.min(100, Math.max(10, 90 - principles.whiplash * 0.6));
+            }
+
             setMetrics({
-                porosity: Math.min(100, Math.max(10, domainA.continuity * 1.2)),
-                rhythm: Math.min(100, Math.max(10, domainA.whiplash * 1.1 + 20)),
-                connectivity: Math.min(100, Math.max(10, domainA.continuity * 1.3)),
-                layered: Math.min(100, Math.max(10, domainA.continuity * 0.8 + domainA.whiplash * 0.5)),
-                focalization: Math.min(100, Math.max(10, domainA.whiplash * 1.5)),
-                intimacy: Math.min(100, Math.max(10, 100 - domainA.porosity * 0.5)) // Inverse relation example
+                porosity, rhythm, connectivity, layered, focalization, intimacy
             });
 
             // Clear Canvas
@@ -119,41 +142,52 @@ function App() {
             <div className="glass-panel">
                 <h1>Neural Setup</h1>
                 
-                <h2>Domain A: Art Nouveau</h2>
+                <h2>Domain A: Typologies</h2>
+                <div className="typologies-grid">
+                    {TYPOLOGIES.map(type => (
+                        <div 
+                            key={type.id} 
+                            className={`typology-card ${typology === type.id ? 'active' : ''}`}
+                            onClick={() => setTypology(type.id)}
+                        >
+                            <img src={type.image} alt={type.name} />
+                            <div className="typology-label">{type.name}</div>
+                        </div>
+                    ))}
+                </div>
+
+                <h2 style={{marginTop: '32px'}}>Domain B: Art Nouveau Principles</h2>
                 <div className="slider-group">
                     <div className="slider-header">
                         <span>Whiplash Curve</span>
-                        <span className="value">{domainA.whiplash}%</span>
+                        <span className="value">{principles.whiplash}%</span>
                     </div>
                     <input 
-                        type="range" min="0" max="100" value={domainA.whiplash}
-                        onChange={(e) => setDomainA({...domainA, whiplash: parseInt(e.target.value)})} 
+                        type="range" min="0" max="100" value={principles.whiplash}
+                        onChange={(e) => setPrinciples({...principles, whiplash: parseInt(e.target.value)})} 
                     />
                 </div>
 
                 <div className="slider-group">
                     <div className="slider-header">
                         <span>Continuity</span>
-                        <span className="value">{domainA.continuity}%</span>
+                        <span className="value">{principles.continuity}%</span>
                     </div>
                     <input 
-                        type="range" min="0" max="100" value={domainA.continuity}
-                        onChange={(e) => setDomainA({...domainA, continuity: parseInt(e.target.value)})} 
+                        type="range" min="0" max="100" value={principles.continuity}
+                        onChange={(e) => setPrinciples({...principles, continuity: parseInt(e.target.value)})} 
                     />
                 </div>
 
-                <h2 style={{marginTop: '32px'}}>Domain B: Typologies</h2>
-                <div className="typologies-grid">
-                    {TYPOLOGIES.map(type => (
-                        <div 
-                            key={type.id} 
-                            className={`typology-card ${domainB === type.id ? 'active' : ''}`}
-                            onClick={() => setDomainB(type.id)}
-                        >
-                            <img src={type.image} alt={type.name} />
-                            <div className="typology-label">{type.name}</div>
-                        </div>
-                    ))}
+                <div className="slider-group">
+                    <div className="slider-header">
+                        <span>Branching</span>
+                        <span className="value">{principles.branching}%</span>
+                    </div>
+                    <input 
+                        type="range" min="0" max="100" value={principles.branching}
+                        onChange={(e) => setPrinciples({...principles, branching: parseInt(e.target.value)})} 
+                    />
                 </div>
 
                 <button 
@@ -310,6 +344,8 @@ function RadarChart({ metrics }) {
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
-    </script>
+
+</script>
 </body>
 </html>
+
