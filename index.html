@@ -217,14 +217,8 @@
       
       <!-- TOP SIDEBAR TAB BAR -->
       <div class="sidebar-main-tabbar">
-        <button class="sidebar-main-tab-btn active" onclick="switchMainSidebarTab('left', 'dna', this)">
+        <button class="sidebar-main-tab-btn active" onclick="switchMainSidebarTab('left', 'dna', this)" style="flex:1;">
           DOMAIN A & B
-        </button>
-        <button class="sidebar-main-tab-btn" onclick="switchMainSidebarTab('left', 'metrics', this)">
-          METRICS & RULES
-        </button>
-        <button class="sidebar-main-tab-btn" onclick="switchMainSidebarTab('left', 'lineage', this)">
-          LINEAGE
         </button>
       </div>
 
@@ -443,85 +437,7 @@
         </div>
       </div>
 
-      <!-- TAB CONTENT 2: GEOMETRIC METRICS & VALIDATION -->
-      <div id="maintab-left-metrics" class="sidebar-main-tab-content">
-        <div class="sidebar-card cyan-accent">
-          <div class="sidebar-card-header">
-            <div class="card-header-titles">
-              <h2 class="sidebar-title cyan">METRICS & RULE VALIDATION</h2>
-              <p class="sidebar-subtitle">Post-transformation spatial readouts & rule checks.</p>
-            </div>
-          </div>
 
-          <!-- SUB TABS INSIDE METRICS -->
-          <div class="sidebar-sub-tabbar">
-            <button class="sub-tab-btn active" onclick="switchSidebarSubTab('left', 'effects', this)">EFFECTS</button>
-            <button class="sub-tab-btn" onclick="switchSidebarSubTab('left', 'measurements', this)">METRICS</button>
-            <button class="sub-tab-btn" onclick="switchSidebarSubTab('left', 'rules', this)">RULES</button>
-          </div>
-
-          <div class="sidebar-card-body">
-            <!-- TAB 1: GEOMETRIC EFFECTS -->
-            <div id="subtab-left-effects" class="subtab-content active">
-              <div class="readout-box-effects-grid" id="domain-b-spatial-effects-readout">
-                <div class="effect-chip">Vertices: <span id="effect-affected-pct">0%</span></div>
-                <div class="effect-chip">Max Disp: <span id="effect-max-disp">0.0 ft</span></div>
-                <div class="effect-chip">Width: <span id="effect-width-change">+0%</span></div>
-                <div class="effect-chip">Height: <span id="effect-height-change">+0%</span></div>
-                <div class="effect-chip">Depth: <span id="effect-depth-change">+0%</span></div>
-              </div>
-            </div>
-
-            <!-- TAB 2: READ-ONLY MEASUREMENTS -->
-            <div id="subtab-left-measurements" class="subtab-content">
-              <div class="measurements-grid" id="readonly-measurements-grid">
-                <div class="meas-item"><span>Continuity Strength:</span> <span id="m-cont-str" class="val-white">0%</span></div>
-                <div class="meas-item"><span>Curvature Strength:</span> <span id="m-whip-str" class="val-white">0%</span></div>
-                <div class="meas-item"><span>Inflection Count:</span> <span id="m-whip-inf" class="val-white">0</span></div>
-                <div class="meas-item"><span>Merge Count:</span> <span id="m-merge-cnt" class="val-white">0</span></div>
-                <div class="meas-item"><span>Void Ratio:</span> <span id="m-void-ratio" class="val-white">0%</span></div>
-                <div class="meas-item"><span>Opening Count:</span> <span id="m-open-cnt" class="val-white">0</span></div>
-                <div class="meas-item"><span>Added Elements:</span> <span id="m-growth-cnt" class="val-white">0</span></div>
-              </div>
-            </div>
-
-            <!-- TAB 3: RULE VALIDATION STATUS -->
-            <div id="subtab-left-rules" class="subtab-content">
-              <div class="validation-list" id="rule-validation-list">
-                <div class="val-item"><span class="val-rule">01 CONTINUITY:</span> <span id="val-rule-cont" class="val-pass">✓ CONNECTED FLOW</span></div>
-                <div class="val-item"><span class="val-rule">03 WHIPLASH:</span> <span id="val-rule-whip" class="val-pass">✓ CONTINUOUS INFLECTION</span></div>
-                <div class="val-item"><span class="val-rule">04 MERGING:</span> <span id="val-rule-merge" class="val-pass">✓ PRECONDITION MET</span></div>
-                <div class="val-item"><span class="val-rule">05 POS / NEG:</span> <span id="val-rule-posneg" class="val-pass">✓ VOID INTERLOCK</span></div>
-                <div class="val-item"><span class="val-rule">06 GROWTH:</span> <span id="val-rule-growth" class="val-pass">✓ ADJACENCY MAINTAINED</span></div>
-              </div>
-            </div>
-
-            <!-- VIEW MATHEMATICAL REASONING BUTTON -->
-            <button id="btn-view-reasoning" class="btn btn-header-cyan" style="width:100%; margin-top:6px;">
-              VIEW MATHEMATICAL REASONING
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- TAB CONTENT 3: LINEAGE TREE -->
-      <div id="maintab-left-lineage" class="sidebar-main-tab-content">
-        <div class="sidebar-card">
-          <div class="sidebar-card-header">
-            <div class="card-header-titles">
-              <h2 class="sidebar-title">GENERATION HISTORY</h2>
-              <p class="sidebar-subtitle">Multi-generation lineage tree descending from seed.</p>
-            </div>
-          </div>
-          <div class="sidebar-card-body">
-            <div id="lineage-history-tree" class="lineage-tree">
-              <div class="lineage-placeholder-msg">
-                Import a Rhino .3dm file or load a sample seed to establish Generation 0 seed.
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
     </aside>
 
