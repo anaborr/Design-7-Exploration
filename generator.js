@@ -119,10 +119,11 @@ const domainState = {
 
 window.domainState = domainState;
 
-const PRINCIPLE_KEYS = ['CONTINUITY', 'WHIPLASH', 'MERGING', 'POSITIVE_NEGATIVE', 'GROWTH'];
+const PRINCIPLE_KEYS = ['CONTINUITY', 'BRANCHING', 'WHIPLASH', 'MERGING', 'POSITIVE_NEGATIVE', 'GROWTH'];
 const PRINCIPLE_NAMES = {
   CONTINUITY: 'CONTINUITY',
-  Growth: WHIPLASH: 'WHIPLASH CURVATURE',
+  BRANCHING: 'BRANCHING / BIFURCATION',
+  WHIPLASH: 'WHIPLASH CURVATURE',
   MERGING: 'MERGING SURFACES',
   POSITIVE_NEGATIVE: 'POS / NEG SPACE',
   GROWTH: 'GROWTH / AGGREGATION'
@@ -301,7 +302,7 @@ function getQualitativeStateLabel(principleKey, val) {
     if (val <= 0.30) return 'MOSTLY SEPARATE';
     if (val <= 0.70) return 'PARTIALLY CONNECTED';
     return 'CONTINUOUS FORM';
-  } else if (principleKey === "") {
+  } else if (principleKey === "BRANCHING") {
     if (val <= 0.20) return 'SINGULAR';
     if (val <= 0.60) return 'BIFURCATING';
     return 'HIERARCHICAL Growth';
@@ -355,7 +356,7 @@ function updateDnaUIAndViewport() {
 
   // Update qualitative badges
   const bdgC = document.getElementById('badge-dna-c'); if (bdgC) bdgC.textContent = getQualitativeStateLabel('CONTINUITY', c);
-  const bdgB = document.getElementById('badge-dna-b'); if (bdgB) bdgB.textContent = getQualitativeStateLabel(b);
+  const bdgB = document.getElementById('badge-dna-b'); if (bdgB) bdgB.textContent = getQualitativeStateLabel('BRANCHING', b);
   const bdgW = document.getElementById('badge-dna-w'); if (bdgW) bdgW.textContent = getQualitativeStateLabel('WHIPLASH', w);
   const bdgM = document.getElementById('badge-dna-m'); if (bdgM) bdgM.textContent = getQualitativeStateLabel('MERGING', m);
   const bdgV = document.getElementById('badge-dna-v'); if (bdgV) bdgV.textContent = getQualitativeStateLabel('POSITIVE_NEGATIVE', v);
@@ -3733,3 +3734,6 @@ window.updateDomainBDynamics = function(principle, valStr) {
     window.updateDnaUIAndViewport();
   }
 };
+
+
+
