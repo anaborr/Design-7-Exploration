@@ -39,9 +39,8 @@ const DOMAIN_B_RULES = {
     primaryVar: 'extLength',
     primaryLabel: 'Extension Length'
   },
-  BRANCHING: {
-    name: 'BRANCHING',
-    displayName: 'Branching Hierarchy',
+  Growth: {
+    name: displayName: 'Growth Hierarchy',
     qualitativeIntent: 'Divide a primary spatial trajectory into hierarchical secondary paths.',
     operations: ['SPLIT', 'DIVERGE', 'EXTEND', 'TAPER'],
     defaultParams: { count: 2, angle: 40, length: 35, depth: 1, taper: 0.7, region: 35 },
@@ -103,7 +102,7 @@ const domainState = {
   selectedParentGenome: null,
   seedIdentity: null,
   populationSize: 6,
-  studyVariable: 'BRANCHING', // 'CONTINUITY' | 'BRANCHING' | 'WHIPLASH' | 'MERGING' | 'POSITIVE_NEGATIVE' | 'GROWTH'
+  studyVariable: // 'CONTINUITY' | "" | 'WHIPLASH' | 'MERGING' | 'POSITIVE_NEGATIVE' | 'GROWTH'
   targetScale: 'REGIONAL',
   targetZone: 'ZONE_D',
   seedIdentityThreshold: 75,
@@ -120,11 +119,10 @@ const domainState = {
 
 window.domainState = domainState;
 
-const PRINCIPLE_KEYS = ['CONTINUITY', 'BRANCHING', 'WHIPLASH', 'MERGING', 'POSITIVE_NEGATIVE', 'GROWTH'];
+const PRINCIPLE_KEYS = ['CONTINUITY', 'WHIPLASH', 'MERGING', 'POSITIVE_NEGATIVE', 'GROWTH'];
 const PRINCIPLE_NAMES = {
   CONTINUITY: 'CONTINUITY',
-  BRANCHING: 'BRANCHING',
-  WHIPLASH: 'WHIPLASH CURVATURE',
+  Growth: WHIPLASH: 'WHIPLASH CURVATURE',
   MERGING: 'MERGING SURFACES',
   POSITIVE_NEGATIVE: 'POS / NEG SPACE',
   GROWTH: 'GROWTH / AGGREGATION'
@@ -303,10 +301,10 @@ function getQualitativeStateLabel(principleKey, val) {
     if (val <= 0.30) return 'MOSTLY SEPARATE';
     if (val <= 0.70) return 'PARTIALLY CONNECTED';
     return 'CONTINUOUS FORM';
-  } else if (principleKey === 'BRANCHING') {
+  } else if (principleKey === "") {
     if (val <= 0.20) return 'SINGULAR';
     if (val <= 0.60) return 'BIFURCATING';
-    return 'HIERARCHICAL BRANCHING';
+    return 'HIERARCHICAL Growth';
   } else if (principleKey === 'WHIPLASH') {
     if (val <= 0.30) return 'LINEAR';
     if (val <= 0.60) return 'FLOWING CURVATURE';
@@ -336,7 +334,7 @@ function getDominantAndSecondary(dna) {
 
   return {
     dominant: arr[0] ? arr[0].name : 'CONTINUITY',
-    secondary: arr[1] ? arr[1].name : 'BRANCHING'
+    secondary: arr[1] ? arr[1].name : ""
   };
 }
 
@@ -357,7 +355,7 @@ function updateDnaUIAndViewport() {
 
   // Update qualitative badges
   const bdgC = document.getElementById('badge-dna-c'); if (bdgC) bdgC.textContent = getQualitativeStateLabel('CONTINUITY', c);
-  const bdgB = document.getElementById('badge-dna-b'); if (bdgB) bdgB.textContent = getQualitativeStateLabel('BRANCHING', b);
+  const bdgB = document.getElementById('badge-dna-b'); if (bdgB) bdgB.textContent = getQualitativeStateLabel(b);
   const bdgW = document.getElementById('badge-dna-w'); if (bdgW) bdgW.textContent = getQualitativeStateLabel('WHIPLASH', w);
   const bdgM = document.getElementById('badge-dna-m'); if (bdgM) bdgM.textContent = getQualitativeStateLabel('MERGING', m);
   const bdgV = document.getElementById('badge-dna-v'); if (bdgV) bdgV.textContent = getQualitativeStateLabel('POSITIVE_NEGATIVE', v);
@@ -461,13 +459,13 @@ function updateDnaUIAndViewport() {
     }
   }
 
-  const bCounts = (window.branchingMemberCounts && b >= 0.01) ? window.branchingMemberCounts : {
+  const bCounts = (window.GrowthMemberCounts && b >= 0.01) ? window.GrowthMemberCounts : {
     vertical: 0,
     horizontal: 0,
     diagonal: 0,
     total: 0,
     divisions: 0,
-    orientationMode: window.branchingOrientationMode || 'ALL'
+    orientationMode: window.GrowthOrientationMode || 'ALL'
   };
 
   const mBCnt = document.getElementById('metric-b-count');
@@ -497,7 +495,7 @@ function updateDnaUIAndViewport() {
 
   // Rule Validation Panel Checkmarks
   const valCont = document.getElementById('val-rule-cont'); if (valCont) valCont.textContent = c > 0.7 ? '✓ CONTINUOUS FORM' : (c > 0.3 ? '✓ CONNECTING ELEMENTS' : '✓ SEPARATE ELEMENTS');
-  const valBranch = document.getElementById('val-rule-branch'); if (valBranch) valBranch.textContent = b >= 0.6 ? 'âœ“ HIERARCHICAL BRANCHING' : (b >= 0.2 ? 'âœ“ BIFURCATING' : 'âœ“ SINGULAR');
+  const valBranch = document.getElementById('val-rule-branch'); if (valBranch) valBranch.textContent = b >= 0.6 ? 'âœ“ HIERARCHICAL Growth' : (b >= 0.2 ? 'âœ“ BIFURCATING' : 'âœ“ SINGULAR');
   const valWhip = document.getElementById('val-rule-whip'); if (valWhip) valWhip.textContent = w > 0.6 ? 'âœ“ WHIPLASH INFLECTED' : (w > 0.3 ? 'âœ“ FLOWING CURVATURE' : 'âœ“ LINEAR');
   const valMerge = document.getElementById('val-rule-merge'); if (valMerge) valMerge.textContent = (b >= 0.20) ? (m > 0.6 ? 'âœ“ MERGED / UNIFIED' : 'âœ“ CONVERGING') : 'âœ• PRECONDITION NOT SATISFIED';
   const valPosNeg = document.getElementById('val-rule-posneg'); if (valPosNeg) valPosNeg.textContent = v > 0.6 ? 'âœ“ INTERLOCK SOLID/VOID' : (v > 0.3 ? 'âœ“ POROUS VOID' : 'âœ“ SOLID ENCLOSED');
@@ -513,7 +511,7 @@ function updateDnaUIAndViewport() {
 
 function getPrincipleIndex(p) {
   if (p === 'CONTINUITY' || p === 'CONTINUITY & SURFACE FLOW') return 0;
-  if (p === 'BRANCHING' || p === 'BRANCHING HIERARCHY') return 1;
+  if (p === "" || p === 'Growth HIERARCHY') return 1;
   if (p === 'WHIPLASH' || p === 'WHIPLASH CURVATURE') return 2;
   if (p === 'MERGING' || p === 'MERGING SURFACES') return 3;
   if (p === 'POSITIVE_NEGATIVE' || p === 'POS / NEG SPACE' || p === 'POSITIVE / NEGATIVE SPACE') return 4;
@@ -770,11 +768,10 @@ function findAvailableRules(graph, analysis) {
     });
   }
 
-  // BRANCHING: AVAILABLE if branch origins exist
+  // Growth: AVAILABLE if branch origins exist
   if (analysis.potentialBranchOrigins.length > 0) {
     rules.push({
-      rule: 'BRANCHING',
-      name: 'BRANCHING HIERARCHY',
+      rule: name: 'Growth HIERARCHY',
       available: true,
       candidateCount: analysis.potentialBranchOrigins.length,
       candidates: analysis.potentialBranchOrigins,
@@ -782,12 +779,11 @@ function findAvailableRules(graph, analysis) {
     });
   } else {
     rules.push({
-      rule: 'BRANCHING',
-      name: 'BRANCHING HIERARCHY',
+      rule: name: 'Growth HIERARCHY',
       available: false,
       candidateCount: 0,
       candidates: [],
-      reason: 'No primary path with sufficient clearance for secondary branching.'
+      reason: 'No primary path with sufficient clearance for secondary Growth.'
     });
   }
 
@@ -1044,7 +1040,7 @@ function validateOperation(oldPositions, newPositions, bounds, ruleType, userThr
   }
 
   let postconditions = {};
-  if (ruleType === 'BRANCHING') {
+  if (ruleType === "") {
     postconditions = { branchCountMin: 2, branchCountMax: 3, connectedBranchRatio: 1.0, arbitraryTerminationCount: 0, pass: true };
   } else if (ruleType === 'WHIPLASH') {
     postconditions = { continuous: true, inflectionCount: 1, abruptBreakCount: 0, pass: true };
@@ -1111,7 +1107,7 @@ function beamSearchRulePaths(seedPositions, bounds, userThreshold = 75, maxDepth
         let chosenCandidate = null;
         let candidateScore = 0.85;
 
-        if (ruleType === 'BRANCHING' && state.analysis.potentialBranchOrigins.length > 0) {
+        if (ruleType === "" && state.analysis.potentialBranchOrigins.length > 0) {
           chosenCandidate = state.analysis.potentialBranchOrigins[0];
           candidateScore = scoreBranchCandidate(chosenCandidate);
         } else if (ruleType === 'WHIPLASH' && state.analysis.paths.length > 0) {
@@ -1134,7 +1130,7 @@ function beamSearchRulePaths(seedPositions, bounds, userThreshold = 75, maxDepth
         if (!chosenCandidate) continue;
 
         let newPositions = null;
-        if (ruleType === 'BRANCHING') newPositions = executeBranchRule(state.positions, chosenCandidate, bounds, 0.60 + depth * 0.05);
+        if (ruleType === "") newPositions = executeBranchRule(state.positions, chosenCandidate, bounds, 0.60 + depth * 0.05);
         else if (ruleType === 'WHIPLASH') newPositions = executeWhiplashRule(state.positions, chosenCandidate, bounds, 0.65 + depth * 0.05);
         else if (ruleType === 'MERGING') newPositions = executeMergeRule(state.positions, chosenCandidate, bounds, 0.55 + depth * 0.05);
         else if (ruleType === 'POSITIVE_NEGATIVE') newPositions = executeVoidRule(state.positions, chosenCandidate, bounds, 0.60 + depth * 0.05);
@@ -1264,7 +1260,7 @@ function deriveDNAFromGeometry(finalPositions, origPositions, bounds, ruleHistor
 
   const rulesUsed = (ruleHistory || []).map(r => r.rule);
   const countC = rulesUsed.filter(r => r === 'CONTINUITY').length;
-  const countB = rulesUsed.filter(r => r === 'BRANCHING').length;
+  const countB = rulesUsed.filter(r => r === "").length;
   const countW = rulesUsed.filter(r => r === 'WHIPLASH').length;
   const countM = rulesUsed.filter(r => r === 'MERGING').length;
   const countV = rulesUsed.filter(r => r === 'POSITIVE_NEGATIVE').length;
@@ -1346,7 +1342,7 @@ function generateFromArtNouveauRules() {
       measuredOutput: measuredOutput,
       ruleValidation: {
         continuity: { pass: true, msg: '✓ CONTINUOUS FLOW' },
-        branching: { pass: true, msg: '✓ PARENT ATTACHED' },
+        Growth: { pass: true, msg: '✓ PARENT ATTACHED' },
         whiplash: { pass: true, msg: '✓ CONTINUOUS INFLECTION' },
         merging: { pass: true, msg: '✓ PRECONDITION MET' },
         posneg: { pass: true, msg: '✓ VOID INTERLOCK' },
@@ -1418,9 +1414,9 @@ function generateProgramIteration() {
   if (program === 'WORKSPACE') {
     sliders.B.value = randHigh();
     sliders.C.value = randMed();
-    dominant = "BRANCHING";
+    dominant = "Growth";
     supporting = ["GROWTH", "CONTINUITY", "RHYTHM"];
-    ruleSeq = ["BRANCHING", "CONTINUITY"];
+    ruleSeq = ["Growth", "CONTINUITY"];
     narrative = "The primary geometry branches and grows to organize smaller individual work areas, creating a rhythmic continuity.";
   } else if (program === 'GATHERING') {
     sliders.V.value = randHigh();
@@ -1450,9 +1446,9 @@ function generateProgramIteration() {
     sliders.W.value = randMed();
     sliders.B.value = randMed();
     dominant = "CONTINUITY";
-    supporting = ["BRANCHING", "GROWTH", "WHIPLASH"];
+    supporting = ["Growth", "GROWTH", "WHIPLASH"];
     ruleSeq = ["CONTINUITY", "WHIPLASH"];
-    narrative = "Continuous circulation acts as the primary whiplash element from which branching spaces and growth develop.";
+    narrative = "Continuous circulation acts as the primary whiplash element from which Growth spaces and growth develop.";
   }
 
 
@@ -1491,7 +1487,7 @@ function generateProgramIteration() {
     measuredOutput: {},
     ruleValidation: {
       continuity: { pass: true, msg: '✓ ' + (supporting.includes('CONTINUITY') ? 'ENFORCED' : 'MAINTAINED') },
-      branching: { pass: true, msg: '✓ ' + (supporting.includes('BRANCHING') ? 'ENFORCED' : 'MAINTAINED') },
+      Growth: { pass: true, msg: '✓ ' + (supporting.includes("") ? 'ENFORCED' : 'MAINTAINED') },
       whiplash: { pass: true, msg: '✓ ' + (supporting.includes('WHIPLASH') ? 'ENFORCED' : 'MAINTAINED') },
       merging: { pass: true, msg: '✓ ' + (supporting.includes('MERGING') ? 'ENFORCED' : 'MAINTAINED') },
       posneg: { pass: true, msg: '✓ ' + (dominant.includes('POS') ? 'ENFORCED' : 'MAINTAINED') },
@@ -1541,7 +1537,7 @@ function updateRuleAvailabilityUI(availableRules) {
   availableRules.forEach(r => {
     let elId = '';
     if (r.rule === 'CONTINUITY') elId = 'val-rule-cont';
-    else if (r.rule === 'BRANCHING') elId = 'val-rule-branch';
+    else if (r.rule === "") elId = 'val-rule-branch';
     else if (r.rule === 'WHIPLASH') elId = 'val-rule-whip';
     else if (r.rule === 'MERGING') elId = 'val-rule-merge';
     else if (r.rule === 'POSITIVE_NEGATIVE') elId = 'val-rule-posneg';
@@ -1775,7 +1771,7 @@ function updateDesignerChangesUI() {
   panel.style.display = 'block';
   const origDna = domainState.activeRefinementProposal.dna;
   const currentDna = domainState.dna;
-  const keys = ['Continuity', 'Branching', 'Whiplash', 'Merging', 'Pos/Neg', 'Growth'];
+  const keys = ['Continuity', 'Whiplash', 'Merging', 'Pos/Neg', 'Growth'];
 
   let hasDeltas = false;
   let html = '';
@@ -1828,7 +1824,7 @@ function inspectWhyReasoning(iterId) {
   if (dnaDetailsEl) {
     dnaDetailsEl.innerHTML = `
       <div>Continuity: <strong>${Math.round(dna[0]*100)}%</strong></div>
-      <div>Branching: <strong>${Math.round(dna[1]*100)}%</strong></div>
+      <div>Growth: <strong>${Math.round(dna[1]*100)}%</strong></div>
       <div>Whiplash: <strong>${Math.round(dna[2]*100)}%</strong></div>
       <div>Merging: <strong>${Math.round(dna[3]*100)}%</strong></div>
       <div>Pos/Neg Space: <strong>${Math.round(dna[4]*100)}%</strong></div>
@@ -1852,9 +1848,9 @@ function inspectWhyReasoning(iterId) {
     const m = item.measuredOutput || {};
     geomEl.innerHTML = `
       <div class="meas-item"><span>Seed Identity:</span> <span class="val-white">${item.seedSimilarity}%</span></div>
-      <div class="meas-item"><span>Branch Count:</span> <span class="val-white">${dna[1] > 0.6 ? 3 : (dna[1] > 0.2 ? 2 : 0)}</span></div>
-      <div class="meas-item"><span>Mean Branch Length:</span> <span class="val-white">${(12.6 * (dna[1] || 0.5)).toFixed(1)} ft</span></div>
-      <div class="meas-item"><span>Branch Spread:</span> <span class="val-white">${Math.round(25 + dna[1] * 70)}°</span></div>
+      
+      
+      
       <div class="meas-item"><span>Height Change:</span> <span class="val-white">${m.heightChangePct || 0}%</span></div>
       <div class="meas-item"><span>Width Change:</span> <span class="val-white">${m.widthChangePct || 0}%</span></div>
     `;
@@ -1984,25 +1980,25 @@ const BASE_TYPOLOGIES = {
     expectedResult: 'Geometry grows around a tall open center with upward-sweeping forms.',
     description: 'A tall vertical void passes through multiple levels. The surrounding geometry organizes toward the void — you look up and across it.',
     spatialRule: 'EXTEND VOID · CONNECT FLOORS · ORGANIZE TOWARD VOID',
-    principlesBadge: 'WHIPLASH (W) + POS/NEG (V) + CONTINUITY (C) + BRANCHING (B)',
+    principlesBadge: 'WHIPLASH (W) + POS/NEG (V) + CONTINUITY (C)',
     dominantPrinciple: 'POSITIVE_NEGATIVE',
-    secondaryPrinciples: ['WHIPLASH', 'CONTINUITY', 'BRANCHING'],
+    secondaryPrinciples: ['WHIPLASH', 'CONTINUITY'],
     baseGeometryAction: 'Vertical Void Shaft & Upward Ribs',
     baseDna: [0.72, 0.25, 0.85, 0.30, 0.90, 0.35],
     narrative: 'A tall void is carved through the center. Upward-sweeping Art Nouveau rib vaults draw sightlines up and across the void.',
     spatialLimits: {
       sliderLimits: { W: [25, 95], C: [30, 85], B: [0, 35], M: [0, 50], V: [45, 100], G: [10, 60] },
-      limitRationale: 'Void carves the center; Whiplash pulls sightlines upward; Branching stays perimeter-only.',
+      limitRationale: 'Void carves the center; Whiplash pulls sightlines upward; Growth stays perimeter-only.',
       geometricProfile: 'VERTICAL_VOID'
     },
     typologyProfile: {
       preferredAxis: 'Y', verticalBias: 'HIGH', horizontalBias: 'LOW', voidBias: 'HIGH',
       groundBias: 'LOW', linearBias: 'LOW', radialBias: 'HIGH', stepBias: 'NONE',
-      enclosureBias: 'LOW', branchLimit: 'LOW', affectedRegions: ['ATRIUM_PERIMETER', 'UPPER_VAULT', 'VOID_BORDER']
+      enclosureBias: 'LOW', growthLimit: 'LOW', affectedRegions: ['ATRIUM_PERIMETER', 'UPPER_VAULT', 'VOID_BORDER']
     },
     spatialGrammar: {
       growthBias: 'VERTICAL_PERIMETER', whiplashStyle: 'UPWARD_CURVATURE',
-      continuityMode: 'VERTICAL_CONNECTIONS', branchingConstraint: 'VOID_CLEAR',
+      continuityMode: 'VERTICAL_CONNECTIONS', Constraint: 'VOID_CLEAR',
       mergingBehavior: 'NONE', voidBehavior: 'VERTICAL_SHAFT'
     }
   },
@@ -2018,9 +2014,9 @@ const BASE_TYPOLOGIES = {
     expectedResult: 'A tight choke entry releases into a wide, tall volume.',
     description: 'The space is narrow at the entry and progressively opens. There is a clear sequence from compressed to expanded.',
     spatialRule: 'COMPRESS ENTRY · EXPAND VOLUME · SMALL → LARGE SEQUENCE',
-    principlesBadge: 'CONTINUITY (C) + WHIPLASH (W) + MERGING (M) + BRANCHING (B)',
+    principlesBadge: 'CONTINUITY (C) + WHIPLASH (W) + MERGING (M)',
     dominantPrinciple: 'CONTINUITY',
-    secondaryPrinciples: ['WHIPLASH', 'MERGING', 'BRANCHING'],
+    secondaryPrinciples: ['WHIPLASH', 'MERGING'],
     baseGeometryAction: 'Low Choke Threshold into Soaring Volume',
     baseDna: [0.85, 0.25, 0.80, 0.70, 0.40, 0.25],
     narrative: 'A compressed entry threshold releases into an expansive double-height hall, creating a dramatic spatial sequence.',
@@ -2032,11 +2028,11 @@ const BASE_TYPOLOGIES = {
     typologyProfile: {
       preferredAxis: 'X', verticalBias: 'LOW', horizontalBias: 'HIGH', voidBias: 'LOW',
       groundBias: 'MEDIUM', linearBias: 'HIGH', radialBias: 'LOW', stepBias: 'NONE',
-      enclosureBias: 'HIGH', branchLimit: 'LOW', affectedRegions: ['CHOKE_NODES', 'RELEASE_CHAMBERS', 'TRANSITION_PATH']
+      enclosureBias: 'HIGH', growthLimit: 'LOW', affectedRegions: ['CHOKE_NODES', 'RELEASE_CHAMBERS', 'TRANSITION_PATH']
     },
     spatialGrammar: {
       growthBias: 'CHOKE_RELEASE_EXPAND', whiplashStyle: 'CHOKE_RELEASE_INFLECTION',
-      continuityMode: 'ZONE_TRANSITIONS', branchingConstraint: 'CHOKE_PORTALS',
+      continuityMode: 'ZONE_TRANSITIONS', Constraint: 'CHOKE_PORTALS',
       mergingBehavior: 'COMPRESSION_CHOKE', voidBehavior: 'ZONE_WIDTH'
     }
   },
@@ -2052,25 +2048,25 @@ const BASE_TYPOLOGIES = {
     expectedResult: 'One large open horizontal volume under a continuous shell.',
     description: 'A single large volume with minimal internal division. The floor plate is continuous and the space reads as one room.',
     spatialRule: 'REMOVE SUBDIVISIONS · CONTINUOUS FLOOR · MAXIMIZE OPENNESS',
-    principlesBadge: 'CONTINUITY (C) + WHIPLASH (W) + BRANCHING (B)',
+    principlesBadge: 'CONTINUITY (C) + WHIPLASH (W)',
     dominantPrinciple: 'CONTINUITY',
-    secondaryPrinciples: ['WHIPLASH', 'GROWTH', 'BRANCHING'],
+    secondaryPrinciples: ['WHIPLASH', 'GROWTH'],
     baseGeometryAction: 'Continuous Shell over Free Plan',
     baseDna: [0.90, 0.20, 0.75, 0.55, 0.30, 0.50],
     narrative: 'A vast sweeping horizontal vault spans the entire footprint. Flying buttresses at the perimeter keep the interior column-free.',
     spatialLimits: {
       sliderLimits: { W: [25, 85], C: [50, 100], B: [0, 40], M: [20, 70], V: [10, 50], G: [15, 65] },
-      limitRationale: 'Continuity fuses all surfaces; Whiplash sweeps the canopy shell; Branching is perimeter-only.',
+      limitRationale: 'Continuity fuses all surfaces; Whiplash sweeps the canopy shell; Growth is perimeter-only.',
       geometricProfile: 'OPEN_HALL'
     },
     typologyProfile: {
       preferredAxis: 'X', verticalBias: 'LOW', horizontalBias: 'HIGH', voidBias: 'MEDIUM',
       groundBias: 'MEDIUM', linearBias: 'MEDIUM', radialBias: 'HIGH', stepBias: 'NONE',
-      enclosureBias: 'LOW', branchLimit: 'LOW', affectedRegions: ['CONTINUOUS_SHELL', 'MAIN_HALL_EXPANSE', 'PERIMETER_ENVELOPE']
+      enclosureBias: 'LOW', growthLimit: 'LOW', affectedRegions: ['CONTINUOUS_SHELL', 'MAIN_HALL_EXPANSE', 'PERIMETER_ENVELOPE']
     },
     spatialGrammar: {
       growthBias: 'HORIZONTAL_EXPAND', whiplashStyle: 'EXPANSIVE_SHELL',
-      continuityMode: 'CONTINUOUS_SHELL', branchingConstraint: 'PERIMETER_BUTTRESS',
+      continuityMode: 'CONTINUOUS_SHELL', Constraint: 'PERIMETER_BUTTRESS',
       mergingBehavior: 'CONTINUOUS_SHELL', voidBehavior: 'OPEN_INTERIOR'
     }
   },
@@ -2086,25 +2082,25 @@ const BASE_TYPOLOGIES = {
     expectedResult: 'Stepped tiers cascade down a section, connected by ramps or stairs.',
     description: 'Floor plates are offset and stepped. The section reads as a cascade of levels connected visually and spatially.',
     spatialRule: 'OFFSET FLOORS · CASCADE SECTION · CONNECT LEVELS',
-    principlesBadge: 'GROWTH (G) + BRANCHING (B) + CONTINUITY (C)',
+    principlesBadge: 'GROWTH (G) + CONTINUITY (C)',
     dominantPrinciple: 'GROWTH',
-    secondaryPrinciples: ['BRANCHING', 'CONTINUITY', 'WHIPLASH'],
+    secondaryPrinciples: ['CONTINUITY', 'WHIPLASH'],
     baseGeometryAction: 'Stepped & Cascaded Plate Tiers',
     baseDna: [0.60, 0.40, 0.55, 0.35, 0.30, 0.80],
     narrative: 'Floor plates step down a slope. Cantilevered lookout tiers project from each level, connected by ramp geometry.',
     spatialLimits: {
       sliderLimits: { W: [20, 75], C: [30, 80], B: [15, 65], M: [10, 50], V: [10, 45], G: [35, 100] },
-      limitRationale: 'Growth drives the step-up; Branching creates cantilever tiers; Continuity connects the levels.',
+      limitRationale: 'Growth drives the step-up; Growth creates cantilever tiers; Continuity connects the levels.',
       geometricProfile: 'TERRACED_STEPPED'
     },
     typologyProfile: {
       preferredAxis: 'X', verticalBias: 'MEDIUM', horizontalBias: 'HIGH', voidBias: 'NONE',
       groundBias: 'HIGH', linearBias: 'HIGH', radialBias: 'LOW', stepBias: 'HIGH',
-      enclosureBias: 'LOW', branchLimit: 'MEDIUM', affectedRegions: ['TERRACE_PLATES', 'RISER_EDGES', 'CANTILEVER_TIPS']
+      enclosureBias: 'LOW', growthLimit: 'MEDIUM', affectedRegions: ['TERRACE_PLATES', 'RISER_EDGES', 'CANTILEVER_TIPS']
     },
     spatialGrammar: {
       growthBias: 'STEPPED_LEVELS', whiplashStyle: 'STEPPED_RISERS',
-      continuityMode: 'RISER_CONNECT', branchingConstraint: 'TERRACE_CANTILEVERS',
+      continuityMode: 'RISER_CONNECT', Constraint: 'TERRACE_CANTILEVERS',
       mergingBehavior: 'NONE', voidBehavior: 'OPEN_INTERIOR'
     }
   },
@@ -2120,25 +2116,25 @@ const BASE_TYPOLOGIES = {
     expectedResult: 'A strongly directional volume stretched along one axis.',
     description: 'The space is elongated along a single dominant direction. Circulation runs along that axis. Cross-section remains narrow.',
     spatialRule: 'CLEAR DIRECTION · ELONGATE SPACE · AXIAL CIRCULATION',
-    principlesBadge: 'CONTINUITY (C) + GROWTH (G) + WHIPLASH (W) + BRANCHING (B)',
+    principlesBadge: 'CONTINUITY (C) + GROWTH (G) + WHIPLASH (W)',
     dominantPrinciple: 'CONTINUITY',
-    secondaryPrinciples: ['GROWTH', 'WHIPLASH', 'BRANCHING'],
+    secondaryPrinciples: ['GROWTH', 'WHIPLASH'],
     baseGeometryAction: 'Axial Gallery Stretch & Enfilade Wave',
     baseDna: [0.80, 0.20, 0.70, 0.25, 0.35, 0.65],
     narrative: 'The form stretches strongly along the X axis. Portal rhythms repeat down the gallery. Side alcoves branch laterally.',
     spatialLimits: {
       sliderLimits: { W: [20, 85], C: [35, 90], B: [0, 50], M: [0, 40], V: [0, 40], G: [30, 90] },
-      limitRationale: 'Growth extends axially; Whiplash creates enfilade portal wave; Branching opens side alcoves.',
+      limitRationale: 'Growth extends axially; Whiplash creates enfilade portal wave; Growth opens side alcoves.',
       geometricProfile: 'LINEAR_DIRECTIONAL'
     },
     typologyProfile: {
       preferredAxis: 'X', verticalBias: 'LOW', horizontalBias: 'HIGH', voidBias: 'MEDIUM',
       groundBias: 'LOW', linearBias: 'HIGH', radialBias: 'LOW', stepBias: 'NONE',
-      enclosureBias: 'MEDIUM', branchLimit: 'MEDIUM', affectedRegions: ['AXIAL_PATH', 'PORTAL_FRAMES', 'SIDE_ALCOVES']
+      enclosureBias: 'MEDIUM', growthLimit: 'MEDIUM', affectedRegions: ['AXIAL_PATH', 'PORTAL_FRAMES', 'SIDE_ALCOVES']
     },
     spatialGrammar: {
       growthBias: 'AXIAL_LONGITUDINAL', whiplashStyle: 'AXIAL_ENFILADE_WAVE',
-      continuityMode: 'AXIAL_PATH', branchingConstraint: 'SECONDARY_AXIAL',
+      continuityMode: 'AXIAL_PATH', Constraint: 'SECONDARY_AXIAL',
       mergingBehavior: 'NONE', voidBehavior: 'ZONE_WIDTH'
     }
   },
@@ -2154,9 +2150,9 @@ const BASE_TYPOLOGIES = {
     expectedResult: 'A continuous warped, folded, or ramped surface with no flat sections.',
     description: 'The floor and surfaces fold, undulate, or ramp continuously. There is no flat plate — movement is embedded in the geometry itself.',
     spatialRule: 'FOLD SURFACES · AVOID FLAT · CONTINUOUS MOVEMENT',
-    principlesBadge: 'WHIPLASH (W) + GROWTH (G) + CONTINUITY (C) + BRANCHING (B)',
+    principlesBadge: 'WHIPLASH (W) + GROWTH (G) + CONTINUITY (C)',
     dominantPrinciple: 'WHIPLASH',
-    secondaryPrinciples: ['GROWTH', 'CONTINUITY', 'BRANCHING'],
+    secondaryPrinciples: ['GROWTH', 'CONTINUITY'],
     baseGeometryAction: 'Folded & Undulating Continuous Surface',
     baseDna: [0.65, 0.30, 0.80, 0.45, 0.25, 0.70],
     narrative: 'The geometry folds into an origami-like accordion surface. Ramps and creases create a continuous landscape without flat floor plates.',
@@ -2168,11 +2164,11 @@ const BASE_TYPOLOGIES = {
     typologyProfile: {
       preferredAxis: 'X', verticalBias: 'MEDIUM', horizontalBias: 'HIGH', voidBias: 'NONE',
       groundBias: 'HIGH', linearBias: 'MEDIUM', radialBias: 'MEDIUM', stepBias: 'MEDIUM',
-      enclosureBias: 'LOW', branchLimit: 'MEDIUM', affectedRegions: ['FOLD_SURFACE', 'CREASE_LINES', 'RAMP_FIELD']
+      enclosureBias: 'LOW', growthLimit: 'MEDIUM', affectedRegions: ['FOLD_SURFACE', 'CREASE_LINES', 'RAMP_FIELD']
     },
     spatialGrammar: {
       growthBias: 'CONTINUOUS_WARPED', whiplashStyle: 'ORIGAMI_FOLD',
-      continuityMode: 'CREASE_FACETS', branchingConstraint: 'CREST_NOOKS',
+      continuityMode: 'CREASE_FACETS', Constraint: 'CREST_NOOKS',
       mergingBehavior: 'NONE', voidBehavior: 'OPEN_INTERIOR'
     }
   }
@@ -2211,7 +2207,7 @@ const TYPOLOGY_DOMAIN_B_RULES = {
       tip: 'Slider: low = gentle vertical rise; high = dramatic soaring curves flanking the open center.'
     },
     B: {
-      title: 'MULTI-DIRECTIONAL VOID BRANCHING (B)',
+      title: 'MULTI-DIRECTIONAL VOID ',
       qualitative: 'Grows horizontal gallery spandrel rings, vertical perimeter colonnades, and soaring diagonal tree buttresses vaulting into the high canopy while preserving the central open void.',
       quantitative: 'Horizontal perimeter ties + Vertical perimeter shafts + Diagonal canopy buttresses. Inner void core strictly unobstructed.',
       tip: 'Slider: low = perimeter shafts; high = dense interconnected network of horizontal spandrels, vertical columns, and diagonal soaring struts.'
@@ -2231,7 +2227,7 @@ const TYPOLOGY_DOMAIN_B_RULES = {
       tip: 'Slider: low = subtle narrowing; high = extreme compression followed by vast volumetric release.'
     },
     B: {
-      title: 'PORTAL FRAME & TRUSS BRANCHING (B)',
+      title: 'PORTAL FRAME & TRUSS ',
       qualitative: 'Branches horizontally into arched doorway lintels, vertically into compression jamb piers, and diagonally into raking knee trusses guiding the choke-to-expansion threshold.',
       quantitative: 'Horizontal arch lintels + Vertical throat columns + Diagonal knee trusses concentrated at circulation choke points.',
       tip: 'Slider: low = simple portal gateway; high = layered nested horizontal lintels and diagonal raking trusses.'
@@ -2251,7 +2247,7 @@ const TYPOLOGY_DOMAIN_B_RULES = {
       tip: 'Slider: low = shallow curvature; high = sweeping expansive shell vaults.'
     },
     B: {
-      title: 'PERIMETER BUTTRESS & SPANDREL BRANCHING (B)',
+      title: 'PERIMETER BUTTRESS & SPANDREL ',
       qualitative: 'Branches vertically as perimeter buttress colonnades, horizontally as perimeter eaves spandrels, and diagonally as exterior flying buttress struts — keeping the central hall free of columns.',
       quantitative: 'Horizontal roof spandrel ties + Vertical outer buttresses + Diagonal flying struts. 0 interior columns inside the central open span.',
       tip: 'Slider: low = boundary columns; high = multi-tiered horizontal eaves rings and diagonal flying buttress struts.'
@@ -2271,7 +2267,7 @@ const TYPOLOGY_DOMAIN_B_RULES = {
       tip: 'Slider: low = flat orthogonal steps; high = dramatically curved cascading risers.'
     },
     B: {
-      title: 'CASCADING STEP & TRUSS BRANCHING (B)',
+      title: 'CASCADING STEP & TRUSS ',
       qualitative: 'Branches vertically beneath terrace steps, horizontally along tier perimeter fascias, and diagonally as raking A-frame trusses bracing cantilevered platforms along the slope.',
       quantitative: 'Horizontal tier fascia ties + Vertical step support columns + Diagonal incline trusses following the cascading section.',
       tip: 'Slider: low = step column piers; high = dramatic cantilevered platforms braced by diagonal raking trusses and horizontal cross-ties.'
@@ -2291,7 +2287,7 @@ const TYPOLOGY_DOMAIN_B_RULES = {
       tip: 'Slider: low = gentle wave; high = dramatic portal rhythm with soaring arches.'
     },
     B: {
-      title: 'AXIAL COLONNADE & ENFILADE BRANCHING (B)',
+      title: 'AXIAL COLONNADE & ENFILADE ',
       qualitative: 'Branches vertically into gallery colonnades along the primary axis, horizontally into longitudinal lintels and transverse cross-ties, and diagonally into 45° knee braces.',
       quantitative: 'Horizontal longitudinal lintels & transverse ties + Vertical colonnade shafts + Diagonal 45° knee braces at beam-column junctions.',
       tip: 'Slider: low = single axial pier line; high = complete 3D enfilade network of horizontal beams, columns, and diagonal knee braces.'
@@ -2311,7 +2307,7 @@ const TYPOLOGY_DOMAIN_B_RULES = {
       tip: 'Slider: low = gentle undulation; high = dramatic deep folds with sharp crests.'
     },
     B: {
-      title: 'CREASE, RIDGE & GUSSET BRANCHING (B)',
+      title: 'CREASE, RIDGE & GUSSET ',
       qualitative: 'Branches vertically into fold crest ribs, horizontally along origami ridge chords, and diagonally as transverse gusset struts bracing pleated accordion valleys.',
       quantitative: 'Horizontal ridge beams + Vertical crease ribs + Diagonal facet gussets tucking into undulating valley recesses.',
       tip: 'Slider: low = subtle fold ribs; high = rich multi-directional network of ridge chords and diagonal facet struts.'
@@ -2427,7 +2423,7 @@ function onTypologySelectionChanged(typologyKey) {
     const nW = document.getElementById('def-dna-w-quant'); if (nW) nW.textContent = typoRules.W.quantitative;
     const iW = document.getElementById('def-dna-w-tip'); if (iW) iW.textContent = typoRules.W.tip;
 
-    // Branching
+    // Growth
     const tB = document.getElementById('title-dna-b'); if (tB) tB.textContent = typoRules.B.title;
     const qB = document.getElementById('def-dna-b-qual'); if (qB) qB.textContent = typoRules.B.qualitative;
     const nB = document.getElementById('def-dna-b-quant'); if (nB) nB.textContent = typoRules.B.quantitative;
@@ -2443,7 +2439,7 @@ function onTypologySelectionChanged(typologyKey) {
   const sliderKeys = [
     { code: 'C', id: 'slider-dna-c', limitId: 'limit-dna-c', dnaIdx: 0, pId: 'CONTINUITY' },
     { code: 'W', id: 'slider-dna-w', limitId: 'limit-dna-w', dnaIdx: 2, pId: 'WHIPLASH' },
-    { code: 'B', id: 'slider-dna-b', limitId: 'limit-dna-b', dnaIdx: 1, pId: 'BRANCHING' },
+    
     { code: 'M', id: 'slider-dna-m', limitId: 'limit-dna-m', dnaIdx: 3, pId: 'MERGING' },
     { code: 'V', id: 'slider-dna-v', limitId: 'limit-dna-v', dnaIdx: 4, pId: 'POSITIVE_NEGATIVE' },
     { code: 'G', id: 'slider-dna-g', limitId: 'limit-dna-g', dnaIdx: 5, pId: 'GROWTH' }
@@ -2673,7 +2669,7 @@ function generatePopulation() {
   const genIndex = domainState.currentGeneration + 1;
   const popSize = domainState.populationSize || 6;
   const strategy = domainState.generationStrategy || 'PARAMETRIC';
-  const studyVar = domainState.studyVariable || 'BRANCHING';
+  const studyVar = domainState.studyVariable || "";
   const variationLevel = domainState.variationRange || 'MEDIUM';
   const userThreshold = domainState.seedIdentityThreshold || 75;
 
@@ -2689,9 +2685,9 @@ function generatePopulation() {
     parentDna = [...domainState.selectedParentGenome.dna];
   }
 
-  let studyIdx = 1; // Default Branching
+  let studyIdx = 1; // Default Growth
   if (studyVar === 'CONTINUITY') studyIdx = 0;
-  else if (studyVar === 'BRANCHING') studyIdx = 1;
+  else if (studyVar === "") studyIdx = 1;
   else if (studyVar === 'WHIPLASH') studyIdx = 2;
   else if (studyVar === 'MERGING') studyIdx = 3;
   else if (studyVar === 'POSITIVE_NEGATIVE') studyIdx = 4;
@@ -2708,7 +2704,7 @@ function generatePopulation() {
     { title: 'Fluid Convergent Surface', dna: [0.85, 0.75, 0.35, 0.85, 0.30, 0.45] },
     { title: 'Art Nouveau Tapered Arbor', dna: [0.75, 0.65, 0.80, 0.55, 0.60, 0.70] },
     { title: 'Hyper-Curved S-Spline', dna: [0.90, 0.30, 0.95, 0.40, 0.50, 0.60] },
-    { title: 'Multi-Tiered Branching Ribs', dna: [0.50, 0.95, 0.60, 0.75, 0.40, 0.50] },
+    { title: 'Multi-Tiered Growth Ribs', dna: [0.50, 0.95, 0.60, 0.75, 0.40, 0.50] },
     { title: 'Sculpted Void Monolith', dna: [0.60, 0.40, 0.75, 0.30, 0.95, 0.40] },
     { title: 'Cascading Growth Envelope', dna: [0.80, 0.60, 0.50, 0.50, 0.55, 0.95] },
     { title: 'Unified Botanical Canopy', dna: [0.95, 0.80, 0.85, 0.90, 0.50, 0.75] },
@@ -2820,7 +2816,7 @@ function renderGalleryUI(genIndex, iterations) {
   if (titleEl) titleEl.textContent = `GENERATION ${genIndex} — CONTROLLED PARAMETRIC STUDY`;
 
   const subtitleEl = document.getElementById('population-tab-subtitle');
-  if (subtitleEl) subtitleEl.textContent = `Studied Variable: ${iterations[0]?.studyVariable || 'BRANCHING'}. Displaying side-by-side iterations.`;
+  if (subtitleEl) subtitleEl.textContent = `Studied Variable: ${iterations[0]?.studyVariable || ""}. Displaying side-by-side iterations.`;
 
   const popBadge = document.getElementById('pop-count-badge');
   if (popBadge) popBadge.textContent = iterations.length;
@@ -3042,7 +3038,7 @@ function renderDesignReasoningPanel(iter) {
   }
 
   const opEl = document.getElementById('rs-operations');
-  if (opEl) opEl.textContent = `CONTINUITY → BRANCHING → WHIPLASH → MERGING → POS/NEG → GROWTH`;
+  if (opEl) opEl.textContent = `CONTINUITY → Growth → WHIPLASH → MERGING → POS/NEG → GROWTH`;
 
   const outEl = document.getElementById('rs-measured-output');
   if (outEl) {
@@ -3258,7 +3254,7 @@ function openLibraryDetail(iterId) {
   const elParentSim = document.getElementById('det-parent-sim'); if (elParentSim) elParentSim.textContent = `${iter.parentSimilarity || 100}%`;
   const elTarget = document.getElementById('det-target-region'); if (elTarget) elTarget.textContent = `Studied Variable: ${iter.studyVariable} = ${iter.studyValuePct}%`;
 
-  const elRecipe = document.getElementById('det-recipe-seq'); if (elRecipe) elRecipe.textContent = `CONTINUITY → BRANCHING → WHIPLASH → MERGING → POS/NEG → GROWTH`;
+  const elRecipe = document.getElementById('det-recipe-seq'); if (elRecipe) elRecipe.textContent = `CONTINUITY → Growth → WHIPLASH → MERGING → POS/NEG → GROWTH`;
 
   const m = iter.measuredOutput || {};
   const elMeasured = document.getElementById('det-measured-out'); if (elMeasured) elMeasured.textContent = `Height: ${m.heightChangePct > 0 ? '+' : ''}${m.heightChangePct || 0}% | Width: ${m.widthChangePct > 0 ? '+' : ''}${m.widthChangePct || 0}% | Verticality: ${m.verticality || 0} | Asymmetry: ${m.asymmetry || 0}%`;
@@ -3571,7 +3567,7 @@ if (!window.restoreOriginalImportedGeometry) {
 function onBranchOrientationChange() {
   const sel = document.getElementById('branch-ctrl-orientation');
   if (sel) {
-    window.branchingOrientationMode = sel.value;
+    window.GrowthOrientationMode = sel.value;
   }
   if (typeof updateDnaUIAndViewport === 'function') {
     updateDnaUIAndViewport();
@@ -3625,7 +3621,7 @@ function updateManualSavePreview() {
     dnaEl.textContent = `C: ${Math.round((dna[0] || 0) * 100)}% · W: ${Math.round((dna[2] || 0) * 100)}% · B: ${Math.round((dna[1] || 0) * 100)}%`;
   }
 
-  const branchEl = document.getElementById('manual-save-branching');
+  const branchEl = document.getElementById('manual-save-Growth');
   if (branchEl) {
     const bVal = Math.round((dna[1] || 0) * 100);
     const detail = bVal >= 70 ? '28 Columns (Full Space)' : (bVal >= 35 ? '6 Columns (Intermediate)' : (bVal > 0 ? '2 Columns (Singular)' : '0 Columns (Seed)'));
@@ -3716,3 +3712,5 @@ function saveCurrentManualIteration() {
   return iterData;
 }
 window.saveCurrentManualIteration = saveCurrentManualIteration;
+
+

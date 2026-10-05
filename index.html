@@ -382,12 +382,10 @@
                         <span id="manual-save-dna" style="color:#ffd700;">C: 0% · W: 0% · B: 100%</span>
                       </div>
                       <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                        <span style="color:#888;">Branching:</span>
-                        <span id="manual-save-branching" style="color:#ffffff;">100% (28 Structural Columns)</span>
                       </div>
                       <div style="display:flex; justify-content:space-between;">
                         <span style="color:#888;">Dominant Rule:</span>
-                        <span id="manual-save-dominant" style="color:#aaaaaa;">CONTINUITY / BRANCHING</span>
+                        <span id="manual-save-dominant" style="color:#aaaaaa;">CONTINUITY</span>
                       </div>
                     </div>
 
@@ -478,8 +476,6 @@
             <div id="subtab-left-measurements" class="subtab-content">
               <div class="measurements-grid" id="readonly-measurements-grid">
                 <div class="meas-item"><span>Continuity Strength:</span> <span id="m-cont-str" class="val-white">0%</span></div>
-                <div class="meas-item"><span>Branch Count:</span> <span id="m-branch-cnt" class="val-white">0</span></div>
-                <div class="meas-item"><span>Hierarchy Depth:</span> <span id="m-branch-depth" class="val-white">1</span></div>
                 <div class="meas-item"><span>Curvature Strength:</span> <span id="m-whip-str" class="val-white">0%</span></div>
                 <div class="meas-item"><span>Inflection Count:</span> <span id="m-whip-inf" class="val-white">0</span></div>
                 <div class="meas-item"><span>Merge Count:</span> <span id="m-merge-cnt" class="val-white">0</span></div>
@@ -493,7 +489,6 @@
             <div id="subtab-left-rules" class="subtab-content">
               <div class="validation-list" id="rule-validation-list">
                 <div class="val-item"><span class="val-rule">01 CONTINUITY:</span> <span id="val-rule-cont" class="val-pass">✓ CONNECTED FLOW</span></div>
-                <div class="val-item"><span class="val-rule">02 BRANCHING:</span> <span id="val-rule-branch" class="val-pass">✓ PARENT ATTACHED</span></div>
                 <div class="val-item"><span class="val-rule">03 WHIPLASH:</span> <span id="val-rule-whip" class="val-pass">✓ CONTINUOUS INFLECTION</span></div>
                 <div class="val-item"><span class="val-rule">04 MERGING:</span> <span id="val-rule-merge" class="val-pass">✓ PRECONDITION MET</span></div>
                 <div class="val-item"><span class="val-rule">05 POS / NEG:</span> <span id="val-rule-posneg" class="val-pass">✓ VOID INTERLOCK</span></div>
@@ -641,7 +636,6 @@
             <select id="lib-filter-principle" class="select-input">
               <option value="ALL">ALL PRINCIPLES</option>
               <option value="CONTINUITY">CONTINUITY</option>
-              <option value="BRANCHING">BRANCHING</option>
               <option value="WHIPLASH">WHIPLASH CURVATURE</option>
               <option value="MERGING">MERGING SURFACES</option>
               <option value="POSITIVE_NEGATIVE">POSITIVE / NEGATIVE</option>
@@ -822,7 +816,6 @@
                 <div id="diag-tests-grid" class="diag-tests-grid">
                   <div class="diag-test-item"><span class="test-name">Affected Region</span><span class="test-status pass">PASS</span></div>
                   <div class="diag-test-item"><span class="test-name">Affected Length</span><span class="test-status pass">PASS</span></div>
-                  <div class="diag-test-item"><span class="test-name">Branch Count</span><span class="test-status pass">PASS</span></div>
                   <div class="diag-test-item"><span class="test-name">Hierarchy Depth</span><span class="test-status pass">PASS</span></div>
                   <div class="diag-test-item"><span class="test-name">Continuity (G0/G1/G2)</span><span class="test-status pass">PASS</span></div>
                   <div class="diag-test-item"><span class="test-name">Lateral Disp</span><span class="test-status pass">PASS</span></div>
@@ -977,7 +970,7 @@
       <div style="display:flex; flex-direction:column; gap:10px;">
         <div class="reasoning-card" style="border:1px solid #555555;">
           <div class="rs-label">PROPOSAL IDENTIFICATION & STRATEGY</div>
-          <div id="why-prop-title" class="rs-value highlight-gold" style="font-size:12px;">AUTO-02 — BRANCHING-LED</div>
+          <div id="why-prop-title" class="rs-value highlight-gold" style="font-size:12px;">AUTO-02 — Growth-LED</div>
           <div id="why-narrative-summary" class="rs-value-body" style="margin-top:4px; font-size:10px; color:#b0b0b0;">Analyzing seed geometric opportunities...</div>
         </div>
 
@@ -1066,8 +1059,8 @@
     </div>
   </footer>
 
-  <script src="branchingEngine.js?v=20261001_v5"></script>
   <script src="generator.js?v=20261001_v5"></script>
   <script src="app.js?v=20261001_v5"></script>
 </body>
 </html>
+
